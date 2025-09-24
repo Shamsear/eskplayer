@@ -533,14 +533,22 @@ def home():
     """Legacy home page - redirects to admin"""
     return redirect(url_for('admin_dashboard'))
 
-if __name__ == '__main__':
-    # Initialize database on startup
+def create_app():
+    """Application factory pattern for production deployment"""
+    # Initialize database on app creation
     try:
         init_db()
         print("Database initialized successfully!")
     except Exception as e:
         print(f"Database initialization failed: {e}")
         print("Please ensure your database connection is properly configured.")
+    return app
+
+if __name__ == '__main__':
+    # For local development only
+    import os
+    port = int(os.environ.get('PORT', 5000))
+    debug_mode = os.environ.get('FLASK_ENV', 'development') == 'development'
     
-    # Enable debug mode for development - disable in production
-    app.run(debug=True, port=5000, host='0.0.0.0')
+    create_app()
+    app.run(debug=debug_mode, port=port, host='0.0.0.0')
