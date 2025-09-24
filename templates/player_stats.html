@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Player Statistics - Player Tournament System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        * { 
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        /* Enhanced Glassmorphism */
+        .glass {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 
+                0 0.5px 0 1px rgba(255, 255, 255, 0.23) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.66) inset,
+                0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Premium Gradient */
+        .animated-gradient {
+            background: linear-gradient(135deg, 
+                #e0c3fc 0%, 
+                #8ec5fc 20%, 
+                #e0aaff 40%, 
+                #c77dff 60%, 
+                #9381ff 80%, 
+                #b8b8ff 100%);
+            background-size: 400% 400%;
+            animation: gradient-shift 20s ease infinite;
+            opacity: 0.15;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Rating badge */
+        .rating-badge {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+            padding: 4px 12px;
+            border-radius: 16px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+        
+        /* Stats card */
+        .stats-card {
+            transition: all 0.3s ease;
+        }
+        
+        .stats-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+        }
+        
+        /* Player Avatar Styles */
+        .player-avatar-tiny {
+            background: linear-gradient(135deg, var(--avatar-color-1), var(--avatar-color-2));
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            transition: transform 0.2s ease;
+        }
+        
+        .player-avatar-tiny:hover {
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 relative">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 animated-gradient"></div>
+    
+    <!-- Navigation -->
+    <nav class="relative bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Back Button -->
+                <div class="flex items-center">
+                    <a href="{{ url_for('admin_dashboard') }}" class="mr-4 text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-chart-bar text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-display font-bold gradient-text">Player Statistics</h1>
+                </div>
+                
+                <!-- User menu -->
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Welcome, {{ session.admin_username }}</span>
+                    <a href="{{ url_for('admin_logout') }}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="relative max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="text-center mb-8">
+            <h2 class="text-4xl font-display font-bold gradient-text mb-4">Player Statistics</h2>
+            <p class="text-xl text-gray-600">View overall and tournament-specific player performance</p>
+        </div>
+        
+        <!-- Tournament Filter -->
+        {% if tournaments %}
+        <div class="glass rounded-2xl p-6 mb-8">
+            <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                <i class="fas fa-filter mr-2"></i>Filter by Tournament
+            </h3>
+            <div class="flex flex-wrap gap-3">
+                <a href="{{ url_for('view_player_stats') }}" 
+                   class="px-4 py-2 {% if not selected_tournament %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                    <i class="fas fa-globe mr-2"></i>Overall Stats
+                </a>
+                {% for tournament in tournaments %}
+                <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
+                   class="px-4 py-2 {% if selected_tournament and selected_tournament.id == tournament.id %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                    <i class="fas fa-trophy mr-2"></i>{{ tournament.name }}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Statistics Display -->
+        {% if selected_tournament %}
+        <!-- Tournament-Specific Stats -->
+        <div class="glass rounded-3xl p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-display font-bold text-gray-900">
+                    <i class="fas fa-trophy mr-3"></i>{{ selected_tournament.name }} Statistics
+                </h3>
+                <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
+                    {{ tournament_stats|length }} players
+                </span>
+            </div>
+            
+            {% if tournament_stats %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-900">#</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-900">Player</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Matches</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">W-D-L</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in tournament_stats %}
+                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50">
+                            <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
+                                         data-name="{{ stat.name }}">
+                                        {{ stat.name[:2].upper() }}
+                                    </div>
+                                    <span class="font-semibold text-gray-900">{{ stat.name }}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="rating-badge">{{ stat.rating }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="text-green-600 font-semibold">{{ stat.wins }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.draws }}</span>-<span class="text-red-600 font-semibold">{{ stat.losses }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-chart-bar text-gray-400 text-4xl mb-4"></i>
+                <p class="text-gray-600 text-lg">No statistics available for this tournament yet.</p>
+                <p class="text-gray-500 text-sm mt-2">Record some matches to see player stats!</p>
+            </div>
+            {% endif %}
+        </div>
+        {% else %}
+        <!-- Overall Stats -->
+        <div class="glass rounded-3xl p-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-display font-bold text-gray-900">
+                    <i class="fas fa-globe mr-3"></i>Overall Player Statistics
+                </h3>
+                <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                    {{ overall_stats|length }} players
+                </span>
+            </div>
+            
+            {% if overall_stats %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead>
+                        <tr class="border-b border-gray-200">
+                            <th class="text-left py-3 px-4 font-semibold text-gray-900">#</th>
+                            <th class="text-left py-3 px-4 font-semibold text-gray-900">Player</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Matches</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">W-D-L</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
+                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Win %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for stat in overall_stats %}
+                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50">
+                            <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
+                            <td class="py-3 px-4">
+                                <div class="flex items-center">
+                                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
+                                         data-name="{{ stat.name }}">
+                                        {{ stat.name[:2].upper() }}
+                                    </div>
+                                    <span class="font-semibold text-gray-900">{{ stat.name }}</span>
+                                </div>
+                            </td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="rating-badge">{{ stat.rating }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
+                            <td class="py-3 px-4 text-center">
+                                <span class="text-green-600 font-semibold">{{ stat.wins }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.draws }}</span>-<span class="text-red-600 font-semibold">{{ stat.losses }}</span>
+                            </td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
+                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
+                            <td class="py-3 px-4 text-center">
+                                {% if stat.matches_played > 0 %}
+                                    <span class="{% if (stat.wins / stat.matches_played * 100) >= 70 %}text-green-600{% elif (stat.wins / stat.matches_played * 100) >= 40 %}text-yellow-600{% else %}text-red-600{% endif %} font-semibold">
+                                        {{ "%.1f"|format(stat.wins / stat.matches_played * 100) }}%
+                                    </span>
+                                {% else %}
+                                    <span class="text-gray-400">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-12">
+                <i class="fas fa-users text-gray-400 text-4xl mb-4"></i>
+                <p class="text-gray-600 text-lg">No players have played matches yet.</p>
+                <p class="text-gray-500 text-sm mt-2">Add some players and record matches to see statistics!</p>
+                <div class="mt-6">
+                    <a href="{{ url_for('add_player') }}" 
+                       class="bg-indigo-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
+                        <i class="fas fa-user-plus mr-2"></i>Add Players
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        <!-- Quick Actions -->
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <a href="{{ url_for('record_match') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-gamepad text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Record Match</h4>
+                <p class="text-gray-600 text-sm">Add new match results</p>
+            </a>
+            <a href="{{ url_for('view_all_players') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-users text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">View All Players</h4>
+                <p class="text-gray-600 text-sm">Browse player database</p>
+            </a>
+            <a href="{{ url_for('manage_tournaments') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-trophy text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Manage Tournaments</h4>
+                <p class="text-gray-600 text-sm">Organize competitions</p>
+            </a>
+        </div>
+    </main>
+    <script>
+        // Generate unique colors for player avatars
+        function generatePlayerColors(name) {
+            // Color palettes for avatars
+            const colorPalettes = [
+                ['#667eea', '#764ba2'], // Blue to Purple
+                ['#f093fb', '#f5576c'], // Pink to Red
+                ['#4facfe', '#00f2fe'], // Blue to Cyan
+                ['#43e97b', '#38f9d7'], // Green to Teal
+                ['#fa709a', '#fee140'], // Pink to Yellow
+                ['#a8edea', '#fed6e3'], // Teal to Pink
+                ['#ff9a9e', '#fecfef'], // Pink to Light Pink
+                ['#a18cd1', '#fbc2eb'], // Purple to Pink
+                ['#ffecd2', '#fcb69f'], // Orange to Peach
+                ['#ff8a80', '#ff5722'], // Red variants
+                ['#81c784', '#4caf50'], // Green variants
+                ['#64b5f6', '#2196f3'], // Blue variants
+                ['#ffb74d', '#ff9800'], // Orange variants
+                ['#ba68c8', '#9c27b0'], // Purple variants
+                ['#4db6ac', '#009688']  // Teal variants
+            ];
+            
+            // Create a hash from the name
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                const char = name.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash; // Convert to 32-bit integer
+            }
+            
+            // Use hash to select a color palette
+            const paletteIndex = Math.abs(hash) % colorPalettes.length;
+            return colorPalettes[paletteIndex];
+        }
+        
+        // Apply colors to player avatars
+        document.addEventListener('DOMContentLoaded', function() {
+            const avatars = document.querySelectorAll('.player-avatar-tiny');
+            avatars.forEach(avatar => {
+                const playerName = avatar.getAttribute('data-name');
+                const [color1, color2] = generatePlayerColors(playerName);
+                avatar.style.setProperty('--avatar-color-1', color1);
+                avatar.style.setProperty('--avatar-color-2', color2);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Environment variables
+.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
+
+# Project specific
+static/
+*.csv
+*.csv.backup*
+matches_*.csv
+knockout_*.csv
+
+# Old files
+app_old.py
+*_old.*
+*.backup
+debug_*.py
+migrate_*.py
+detailed_*.py
