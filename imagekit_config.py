@@ -7,15 +7,22 @@ load_dotenv()
 
 # ImageKit Configuration
 IMAGEKIT_PUBLIC_KEY = "public_y7A0ZvJbvGQMifNQuDAAH4t+NaQ="
-IMAGEKIT_PRIVATE_KEY = os.getenv('IMAGEKIT_PRIVATE_KEY', '')  # Add this to your .env file
-IMAGEKIT_URL_ENDPOINT = os.getenv('IMAGEKIT_URL_ENDPOINT', '')  # Add this to your .env file
+IMAGEKIT_PRIVATE_KEY = os.getenv('IMAGEKIT_PRIVATE_KEY', '')
+IMAGEKIT_URL_ENDPOINT = os.getenv('IMAGEKIT_URL_ENDPOINT', '')
 
-# Initialize ImageKit
-imagekit = ImageKit(
-    public_key=IMAGEKIT_PUBLIC_KEY,
-    private_key=IMAGEKIT_PRIVATE_KEY,
-    url_endpoint=IMAGEKIT_URL_ENDPOINT
-)
+# Initialize ImageKit with error handling
+imagekit = None
+try:
+    if IMAGEKIT_PRIVATE_KEY and IMAGEKIT_URL_ENDPOINT:
+        imagekit = ImageKit(
+            public_key=IMAGEKIT_PUBLIC_KEY,
+            private_key=IMAGEKIT_PRIVATE_KEY,
+            url_endpoint=IMAGEKIT_URL_ENDPOINT
+        )
+    else:
+        print("Warning: ImageKit credentials not found. Photo upload functionality will be disabled.")
+except Exception as e:
+    print(f"Warning: Failed to initialize ImageKit: {e}. Photo upload functionality will be disabled.")
 
 class PhotoManager:
     """Utility class for managing player photos with ImageKit"""
@@ -34,6 +41,9 @@ class PhotoManager:
             dict: Contains 'success', 'url', 'file_id', and 'error' keys
         """
         try:
+            if not imagekit:
+                return {'success': False, 'error': 'Photo upload service not available. Please contact administrator.'}
+            
             if not file or file.filename == '':
                 return {'success': False, 'error': 'No file selected'}
             
@@ -102,6 +112,9 @@ class PhotoManager:
             dict: Contains 'success' and 'error' keys
         """
         try:
+            if not imagekit:
+                return {'success': True, 'warning': 'Photo deletion service not available'}
+            
             if not file_id:
                 return {'success': True}  # No photo to delete
             
