@@ -36,19 +36,13 @@ git branch -M main
 git push -u origin main
 ```
 
-## Step 2: Set Up Database
+## Step 2: Prepare Database Information
 
-### Option A: Use Your Existing Neon Database
-- You already have a working Neon database
-- Keep your current `DATABASE_URL` from your `.env` file
-- Skip to Step 3
-
-### Option B: Create a New Database on Render
-1. In Render dashboard, click "New" → "PostgreSQL"
-2. Name: `tournament-db`
-3. Database Name: `tournament`
-4. User: `tournament_user`
-5. Note the connection details for later
+### Use Your Existing Neon Database (Recommended)
+- You already have a working Neon database with all your data
+- You will configure Render to connect to this existing database
+- **Do NOT create a new database on Render**
+- Your current database URL: `postgresql://neondb_owner:npg_fGmtpL3w7MDv@ep-super-sunset-a15qo477-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require`
 
 ## Step 3: Deploy to Render
 
@@ -79,15 +73,16 @@ In the Render dashboard, add these environment variables:
 
 **Required Variables:**
 ```
-DATABASE_URL = your_neon_database_url_here
-SECRET_KEY = your_secret_key_here
+DATABASE_URL = postgresql://neondb_owner:npg_fGmtpL3w7MDv@ep-super-sunset-a15qo477-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+SECRET_KEY = tournament_secret_key_2024
 FLASK_ENV = production
 PYTHON_VERSION = 3.11.0
 ```
 
-**Using Your Current Database:**
-- Copy the `DATABASE_URL` from your `.env` file
-- Copy the `SECRET_KEY` from your `.env` file
+**IMPORTANT: Using Your Existing Neon Database:**
+- Use the exact `DATABASE_URL` above (this connects to your existing Neon database with all your data)
+- Use your existing `SECRET_KEY` to maintain session compatibility
+- **Do NOT create a new database on Render** - this would be empty!
 
 ### 3.3 Deploy
 
@@ -168,6 +163,15 @@ Your application uses these environment variables:
    - Check environment variable is set correctly
    - Ensure database is accessible
    - Test connection string format
+   ```
+
+3. **Pandas/Numpy Compatibility Error**
+   ```
+   Error: ValueError: numpy.dtype size changed, may indicate binary incompatibility
+   Solution: We've removed pandas from requirements.txt
+   - Pandas was only used for unused data analysis functions
+   - Your web app functionality is not affected
+   - All core features (matches, tournaments, players) work without pandas
    ```
 
 3. **Application Won't Start**

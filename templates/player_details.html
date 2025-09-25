@@ -80,6 +80,9 @@
         .result-win { @apply bg-green-100 text-green-800; }
         .result-loss { @apply bg-red-100 text-red-800; }
         .result-draw { @apply bg-gray-100 text-gray-800; }
+        .result-null { @apply bg-red-100 text-red-800; }
+        .result-walkover-win { @apply bg-green-100 text-green-700; }
+        .result-walkover-loss { @apply bg-orange-100 text-orange-700; }
         
         /* Tournament status badges */
         .status-active { @apply bg-green-100 text-green-800; }
@@ -372,7 +375,7 @@
                     <div class="flex items-center justify-between">
                         <div class="flex items-center space-x-4">
                             <!-- Match Result -->
-                            <span class="result-{{ match.result.lower() }} px-3 py-1 rounded-full text-xs font-medium">
+                            <span class="{% if 'Null' in match.result %}result-null{% elif '(W.O.)' in match.result and 'Win' in match.result %}result-walkover-win{% elif '(W.O.)' in match.result and 'Loss' in match.result %}result-walkover-loss{% else %}result-{{ match.result.lower() }}{% endif %} px-3 py-1 rounded-full text-xs font-medium">
                                 {{ match.result }}
                             </span>
                             

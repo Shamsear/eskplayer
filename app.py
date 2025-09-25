@@ -1,6 +1,5 @@
-from flask import Flask, request, render_template, redirect, url_for, jsonify, make_response, session, flash
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, make_response
 from functools import wraps
-import pandas as pd
 import os
 from datetime import datetime
 import time
@@ -204,6 +203,54 @@ def view_all_players():
     players = TournamentDB.get_all_players(search=search if search else None)
     return render_template('view_players.html', players=players, search=search)
 
+@app.route('/admin/players/<int:player_id>/edit', methods=['GET', 'POST'])
+@admin_required
+@no_cache
+def edit_player(player_id):
+    """Edit a player's information"""
+    player = TournamentDB.get_player_by_id(player_id)
+    if not player:
+        flash('Player not found', 'error')
+        return redirect(url_for('view_all_players'))
+    
+    if request.method == 'POST':
+        try:
+            name = request.form['name'].strip()
+            rating = int(request.form['rating'])
+            
+            if not name:
+                flash('Player name cannot be empty', 'error')
+            elif rating < 0 or rating > 1000:
+                flash('Rating must be between 0 and 1000', 'error')
+            else:
+                TournamentDB.edit_player(player_id, name, rating)
+                flash(f'Player "{name}" updated successfully!', 'success')
+                return redirect(url_for('view_all_players'))
+        except ValueError as e:
+            flash(str(e), 'error')
+        except Exception as e:
+            flash(f'Error updating player: {str(e)}', 'error')
+    
+    return render_template('edit_player.html', player=player)
+
+@app.route('/admin/players/<int:player_id>/delete', methods=['POST'])
+@admin_required
+@no_cache
+def delete_player(player_id):
+    """Delete a player"""
+    try:
+        player = TournamentDB.get_player_by_id(player_id)
+        if not player:
+            flash('Player not found', 'error')
+        else:
+            player_name = player['name']
+            TournamentDB.delete_player(player_id)
+            flash(f'Player "{player_name}" has been deleted successfully!', 'success')
+    except Exception as e:
+        flash(f'Error deleting player: {str(e)}', 'error')
+    
+    return redirect(url_for('view_all_players'))
+
 # Tournament Management Routes
 @app.route('/admin/tournaments/create', methods=['GET', 'POST'])
 @admin_required
@@ -310,21 +357,43 @@ def record_match():
         tournament_id = int(request.form['tournament_id'])
         player1_id = int(request.form['player1_id'])
         player2_id = int(request.form['player2_id'])
-        player1_goals = int(request.form['player1_goals'])
-        player2_goals = int(request.form['player2_goals'])
+        player1_goals = int(request.form.get('player1_goals', 0))
+        player2_goals = int(request.form.get('player2_goals', 0))
+        player1_absent = 'player1_absent' in request.form
+        player2_absent = 'player2_absent' in request.form
         
         if player1_id == player2_id:
             flash('Cannot record match between same player', 'error')
         else:
             try:
-                match_id = TournamentDB.record_match(tournament_id, player1_id, player2_id, player1_goals, player2_goals)
-                if player1_goals > player2_goals:
-                    winner_msg = "Player 1 wins!"
-                elif player2_goals > player1_goals:
-                    winner_msg = "Player 2 wins!"
+                # Get player names for messages
+                player1 = TournamentDB.get_player_by_id(player1_id)
+                player2 = TournamentDB.get_player_by_id(player2_id)
+                player1_name = player1['name'] if player1 else 'Player 1'
+                player2_name = player2['name'] if player2 else 'Player 2'
+                
+                match_id = TournamentDB.record_match(
+                    tournament_id, player1_id, player2_id, player1_goals, player2_goals,
+                    player1_absent, player2_absent
+                )
+                
+                # Generate appropriate success message
+                if player1_absent and player2_absent:
+                    result_msg = "Match nullified - both players absent"
+                elif player1_absent:
+                    result_msg = f"Walkover win for {player2_name} - {player1_name} absent"
+                elif player2_absent:
+                    result_msg = f"Walkover win for {player1_name} - {player2_name} absent"
                 else:
-                    winner_msg = "It's a draw!"
-                flash(f'Match recorded successfully! {winner_msg} Ratings updated.', 'success')
+                    if player1_goals > player2_goals:
+                        result_msg = f"{player1_name} wins {player1_goals}-{player2_goals}!"
+                    elif player2_goals > player1_goals:
+                        result_msg = f"{player2_name} wins {player2_goals}-{player1_goals}!"
+                    else:
+                        result_msg = f"Draw {player1_goals}-{player2_goals}!"
+                
+                rating_update_msg = "" if (player1_absent and player2_absent) else " Ratings updated."
+                flash(f'Match recorded successfully! {result_msg}{rating_update_msg}', 'success')
                 return redirect(url_for('record_match'))
             except Exception as e:
                 flash(f'Error recording match: {str(e)}', 'error')
@@ -487,11 +556,24 @@ def edit_match(match_id):
     
     if request.method == 'POST':
         try:
-            new_player1_goals = int(request.form['player1_goals'])
-            new_player2_goals = int(request.form['player2_goals'])
+            new_player1_goals = int(request.form.get('player1_goals', 0))
+            new_player2_goals = int(request.form.get('player2_goals', 0))
+            player1_absent = 'player1_absent' in request.form
+            player2_absent = 'player2_absent' in request.form
             
-            TournamentDB.edit_match(match_id, new_player1_goals, new_player2_goals)
-            flash('Match updated successfully! Player ratings have been recalculated.', 'success')
+            TournamentDB.edit_match(match_id, new_player1_goals, new_player2_goals, player1_absent, player2_absent)
+            
+            # Generate appropriate success message
+            if player1_absent and player2_absent:
+                result_msg = "Match updated - both players marked absent (nullified)"
+            elif player1_absent:
+                result_msg = "Match updated - walkover win assigned"
+            elif player2_absent:
+                result_msg = "Match updated - walkover win assigned"
+            else:
+                result_msg = "Match updated successfully!"
+            
+            flash(f'{result_msg} Player ratings have been recalculated.', 'success')
             return redirect(url_for('manage_matches'))
         except Exception as e:
             flash(f'Error updating match: {str(e)}', 'error')

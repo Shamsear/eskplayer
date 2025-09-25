@@ -8,16 +8,13 @@ services:
       - key: PYTHON_VERSION
         value: 3.11.0
       - key: DATABASE_URL
-        fromDatabase:
-          name: tournament-db
-          property: connectionString
+        # Set this manually in Render dashboard to your existing Neon database URL
+        # postgresql://neondb_owner:npg_fGmtpL3w7MDv@ep-super-sunset-a15qo477-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+        sync: false
       - key: SECRET_KEY
         generateValue: true
       - key: FLASK_ENV
         value: production
     healthCheckPath: /
-    
-databases:
-  - name: tournament-db
-    databaseName: tournament
-    user: tournament_user
+
+# No databases section - we're using existing external Neon database

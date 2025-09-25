@@ -208,15 +208,32 @@
                                     <!-- Score -->
                                     <div class="text-center px-4">
                                         <div class="text-2xl font-bold text-gray-900">
-                                            {{ match.player1_goals }} - {{ match.player2_goals }}
-                                        </div>
-                                        <div class="text-sm {% if match.is_draw %}text-gray-600{% elif match.winner_id == match.player1_id %}text-green-600{% else %}text-blue-600{% endif %} font-semibold">
-                                            {% if match.is_draw %}
-                                                Draw
-                                            {% elif match.winner_id == match.player1_id %}
-                                                {{ match.player1_name }} wins
+                                            {% if match.is_null_match %}
+                                                <span class="text-red-500">NULL</span>
                                             {% else %}
-                                                {{ match.player2_name }} wins
+                                                {{ match.player1_goals }} - {{ match.player2_goals }}
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-sm font-semibold">
+                                            {% if match.is_null_match %}
+                                                <span class="text-red-600">Match Nullified</span>
+                                                <div class="text-xs text-gray-500 mt-1">Both players absent</div>
+                                            {% elif match.is_walkover %}
+                                                {% if match.winner_id == match.player1_id %}
+                                                    <span class="text-green-600">{{ match.player1_name }} wins</span>
+                                                {% else %}
+                                                    <span class="text-blue-600">{{ match.player2_name }} wins</span>
+                                                {% endif %}
+                                                <div class="text-xs text-orange-500 mt-1">Walkover
+                                                    {% if match.player1_absent %}- {{ match.player1_name }} absent{% endif %}
+                                                    {% if match.player2_absent %}- {{ match.player2_name }} absent{% endif %}
+                                                </div>
+                                            {% elif match.is_draw %}
+                                                <span class="text-gray-600">Draw</span>
+                                            {% elif match.winner_id == match.player1_id %}
+                                                <span class="text-green-600">{{ match.player1_name }} wins</span>
+                                            {% else %}
+                                                <span class="text-blue-600">{{ match.player2_name }} wins</span>
                                             {% endif %}
                                         </div>
                                     </div>

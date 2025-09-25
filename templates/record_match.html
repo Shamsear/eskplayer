@@ -350,12 +350,44 @@
                     </div>
                 </div>
                 
+                <!-- Absence Options -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+                    <h4 class="font-semibold text-yellow-800 mb-4">
+                        <i class="fas fa-user-times mr-2"></i>Player Absence (Optional)
+                    </h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="player1_absent" 
+                                   name="player1_absent" 
+                                   class="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                   onchange="handleAbsenceChange()">
+                            <label for="player1_absent" class="text-sm font-medium text-gray-700">
+                                <span id="player1_absent_label">Player 1</span> is absent
+                            </label>
+                        </div>
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="player2_absent" 
+                                   name="player2_absent" 
+                                   class="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                   onchange="handleAbsenceChange()">
+                            <label for="player2_absent" class="text-sm font-medium text-gray-700">
+                                <span id="player2_absent_label">Player 2</span> is absent
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mt-3 text-sm text-yellow-700">
+                        <p><strong>Note:</strong> If both players are absent, match will be nullified. If one player is absent, the other wins by walkover.</p>
+                    </div>
+                </div>
+                
                 <!-- Match Results -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div id="matchResultsSection" class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <!-- Player 1 Goals -->
                     <div>
                         <label for="player1_goals" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-futbol mr-2"></i>Player 1 Goals
+                            <i class="fas fa-futbol mr-2"></i><span id="player1_goals_label">Player 1</span> Goals
                         </label>
                         <input type="number" 
                                id="player1_goals" 
@@ -363,7 +395,6 @@
                                min="0" 
                                max="50" 
                                value="0"
-                               required
                                class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg text-center"
                                onchange="updateMatchPreview()">
                     </div>
@@ -371,7 +402,7 @@
                     <!-- Player 2 Goals -->
                     <div>
                         <label for="player2_goals" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-futbol mr-2"></i>Player 2 Goals
+                            <i class="fas fa-futbol mr-2"></i><span id="player2_goals_label">Player 2</span> Goals
                         </label>
                         <input type="number" 
                                id="player2_goals" 
@@ -379,7 +410,6 @@
                                min="0" 
                                max="50" 
                                value="0"
-                               required
                                class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg text-center"
                                onchange="updateMatchPreview()">
                     </div>
@@ -787,6 +817,67 @@
         function onPlayerSelect(playerId, playerName) {
             // This function is called when a player is selected in the dropdown
             updatePlayerInfo();
+            updatePlayerLabels();
+        }
+        
+        function updatePlayerLabels() {
+            const player1Id = document.getElementById('player1_id').value;
+            const player2Id = document.getElementById('player2_id').value;
+            
+            if (player1Id && player2Id) {
+                const player1 = tournamentPlayers.find(p => p.id == player1Id);
+                const player2 = tournamentPlayers.find(p => p.id == player2Id);
+                
+                if (player1 && player2) {
+                    // Update absence labels
+                    document.getElementById('player1_absent_label').textContent = player1.name;
+                    document.getElementById('player2_absent_label').textContent = player2.name;
+                    
+                    // Update goals labels
+                    document.getElementById('player1_goals_label').textContent = player1.name;
+                    document.getElementById('player2_goals_label').textContent = player2.name;
+                }
+            }
+        }
+        
+        function handleAbsenceChange() {
+            const player1Absent = document.getElementById('player1_absent').checked;
+            const player2Absent = document.getElementById('player2_absent').checked;
+            const player1Goals = document.getElementById('player1_goals');
+            const player2Goals = document.getElementById('player2_goals');
+            const matchResultsSection = document.getElementById('matchResultsSection');
+            
+            if (player1Absent || player2Absent) {
+                // Disable and reset goal inputs when someone is absent
+                player1Goals.disabled = true;
+                player2Goals.disabled = true;
+                player1Goals.value = 0;
+                player2Goals.value = 0;
+                player1Goals.style.opacity = '0.5';
+                player2Goals.style.opacity = '0.5';
+                
+                // Set walkover scores if only one player is absent
+                if (player1Absent && !player2Absent) {
+                    player1Goals.value = 0;
+                    player2Goals.value = 3; // Standard walkover score
+                } else if (!player1Absent && player2Absent) {
+                    player1Goals.value = 3; // Standard walkover score
+                    player2Goals.value = 0;
+                } else if (player1Absent && player2Absent) {
+                    player1Goals.value = 0;
+                    player2Goals.value = 0;
+                }
+            } else {
+                // Enable goal inputs when no one is absent
+                player1Goals.disabled = false;
+                player2Goals.disabled = false;
+                player1Goals.style.opacity = '1';
+                player2Goals.style.opacity = '1';
+                player1Goals.value = 0;
+                player2Goals.value = 0;
+            }
+            
+            updateMatchPreview();
         }
         
         function updateMatchPreview() {
@@ -794,6 +885,8 @@
             const player2Id = document.getElementById('player2_id').value;
             const goals1 = parseInt(document.getElementById('player1_goals').value) || 0;
             const goals2 = parseInt(document.getElementById('player2_goals').value) || 0;
+            const player1Absent = document.getElementById('player1_absent').checked;
+            const player2Absent = document.getElementById('player2_absent').checked;
             
             if (player1Id && player2Id) {
                 const player1 = tournamentPlayers.find(p => p.id == player1Id);
@@ -806,17 +899,34 @@
                 document.getElementById('preview_goals1').textContent = goals1;
                 document.getElementById('preview_goals2').textContent = goals2;
                 
-                // Determine result
+                // Determine result based on absence and scores
                 let result = 'Draw';
-                if (goals1 > goals2) {
-                    result = `${player1.name} Wins!`;
-                    document.getElementById('match_result').className = 'text-sm font-semibold text-green-600';
-                } else if (goals2 > goals1) {
-                    result = `${player2.name} Wins!`;
-                    document.getElementById('match_result').className = 'text-sm font-semibold text-blue-600';
+                let resultClass = 'text-sm font-semibold text-gray-600';
+                
+                if (player1Absent && player2Absent) {
+                    result = 'Match Nullified (Both Absent)';
+                    resultClass = 'text-sm font-semibold text-red-600';
+                } else if (player1Absent) {
+                    result = `${player2.name} Wins by Walkover`;
+                    resultClass = 'text-sm font-semibold text-blue-600';
+                } else if (player2Absent) {
+                    result = `${player1.name} Wins by Walkover`;
+                    resultClass = 'text-sm font-semibold text-green-600';
                 } else {
-                    document.getElementById('match_result').className = 'text-sm font-semibold text-gray-600';
+                    // Normal match result
+                    if (goals1 > goals2) {
+                        result = `${player1.name} Wins!`;
+                        resultClass = 'text-sm font-semibold text-green-600';
+                    } else if (goals2 > goals1) {
+                        result = `${player2.name} Wins!`;
+                        resultClass = 'text-sm font-semibold text-blue-600';
+                    } else {
+                        result = 'Draw';
+                        resultClass = 'text-sm font-semibold text-gray-600';
+                    }
                 }
+                
+                document.getElementById('match_result').className = resultClass;
                 document.getElementById('match_result').textContent = result;
                 
                 document.getElementById('matchPreview').classList.remove('hidden');
