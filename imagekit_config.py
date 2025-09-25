@@ -64,9 +64,13 @@ class PhotoManager:
             file_extension = file.filename.rsplit('.', 1)[1].lower()
             unique_filename = f"player_{player_id}_{player_name.replace(' ', '_').lower()}.{file_extension}"
             
+            # Read file content for ImageKit upload
+            file.seek(0)  # Reset file pointer to beginning
+            file_content = file.read()
+            
             # Upload to ImageKit
             upload_response = imagekit.upload_file(
-                file=file,
+                file=file_content,
                 file_name=unique_filename,
                 options={
                     "folder": "/players/",
