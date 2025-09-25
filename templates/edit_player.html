@@ -160,7 +160,7 @@
             {% endwith %}
             
             <!-- Edit Form -->
-            <form method="POST" class="space-y-6">
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
                 <!-- Player Name -->
                 <div>
                     <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
@@ -190,6 +190,57 @@
                            class="form-input w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                            placeholder="Enter rating (0-1000)">
                     <p class="text-sm text-gray-500 mt-2">Rating must be between 0 and 1000</p>
+                </div>
+                
+                <!-- Player Photo -->
+                <div>
+                    <label for="photo" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-camera mr-2 text-green-500"></i>Player Photo
+                    </label>
+                    
+                    <!-- Current Photo Display -->
+                    {% if player.photo_url %}
+                    <div id="currentPhoto" class="mb-4">
+                        <div class="flex items-center space-x-4">
+                            <img src="{{ player.photo_url }}?tr=w-100,h-100,c-face,q-80,f-webp" 
+                                 alt="{{ player.name }}" 
+                                 class="w-20 h-20 object-cover rounded-xl border-2 border-gray-200">
+                            <div>
+                                <p class="text-sm text-gray-600">Current photo</p>
+                                <button type="button" 
+                                        id="removeCurrentPhoto"
+                                        class="text-red-600 text-sm hover:text-red-800 transition-colors">
+                                    <i class="fas fa-trash mr-1"></i>Remove photo
+                                </button>
+                                <input type="hidden" id="removePhoto" name="remove_photo" value="false">
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Photo Upload -->
+                    <div>
+                        <input type="file" 
+                               id="photo" 
+                               name="photo" 
+                               accept="image/*"
+                               class="form-input w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-50 file:text-green-700 hover:file:bg-green-100">
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>{% if player.photo_url %}Upload a new photo to replace the current one. {% endif %}Supported formats: PNG, JPG, JPEG, GIF, WebP (Max 5MB)
+                        </p>
+                    </div>
+                    
+                    <!-- Photo Preview -->
+                    <div id="photoPreview" class="hidden mt-4">
+                        <div class="relative inline-block">
+                            <img id="previewImage" class="w-24 h-24 object-cover rounded-xl border-2 border-gray-200" alt="Photo preview">
+                            <button type="button" 
+                                    id="removePhotoPreview" 
+                                    class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
                 </div>
                 
                 <!-- Player Stats Display (Read-only) -->
@@ -293,11 +344,18 @@
             }
         });
         
-        // Form validation
+        // Form validation and photo handling
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.querySelector('form[method="POST"]');
             const nameInput = document.getElementById('name');
             const ratingInput = document.getElementById('rating');
+            const photoInput = document.getElementById('photo');
+            const photoPreview = document.getElementById('photoPreview');
+            const previewImage = document.getElementById('previewImage');
+            const removePhotoPreviewBtn = document.getElementById('removePhotoPreview');
+            const removeCurrentPhotoBtn = document.getElementById('removeCurrentPhoto');
+            const removePhotoHidden = document.getElementById('removePhoto');
+            const currentPhotoDiv = document.getElementById('currentPhoto');
             
             form.addEventListener('submit', function(e) {
                 let isValid = true;
@@ -333,6 +391,62 @@
                     this.style.borderColor = '#d1d5db';
                 }
             });
+            
+            // Photo preview functionality
+            if (photoInput) {
+                photoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        // Validate file size (5MB limit)
+                        if (file.size > 5 * 1024 * 1024) {
+                            alert('File size must be less than 5MB');
+                            photoInput.value = '';
+                            photoPreview.classList.add('hidden');
+                            return;
+                        }
+                        
+                        // Validate file type
+                        const validTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp'];
+                        if (!validTypes.includes(file.type)) {
+                            alert('Please select a valid image file (PNG, JPG, JPEG, GIF, or WebP)');
+                            photoInput.value = '';
+                            photoPreview.classList.add('hidden');
+                            return;
+                        }
+                        
+                        // Show preview
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            previewImage.src = e.target.result;
+                            photoPreview.classList.remove('hidden');
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        photoPreview.classList.add('hidden');
+                    }
+                });
+                
+                // Remove photo preview functionality
+                if (removePhotoPreviewBtn) {
+                    removePhotoPreviewBtn.addEventListener('click', function() {
+                        photoInput.value = '';
+                        photoPreview.classList.add('hidden');
+                    });
+                }
+            }
+            
+            // Remove current photo functionality
+            if (removeCurrentPhotoBtn && removePhotoHidden && currentPhotoDiv) {
+                removeCurrentPhotoBtn.addEventListener('click', function() {
+                    if (confirm('Are you sure you want to remove the current photo?')) {
+                        removePhotoHidden.value = 'true';
+                        currentPhotoDiv.classList.add('hidden');
+                        removeCurrentPhotoBtn.textContent = 'Photo will be removed when you save';
+                        removeCurrentPhotoBtn.classList.add('text-orange-600');
+                        removeCurrentPhotoBtn.classList.remove('text-red-600', 'hover:text-red-800');
+                    }
+                });
+            }
         });
     </script>
 </body>

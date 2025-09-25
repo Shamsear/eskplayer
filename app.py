@@ -5,6 +5,7 @@ from datetime import datetime
 import time
 from dotenv import load_dotenv
 from database import TournamentDB, init_db, get_db_connection
+from imagekit_config import PhotoManager, upload_player_photo, delete_player_photo
 
 # Load environment variables
 load_dotenv()
@@ -155,15 +156,56 @@ def admin_dashboard():
 @admin_required
 @no_cache
 def add_player():
-    """Add single player"""
+    """Add single player with optional photo"""
     if request.method == 'POST':
         player_name = request.form['name'].strip()
+        photo_file = request.files.get('photo')
+        
         if player_name:
             try:
-                player_id = TournamentDB.add_player(player_name)
-                flash(f'Player "{player_name}" added successfully with rating 300!', 'success')
+                photo_url = None
+                photo_file_id = None
+                
+                # Handle photo upload if provided
+                if photo_file and photo_file.filename:
+                    upload_result = upload_player_photo(photo_file, player_name, 0)  # Temp ID, will update
+                    if upload_result['success']:
+                        photo_url = upload_result['url']
+                        photo_file_id = upload_result['file_id']
+                    else:
+                        flash(f'Photo upload failed: {upload_result["error"]}', 'error')
+                        return render_template('add_player.html')
+                
+                # Add player to database
+                player_id = TournamentDB.add_player(player_name, photo_url, photo_file_id)
+                
+                # Update ImageKit tags with actual player ID if photo was uploaded
+                if photo_file_id:
+                    try:
+                        # Re-upload with correct player ID in metadata
+                        from imagekit_config import imagekit
+                        imagekit.update_file_details(photo_file_id, {
+                            'custom_metadata': {
+                                'player_id': str(player_id),
+                                'player_name': player_name
+                            }
+                        })
+                    except Exception as e:
+                        print(f"Warning: Could not update photo metadata: {e}")
+                
+                success_msg = f'Player "{player_name}" added successfully with rating 300!'
+                if photo_url:
+                    success_msg += ' Photo uploaded.'
+                    
+                flash(success_msg, 'success')
                 return redirect(url_for('add_player'))
             except Exception as e:
+                # If player creation failed and photo was uploaded, clean up
+                if photo_file_id:
+                    try:
+                        delete_player_photo(photo_file_id)
+                    except:
+                        pass
                 flash(f'Error adding player: {str(e)}', 'error')
         else:
             flash('Player name cannot be empty', 'error')
@@ -207,7 +249,7 @@ def view_all_players():
 @admin_required
 @no_cache
 def edit_player(player_id):
-    """Edit a player's information"""
+    """Edit a player's information including photo"""
     player = TournamentDB.get_player_by_id(player_id)
     if not player:
         flash('Player not found', 'error')
@@ -217,14 +259,47 @@ def edit_player(player_id):
         try:
             name = request.form['name'].strip()
             rating = int(request.form['rating'])
+            photo_file = request.files.get('photo')
+            remove_photo = request.form.get('remove_photo') == 'true'
             
             if not name:
                 flash('Player name cannot be empty', 'error')
             elif rating < 0 or rating > 1000:
                 flash('Rating must be between 0 and 1000', 'error')
             else:
+                # Update basic player info first
                 TournamentDB.edit_player(player_id, name, rating)
-                flash(f'Player "{name}" updated successfully!', 'success')
+                
+                # Handle photo operations
+                current_photo_file_id = player.get('photo_file_id')
+                
+                if remove_photo and current_photo_file_id:
+                    # Remove current photo
+                    try:
+                        delete_player_photo(current_photo_file_id)
+                        TournamentDB.update_player_photo(player_id, None, None)
+                        flash(f'Player "{name}" updated successfully! Photo removed.', 'success')
+                    except Exception as e:
+                        flash(f'Player updated but photo removal failed: {str(e)}', 'error')
+                elif photo_file and photo_file.filename:
+                    # Upload new photo
+                    upload_result = upload_player_photo(photo_file, name, player_id)
+                    if upload_result['success']:
+                        # Delete old photo if it exists
+                        if current_photo_file_id:
+                            try:
+                                delete_player_photo(current_photo_file_id)
+                            except:
+                                pass  # Don't fail if old photo deletion fails
+                        
+                        # Update database with new photo info
+                        TournamentDB.update_player_photo(player_id, upload_result['url'], upload_result['file_id'])
+                        flash(f'Player "{name}" updated successfully! Photo uploaded.', 'success')
+                    else:
+                        flash(f'Player updated but photo upload failed: {upload_result["error"]}', 'error')
+                else:
+                    flash(f'Player "{name}" updated successfully!', 'success')
+                
                 return redirect(url_for('view_all_players'))
         except ValueError as e:
             flash(str(e), 'error')
@@ -237,14 +312,25 @@ def edit_player(player_id):
 @admin_required
 @no_cache
 def delete_player(player_id):
-    """Delete a player"""
+    """Delete a player and cleanup their photo"""
     try:
         player = TournamentDB.get_player_by_id(player_id)
         if not player:
             flash('Player not found', 'error')
         else:
             player_name = player['name']
-            TournamentDB.delete_player(player_id)
+            photo_file_id = player.get('photo_file_id')
+            
+            # Delete player from database (returns photo info for cleanup)
+            delete_result = TournamentDB.delete_player(player_id)
+            
+            # Clean up photo if it exists
+            if photo_file_id:
+                try:
+                    delete_player_photo(photo_file_id)
+                except Exception as e:
+                    print(f"Warning: Failed to delete photo for player {player_name}: {e}")
+            
             flash(f'Player "{player_name}" has been deleted successfully!', 'success')
     except Exception as e:
         flash(f'Error deleting player: {str(e)}', 'error')

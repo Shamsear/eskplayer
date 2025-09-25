@@ -452,14 +452,14 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def add_player(name):
-        """Add a new player"""
+    def add_player(name, photo_url=None, photo_file_id=None):
+        """Add a new player with optional photo"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO players (name) VALUES (%s) RETURNING id",
-                    (name,)
+                    "INSERT INTO players (name, photo_url, photo_file_id) VALUES (%s, %s, %s) RETURNING id",
+                    (name, photo_url, photo_file_id)
                 )
                 player_id = cursor.fetchone()['id']
                 conn.commit()
@@ -1390,6 +1390,72 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
+    def update_player_photo(player_id, photo_url, photo_file_id):
+        """Update player photo information"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Check if player exists
+                cursor.execute("SELECT * FROM players WHERE id = %s", (player_id,))
+                player = cursor.fetchone()
+                if not player:
+                    raise ValueError("Player not found")
+                
+                # Update photo fields
+                cursor.execute(
+                    "UPDATE players SET photo_url = %s, photo_file_id = %s WHERE id = %s",
+                    (photo_url, photo_file_id, player_id)
+                )
+                conn.commit()
+                return player_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def remove_player_photo(player_id):
+        """Remove player photo information"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Check if player exists
+                cursor.execute("SELECT * FROM players WHERE id = %s", (player_id,))
+                player = cursor.fetchone()
+                if not player:
+                    raise ValueError("Player not found")
+                
+                # Get current photo info for cleanup
+                old_file_id = player.get('photo_file_id')
+                
+                # Clear photo fields
+                cursor.execute(
+                    "UPDATE players SET photo_url = NULL, photo_file_id = NULL WHERE id = %s",
+                    (player_id,)
+                )
+                conn.commit()
+                return old_file_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_players_with_photos():
+        """Get all players that have photos"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT id, name, photo_url, photo_file_id FROM players WHERE photo_url IS NOT NULL ORDER BY name"
+                )
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
     def delete_player(player_id):
         """Delete a player and all associated data"""
         conn = get_db_connection()
@@ -1400,6 +1466,9 @@ class TournamentDB:
                 player = cursor.fetchone()
                 if not player:
                     raise ValueError("Player not found")
+                
+                # Get photo info for cleanup before deletion
+                photo_file_id = player.get('photo_file_id')
                 
                 # Delete in correct order to maintain referential integrity
                 # 1. Delete player stats
@@ -1415,7 +1484,9 @@ class TournamentDB:
                 cursor.execute("DELETE FROM players WHERE id = %s", (player_id,))
                 
                 conn.commit()
-                return True
+                
+                # Return photo_file_id for cleanup by the calling code
+                return {'success': True, 'photo_file_id': photo_file_id}
         except Exception as e:
             conn.rollback()
             raise
