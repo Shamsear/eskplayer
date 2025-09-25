@@ -160,14 +160,57 @@ def add_player():
     if request.method == 'POST':
         player_name = request.form['name'].strip()
         photo_file = request.files.get('photo')
+        cropped_image_data = request.form.get('cropped_image_data')
         
         if player_name:
             try:
                 photo_url = None
                 photo_file_id = None
                 
-                # Handle photo upload if provided
-                if photo_file and photo_file.filename:
+                # Handle cropped photo upload if provided
+                if cropped_image_data:
+                    import base64
+                    import io
+                    
+                    try:
+                        # Remove data URL prefix if present
+                        if cropped_image_data.startswith('data:image/'):
+                            cropped_image_data = cropped_image_data.split(',')[1]
+                        
+                        # Decode base64 image
+                        image_data = base64.b64decode(cropped_image_data)
+                        
+                        # Create a file-like object that works exactly like a Flask upload
+                        class MockFileStorage:
+                            def __init__(self, data, filename):
+                                self.data = io.BytesIO(data)
+                                self.filename = filename
+                            
+                            def read(self, size=-1):
+                                return self.data.read(size)
+                            
+                            def seek(self, pos, whence=0):
+                                return self.data.seek(pos, whence)
+                            
+                            def tell(self):
+                                return self.data.tell()
+                        
+                        # Create mock file object
+                        mock_file = MockFileStorage(image_data, f'{player_name.replace(" ", "_").lower()}_cropped.jpg')
+                        
+                        # Use existing working upload function
+                        upload_result = upload_player_photo(mock_file, player_name, 0)  # Temp ID, will update
+                        if upload_result['success']:
+                            photo_url = upload_result['url']
+                            photo_file_id = upload_result['file_id']
+                        else:
+                            flash(f'Cropped photo upload failed: {upload_result["error"]}', 'error')
+                            return render_template('add_player.html')
+                    except Exception as e:
+                        flash(f'Photo processing failed: {str(e)}', 'error')
+                        return render_template('add_player.html')
+                # Handle regular photo upload if provided (fallback)
+                elif photo_file and photo_file.filename:
                     upload_result = upload_player_photo(photo_file, player_name, 0)  # Temp ID, will update
                     if upload_result['success']:
                         photo_url = upload_result['url']
@@ -260,6 +303,7 @@ def edit_player(player_id):
             name = request.form['name'].strip()
             rating = int(request.form['rating'])
             photo_file = request.files.get('photo')
+            cropped_image_data = request.form.get('cropped_image_data')
             remove_photo = request.form.get('remove_photo') == 'true'
             
             if not name:
@@ -281,8 +325,56 @@ def edit_player(player_id):
                         flash(f'Player "{name}" updated successfully! Photo removed.', 'success')
                     except Exception as e:
                         flash(f'Player updated but photo removal failed: {str(e)}', 'error')
+                elif cropped_image_data:
+                    # Handle cropped image data (base64) - use existing working upload function
+                    import base64
+                    import io
+                    
+                    try:
+                        # Remove data URL prefix if present
+                        if cropped_image_data.startswith('data:image/'):
+                            cropped_image_data = cropped_image_data.split(',')[1]
+                        
+                        # Decode base64 image
+                        image_data = base64.b64decode(cropped_image_data)
+                        
+                        # Create a file-like object that works exactly like a Flask upload
+                        class MockFileStorage:
+                            def __init__(self, data, filename):
+                                self.data = io.BytesIO(data)
+                                self.filename = filename
+                            
+                            def read(self, size=-1):
+                                return self.data.read(size)
+                            
+                            def seek(self, pos, whence=0):
+                                return self.data.seek(pos, whence)
+                            
+                            def tell(self):
+                                return self.data.tell()
+                        
+                        # Create mock file object
+                        mock_file = MockFileStorage(image_data, f'{name.replace(" ", "_").lower()}_cropped.jpg')
+                        
+                        # Use existing working upload function
+                        upload_result = upload_player_photo(mock_file, name, player_id)
+                        if upload_result['success']:
+                            # Delete old photo if it exists
+                            if current_photo_file_id:
+                                try:
+                                    delete_player_photo(current_photo_file_id)
+                                except:
+                                    pass  # Don't fail if old photo deletion fails
+                            
+                            # Update database with new photo info
+                            TournamentDB.update_player_photo(player_id, upload_result['url'], upload_result['file_id'])
+                            flash(f'Player "{name}" updated successfully! Cropped photo uploaded.', 'success')
+                        else:
+                            flash(f'Player updated but photo upload failed: {upload_result["error"]}', 'error')
+                    except Exception as e:
+                        flash(f'Player updated but photo processing failed: {str(e)}', 'error')
                 elif photo_file and photo_file.filename:
-                    # Upload new photo
+                    # Upload new photo (fallback for direct file upload)
                     upload_result = upload_player_photo(photo_file, name, player_id)
                     if upload_result['success']:
                         # Delete old photo if it exists

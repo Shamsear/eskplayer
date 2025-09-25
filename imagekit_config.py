@@ -53,9 +53,16 @@ class PhotoManager:
                 return {'success': False, 'error': 'Invalid file type. Only PNG, JPG, JPEG, GIF, and WebP are allowed.'}
             
             # Validate file size (max 5MB)
-            file.seek(0, 2)  # Seek to end
-            file_size = file.tell()
-            file.seek(0)  # Reset to beginning
+            if hasattr(file, 'stream') and hasattr(file.stream, 'seek'):
+                # Custom FileStorage object
+                file.stream.seek(0, 2)  # Seek to end
+                file_size = file.stream.tell()
+                file.stream.seek(0)  # Reset to beginning
+            else:
+                # Regular Flask file upload
+                file.seek(0, 2)  # Seek to end
+                file_size = file.tell()
+                file.seek(0)  # Reset to beginning
             
             if file_size > 5 * 1024 * 1024:  # 5MB limit
                 return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
@@ -66,7 +73,15 @@ class PhotoManager:
             
             # Read file content for ImageKit upload
             file.seek(0)  # Reset file pointer to beginning
-            file_content = file.read()
+            
+            # Handle both regular Flask file uploads and our custom FileStorage objects
+            if hasattr(file, 'stream') and hasattr(file.stream, 'read'):
+                # This is our custom FileStorage object from base64 data
+                file_content = file.stream.read()
+                file.stream.seek(0)  # Reset stream position
+            else:
+                # This is a regular Flask file upload
+                file_content = file.read()
             
             # Upload to ImageKit
             upload_response = imagekit.upload_file(
@@ -196,6 +211,73 @@ def upload_player_photo(file, player_name, player_id):
 def delete_player_photo(file_id):
     """Convenience function for deleting player photos"""
     return PhotoManager.delete_photo(file_id)
+
+def upload_player_photo_base64(base64_data, player_name, player_id):
+    """Upload a player photo from base64 data"""
+    import base64
+    import io
+    
+    try:
+        if not imagekit:
+            return {'success': False, 'error': 'Photo upload service not available. Please contact administrator.'}
+        
+        if not base64_data:
+            return {'success': False, 'error': 'No image data provided'}
+        
+        # Remove data URL prefix if present
+        if base64_data.startswith('data:image/'):
+            base64_data = base64_data.split(',')[1]
+        
+        # Decode base64 image
+        try:
+            image_data = base64.b64decode(base64_data)
+        except Exception as e:
+            return {'success': False, 'error': f'Invalid image data: {str(e)}'}
+        
+        # Validate file size (max 5MB)
+        file_size = len(image_data)
+        if file_size > 5 * 1024 * 1024:  # 5MB limit
+            return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
+        
+        # Generate unique filename
+        unique_filename = f"player_{player_id}_{player_name.replace(' ', '_').lower()}_cropped.jpg"
+        
+        # Create a BytesIO object for the file data
+        file_obj = io.BytesIO(image_data)
+        
+        # Upload to ImageKit - use same pattern as working upload_photo function
+        print(f"Debug: About to upload file. Type: {type(file_obj)}, Size: {len(image_data)}")
+        try:
+            upload_response = imagekit.upload_file(
+                file=file_obj,
+                file_name=unique_filename,
+                options={
+                    "folder": "/players/",
+                    "tags": [f"player_{player_id}", "tournament_player"],
+                    "custom_metadata": {
+                        "player_id": str(player_id),
+                        "player_name": player_name
+                    }
+                }
+            )
+            print(f"Debug: Upload response type: {type(upload_response)}")
+        except Exception as upload_error:
+            print(f"Debug: Upload failed with error: {upload_error}")
+            print(f"Debug: Error type: {type(upload_error)}")
+            raise upload_error
+        
+        if upload_response.response_metadata.http_status_code == 200:
+            return {
+                'success': True,
+                'url': upload_response.url,
+                'file_id': upload_response.file_id,
+                'thumbnail_url': f"{upload_response.url}?tr=w-150,h-150,c-face,q-80,f-webp"
+            }
+        else:
+            return {'success': False, 'error': 'Upload failed'}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Upload error: {str(e)}'}
 
 def get_player_photo_url(base_url, size='medium'):
     """Get optimized player photo URL for different sizes"""
