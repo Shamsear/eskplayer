@@ -258,14 +258,14 @@
                             </td>
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
                             <td class="py-3 px-4 text-center">
-                                <span class="text-green-600 font-semibold">{{ stat.wins }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.draws }}</span>-<span class="text-red-600 font-semibold">{{ stat.losses }}</span>
+                                <span class="text-green-600 font-semibold">{{ stat.matches_won }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.matches_drawn }}</span>-<span class="text-red-600 font-semibold">{{ stat.matches_lost }}</span>
                             </td>
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
                             <td class="py-3 px-4 text-center">
                                 {% if stat.matches_played > 0 %}
-                                    <span class="{% if (stat.wins / stat.matches_played * 100) >= 70 %}text-green-600{% elif (stat.wins / stat.matches_played * 100) >= 40 %}text-yellow-600{% else %}text-red-600{% endif %} font-semibold">
-                                        {{ "%.1f"|format(stat.wins / stat.matches_played * 100) }}%
+                                    <span class="{% if (stat.matches_won / stat.matches_played * 100) >= 70 %}text-green-600{% elif (stat.matches_won / stat.matches_played * 100) >= 40 %}text-yellow-600{% else %}text-red-600{% endif %} font-semibold">
+                                        {{ "%.1f"|format(stat.matches_won / stat.matches_played * 100) }}%
                                     </span>
                                 {% else %}
                                     <span class="text-gray-400">-</span>

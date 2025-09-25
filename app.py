@@ -169,37 +169,10 @@ def add_player():
                 
                 # Handle cropped photo upload if provided
                 if cropped_image_data:
-                    import base64
-                    import io
-                    
                     try:
-                        # Remove data URL prefix if present
-                        if cropped_image_data.startswith('data:image/'):
-                            cropped_image_data = cropped_image_data.split(',')[1]
-                        
-                        # Decode base64 image
-                        image_data = base64.b64decode(cropped_image_data)
-                        
-                        # Create a file-like object that works exactly like a Flask upload
-                        class MockFileStorage:
-                            def __init__(self, data, filename):
-                                self.data = io.BytesIO(data)
-                                self.filename = filename
-                            
-                            def read(self, size=-1):
-                                return self.data.read(size)
-                            
-                            def seek(self, pos, whence=0):
-                                return self.data.seek(pos, whence)
-                            
-                            def tell(self):
-                                return self.data.tell()
-                        
-                        # Create mock file object
-                        mock_file = MockFileStorage(image_data, f'{player_name.replace(" ", "_").lower()}_cropped.jpg')
-                        
-                        # Use existing working upload function
-                        upload_result = upload_player_photo(mock_file, player_name, 0)  # Temp ID, will update
+                        # Use dedicated base64 upload function
+                        from imagekit_config import upload_player_photo_base64
+                        upload_result = upload_player_photo_base64(cropped_image_data, player_name, 0)  # Temp ID, will update
                         if upload_result['success']:
                             photo_url = upload_result['url']
                             photo_file_id = upload_result['file_id']
@@ -326,38 +299,11 @@ def edit_player(player_id):
                     except Exception as e:
                         flash(f'Player updated but photo removal failed: {str(e)}', 'error')
                 elif cropped_image_data:
-                    # Handle cropped image data (base64) - use existing working upload function
-                    import base64
-                    import io
-                    
+                    # Handle cropped image data (base64) - use dedicated base64 upload function
                     try:
-                        # Remove data URL prefix if present
-                        if cropped_image_data.startswith('data:image/'):
-                            cropped_image_data = cropped_image_data.split(',')[1]
-                        
-                        # Decode base64 image
-                        image_data = base64.b64decode(cropped_image_data)
-                        
-                        # Create a file-like object that works exactly like a Flask upload
-                        class MockFileStorage:
-                            def __init__(self, data, filename):
-                                self.data = io.BytesIO(data)
-                                self.filename = filename
-                            
-                            def read(self, size=-1):
-                                return self.data.read(size)
-                            
-                            def seek(self, pos, whence=0):
-                                return self.data.seek(pos, whence)
-                            
-                            def tell(self):
-                                return self.data.tell()
-                        
-                        # Create mock file object
-                        mock_file = MockFileStorage(image_data, f'{name.replace(" ", "_").lower()}_cropped.jpg')
-                        
-                        # Use existing working upload function
-                        upload_result = upload_player_photo(mock_file, name, player_id)
+                        # Use dedicated base64 upload function
+                        from imagekit_config import upload_player_photo_base64
+                        upload_result = upload_player_photo_base64(cropped_image_data, name, player_id)
                         if upload_result['success']:
                             # Delete old photo if it exists
                             if current_photo_file_id:

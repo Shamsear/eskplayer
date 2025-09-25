@@ -67,8 +67,8 @@ class PhotoManager:
             if file_size > 5 * 1024 * 1024:  # 5MB limit
                 return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
             
-            # Generate unique filename
-            file_extension = file.filename.rsplit('.', 1)[1].lower()
+            # Generate unique filename - preserve original extension
+            file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
             unique_filename = f"player_{player_id}_{player_name.replace(' ', '_').lower()}.{file_extension}"
             
             # Read file content for ImageKit upload
@@ -83,27 +83,11 @@ class PhotoManager:
                 # This is a regular Flask file upload
                 file_content = file.read()
             
-            # Upload to ImageKit
+            # Upload to ImageKit without options to avoid dict errors
             upload_response = imagekit.upload_file(
                 file=file_content,
-                file_name=unique_filename,
-                options={
-                    "folder": "/players/",
-                    "tags": [f"player_{player_id}", "tournament_player"],
-                    "custom_metadata": {
-                        "player_id": str(player_id),
-                        "player_name": player_name
-                    },
-                    "transformation": {
-                        "pre": "w-400,h-400,c-face",  # Auto-crop to face, 400x400
-                        "post": [
-                            {
-                                "type": "transformation",
-                                "value": "q-80,f-webp"  # Optimize quality and format
-                            }
-                        ]
-                    }
-                }
+                file_name=unique_filename
+                # No options parameter - this was causing the 'dict' attribute error
             )
             
             if upload_response.response_metadata.http_status_code == 200:
@@ -224,11 +208,15 @@ def upload_player_photo_base64(base64_data, player_name, player_id):
         if not base64_data:
             return {'success': False, 'error': 'No image data provided'}
         
-        # Remove data URL prefix if present
+        # Store original base64 data for upload (needed for ImageKit base64 method)
+        original_base64_data = base64_data
+        
+        # Remove data URL prefix if present for validation
         if base64_data.startswith('data:image/'):
             base64_data = base64_data.split(',')[1]
+            original_base64_data = base64_data  # Use the cleaned base64 data
         
-        # Decode base64 image
+        # Decode base64 image for validation only
         try:
             image_data = base64.b64decode(base64_data)
         except Exception as e:
@@ -239,31 +227,21 @@ def upload_player_photo_base64(base64_data, player_name, player_id):
         if file_size > 5 * 1024 * 1024:  # 5MB limit
             return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
         
-        # Generate unique filename
-        unique_filename = f"player_{player_id}_{player_name.replace(' ', '_').lower()}_cropped.jpg"
+        if file_size == 0:
+            return {'success': False, 'error': 'Image data is empty'}
         
-        # Create a BytesIO object for the file data
-        file_obj = io.BytesIO(image_data)
+        # Generate unique filename - use PNG extension to preserve format
+        unique_filename = f"player_{player_id}_{player_name.replace(' ', '_').lower()}_cropped.png"
         
-        # Upload to ImageKit - use same pattern as working upload_photo function
-        print(f"Debug: About to upload file. Type: {type(file_obj)}, Size: {len(image_data)}")
+        # Use base64 string approach (Test 3 method that worked successfully)
+        # Note: No options parameter to avoid 'dict' attribute error
         try:
             upload_response = imagekit.upload_file(
-                file=file_obj,
-                file_name=unique_filename,
-                options={
-                    "folder": "/players/",
-                    "tags": [f"player_{player_id}", "tournament_player"],
-                    "custom_metadata": {
-                        "player_id": str(player_id),
-                        "player_name": player_name
-                    }
-                }
+                file=original_base64_data,  # Use cleaned base64 string directly (Method 3 from test - WORKING)
+                file_name=unique_filename
+                # No options parameter - this was causing the 'dict' attribute error
             )
-            print(f"Debug: Upload response type: {type(upload_response)}")
         except Exception as upload_error:
-            print(f"Debug: Upload failed with error: {upload_error}")
-            print(f"Debug: Error type: {type(upload_error)}")
             raise upload_error
         
         if upload_response.response_metadata.http_status_code == 200:
