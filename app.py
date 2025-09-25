@@ -655,6 +655,7 @@ def view_player_stats():
                          tournament_stats=tournament_stats,
                          selected_tournament=selected_tournament)
 
+
 @app.route('/admin/matches/bulk', methods=['GET', 'POST'])
 @admin_required
 @no_cache
@@ -673,6 +674,8 @@ def bulk_record_matches():
                 player2_id = request.form.get(f'match_{i}_player2_id')
                 player1_goals = request.form.get(f'match_{i}_player1_goals')
                 player2_goals = request.form.get(f'match_{i}_player2_goals')
+                player1_absent = f'match_{i}_player1_absent' in request.form
+                player2_absent = f'match_{i}_player2_absent' in request.form
                 
                 # Skip incomplete matches
                 if not all([player1_id, player2_id, player1_goals is not None, player2_goals is not None]):
@@ -683,7 +686,9 @@ def bulk_record_matches():
                     'player1_id': int(player1_id),
                     'player2_id': int(player2_id),
                     'player1_goals': int(player1_goals),
-                    'player2_goals': int(player2_goals)
+                    'player2_goals': int(player2_goals),
+                    'player1_absent': player1_absent,
+                    'player2_absent': player2_absent
                 })
             
             if matches_data:
