@@ -341,9 +341,15 @@
                 {% for tournament in tournaments[:5] %}
                 <div class="bg-white/50 rounded-xl p-4 flex items-center justify-between hover:bg-white/80 transition-all">
                     <div class="flex items-center">
-                        <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-4">
-                            <i class="fas fa-trophy text-white text-sm"></i>
-                        </div>
+                        {% if tournament.tournament_photo_url %}
+                            <img src="{{ tournament.tournament_photo_url }}?tr=w-40,h-40,c-face,q-80,f-webp" 
+                                 alt="{{ tournament.name }}" 
+                                 class="w-10 h-10 rounded-lg object-cover border border-white shadow mr-4">
+                        {% else %}
+                            <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mr-4">
+                                <i class="fas fa-trophy text-white text-sm"></i>
+                            </div>
+                        {% endif %}
                         <div>
                             <h4 class="font-semibold text-gray-900">{{ tournament.name }}</h4>
                             <p class="text-sm text-gray-600 capitalize">{{ tournament.status }}</p>

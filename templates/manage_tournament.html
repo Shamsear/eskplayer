@@ -122,9 +122,15 @@
         <div class="glass rounded-3xl p-8 mb-8">
             <div class="flex items-center justify-between">
                 <div class="flex items-center">
-                    <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-6">
-                        <i class="fas fa-trophy text-white text-2xl"></i>
-                    </div>
+                    {% if tournament.tournament_photo_url %}
+                        <img src="{{ tournament.tournament_photo_url }}?tr=w-64,h-64,c-face,q-80,f-webp" 
+                             alt="{{ tournament.name }}" 
+                             class="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow mr-6">
+                    {% else %}
+                        <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-6">
+                            <i class="fas fa-trophy text-white text-2xl"></i>
+                        </div>
+                    {% endif %}
                     <div>
                         <h2 class="text-3xl font-display font-bold gradient-text">{{ tournament.name }}</h2>
                         <div class="flex items-center space-x-6 mt-2 text-gray-600">
@@ -157,6 +163,10 @@
                     <a href="{{ url_for('record_match') }}?tournament_id={{ tournament.id }}" 
                        class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
                         <i class="fas fa-gamepad mr-2"></i>Record Match
+                    </a>
+                    <a href="{{ url_for('edit_tournament', tournament_id=tournament.id) }}" 
+                       class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
+                        <i class="fas fa-pen mr-2"></i>Edit Tournament
                     </a>
                 </div>
             </div>

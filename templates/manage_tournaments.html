@@ -123,9 +123,15 @@
                 <!-- Tournament Header -->
                 <div class="flex items-center justify-between mb-4">
                     <div class="flex items-center">
-                        <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-4">
-                            <i class="fas fa-trophy text-white text-xl"></i>
-                        </div>
+                        {% if tournament.tournament_photo_url %}
+                            <img src="{{ tournament.tournament_photo_url }}?tr=w-48,h-48,c-face,q-80,f-webp" 
+                                 alt="{{ tournament.name }}" 
+                                 class="w-12 h-12 rounded-xl object-cover border border-white shadow mr-4">
+                        {% else %}
+                            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-trophy text-white text-xl"></i>
+                            </div>
+                        {% endif %}
                         <div>
                             <h3 class="text-lg font-bold text-gray-900">{{ tournament.name }}</h3>
                             <p class="text-sm text-gray-600">{{ tournament.created_at.strftime('%B %d, %Y') }}</p>
@@ -161,7 +167,7 @@
                        class="block w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-center py-2 px-4 rounded-lg font-medium hover:shadow-lg transition-all">
                         <i class="fas fa-cog mr-2"></i>Manage Players
                     </a>
-                    <div class="grid grid-cols-2 gap-3">
+                    <div class="grid grid-cols-3 gap-3">
                         <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
                            class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                             <i class="fas fa-chart-bar mr-1"></i>Stats
@@ -169,6 +175,10 @@
                         <a href="{{ url_for('record_match') }}?tournament_id={{ tournament.id }}" 
                            class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                             <i class="fas fa-gamepad mr-1"></i>Match
+                        </a>
+                        <a href="{{ url_for('edit_tournament', tournament_id=tournament.id) }}" 
+                           class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                            <i class="fas fa-pen mr-1"></i>Edit
                         </a>
                     </div>
                 </div>

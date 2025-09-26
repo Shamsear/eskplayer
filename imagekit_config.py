@@ -271,3 +271,162 @@ def get_player_photo_url(base_url, size='medium'):
     
     config = size_configs.get(size, size_configs['medium'])
     return PhotoManager.get_optimized_url(base_url, **config)
+
+# Tournament Photo Functions (using same reliable method as player photos)
+def upload_tournament_photo(file, tournament_name, tournament_id):
+    """Upload a tournament photo using the same method as player photos"""
+    try:
+        if not imagekit:
+            return {'success': False, 'error': 'Photo upload service not available. Please contact administrator.'}
+        
+        if not file or file.filename == '':
+            return {'success': False, 'error': 'No file selected'}
+        
+        # Validate file type
+        allowed_extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
+        if not PhotoManager._allowed_file(file.filename, allowed_extensions):
+            return {'success': False, 'error': 'Invalid file type. Only PNG, JPG, JPEG, GIF, and WebP are allowed.'}
+        
+        # Validate file size (max 5MB)
+        if hasattr(file, 'stream') and hasattr(file.stream, 'seek'):
+            # Custom FileStorage object
+            file.stream.seek(0, 2)  # Seek to end
+            file_size = file.stream.tell()
+            file.stream.seek(0)  # Reset to beginning
+        else:
+            # Regular Flask file upload
+            file.seek(0, 2)  # Seek to end
+            file_size = file.tell()
+            file.seek(0)  # Reset to beginning
+        
+        if file_size > 5 * 1024 * 1024:  # 5MB limit
+            return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
+        
+        # Generate unique filename - preserve original extension
+        file_extension = file.filename.rsplit('.', 1)[1].lower() if '.' in file.filename else 'png'
+        unique_filename = f"tournament_{tournament_id}_{tournament_name.replace(' ', '_').lower()}.{file_extension}"
+        
+        # Read file content for ImageKit upload
+        file.seek(0)  # Reset file pointer to beginning
+        
+        # Handle both regular Flask file uploads and our custom FileStorage objects
+        if hasattr(file, 'stream') and hasattr(file.stream, 'read'):
+            # This is our custom FileStorage object from base64 data
+            file_content = file.stream.read()
+            file.stream.seek(0)  # Reset stream position
+        else:
+            # This is a regular Flask file upload
+            file_content = file.read()
+        
+        # Upload to ImageKit without options to avoid dict errors
+        upload_response = imagekit.upload_file(
+            file=file_content,
+            file_name=unique_filename
+            # No options parameter - this was causing the 'dict' attribute error
+        )
+        
+        if upload_response.response_metadata.http_status_code == 200:
+            return {
+                'success': True,
+                'url': upload_response.url,
+                'file_id': upload_response.file_id,
+                'thumbnail_url': f"{upload_response.url}?tr=w-150,h-150,c-face,q-80,f-webp"
+            }
+        else:
+            return {'success': False, 'error': 'Upload failed'}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Upload error: {str(e)}'}
+
+def upload_tournament_photo_base64(base64_data, tournament_name, tournament_id):
+    """Upload a tournament photo from base64 data using the same reliable method as player photos"""
+    import base64
+    import io
+    
+    try:
+        if not imagekit:
+            return {'success': False, 'error': 'Photo upload service not available. Please contact administrator.'}
+        
+        if not base64_data:
+            return {'success': False, 'error': 'No image data provided'}
+        
+        # Store original base64 data for upload (needed for ImageKit base64 method)
+        original_base64_data = base64_data
+        
+        # Remove data URL prefix if present for validation
+        if base64_data.startswith('data:image/'):
+            base64_data = base64_data.split(',')[1]
+            original_base64_data = base64_data  # Use the cleaned base64 data
+        
+        # Decode base64 image for validation only
+        try:
+            image_data = base64.b64decode(base64_data)
+        except Exception as e:
+            return {'success': False, 'error': f'Invalid image data: {str(e)}'}
+        
+        # Validate file size (max 5MB)
+        file_size = len(image_data)
+        if file_size > 5 * 1024 * 1024:  # 5MB limit
+            return {'success': False, 'error': 'File size too large. Maximum 5MB allowed.'}
+        
+        if file_size == 0:
+            return {'success': False, 'error': 'Image data is empty'}
+        
+        # Generate unique filename - use PNG extension to preserve format
+        unique_filename = f"tournament_{tournament_id}_{tournament_name.replace(' ', '_').lower()}_cropped.png"
+        
+        # Use base64 string approach (Test 3 method that worked successfully)
+        # Note: No options parameter to avoid 'dict' attribute error
+        try:
+            upload_response = imagekit.upload_file(
+                file=original_base64_data,  # Use cleaned base64 string directly (Method 3 from test - WORKING)
+                file_name=unique_filename
+                # No options parameter - this was causing the 'dict' attribute error
+            )
+        except Exception as upload_error:
+            raise upload_error
+        
+        if upload_response.response_metadata.http_status_code == 200:
+            return {
+                'success': True,
+                'url': upload_response.url,
+                'file_id': upload_response.file_id,
+                'thumbnail_url': f"{upload_response.url}?tr=w-150,h-150,c-face,q-80,f-webp"
+            }
+        else:
+            return {'success': False, 'error': 'Upload failed'}
+            
+    except Exception as e:
+        return {'success': False, 'error': f'Upload error: {str(e)}'}
+
+def delete_tournament_photo(file_id):
+    """Delete a tournament photo using the same method as player photos"""
+    try:
+        if not imagekit:
+            return {'success': True, 'warning': 'Photo deletion service not available'}
+        
+        if not file_id:
+            return {'success': True}  # No photo to delete
+        
+        delete_response = imagekit.delete_file(file_id)
+        return {'success': True}
+        
+    except Exception as e:
+        # Don't fail the operation if photo deletion fails
+        print(f"Warning: Failed to delete tournament photo {file_id}: {str(e)}")
+        return {'success': True, 'warning': f'Photo deletion failed: {str(e)}'}
+
+def get_tournament_photo_url(base_url, size='medium'):
+    """Get optimized tournament photo URL for different sizes"""
+    if not base_url:
+        return None
+    
+    size_configs = {
+        'thumbnail': {'width': 50, 'height': 50},
+        'small': {'width': 100, 'height': 100},
+        'medium': {'width': 200, 'height': 200},
+        'large': {'width': 400, 'height': 400}
+    }
+    
+    config = size_configs.get(size, size_configs['medium'])
+    return PhotoManager.get_optimized_url(base_url, **config)
