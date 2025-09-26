@@ -208,8 +208,8 @@
                          data-name="{{ player.name }}">
                         {{ player.name[:2].upper() }}
                     </div>
-                    <span class="rating-badge {% if player.rating >= 750 %}rating-high{% elif player.rating >= 500 %}rating-medium{% else %}rating-low{% endif %} text-white px-3 py-1 rounded-xl text-sm font-bold">
-                        {{ player.rating }}
+                    <span class="rating-badge {% if player.rating and player.rating >= 750 %}rating-high{% elif player.rating and player.rating >= 500 %}rating-medium{% else %}rating-low{% endif %} text-white px-3 py-1 rounded-xl text-sm font-bold">
+                        {{ player.rating if player.rating is not none else 'Unrated' }}
                     </span>
                 </div>
                 

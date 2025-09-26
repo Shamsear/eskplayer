@@ -318,6 +318,26 @@ def migrate_database(conn):
                     print(f"{column_name} column added successfully!")
                 else:
                     print(f"{column_name} column already exists in player_matches table")
+            
+            # Migration 4: Reset rating to NULL for players who haven't played any matches
+            print("Checking for players with rating=300 but no matches played...")
+            cursor.execute("""
+                SELECT COUNT(*) as count FROM players 
+                WHERE rating = 300 AND matches_played = 0
+            """)
+            unplayed_count = cursor.fetchone()['count']
+            
+            if unplayed_count > 0:
+                print(f"Found {unplayed_count} players with rating=300 but no matches played. Updating to NULL...")
+                cursor.execute("""
+                    UPDATE players 
+                    SET rating = NULL 
+                    WHERE rating = 300 AND matches_played = 0
+                """)
+                conn.commit()
+                print(f"Updated {unplayed_count} players' ratings to NULL successfully!")
+            else:
+                print("No unplayed players with rating=300 found")
                 
     except Exception as e:
         print(f"Migration error (non-critical): {e}")
@@ -458,8 +478,8 @@ class TournamentDB:
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO players (name, photo_url, photo_file_id) VALUES (%s, %s, %s) RETURNING id",
-                    (name, photo_url, photo_file_id)
+                    "INSERT INTO players (name, rating, photo_url, photo_file_id) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (name, None, photo_url, photo_file_id)
                 )
                 player_id = cursor.fetchone()['id']
                 conn.commit()
@@ -480,8 +500,8 @@ class TournamentDB:
                 for name in player_names:
                     try:
                         cursor.execute(
-                            "INSERT INTO players (name) VALUES (%s) RETURNING id, name",
-                            (name.strip(),)
+                            "INSERT INTO players (name, rating) VALUES (%s, %s) RETURNING id, name",
+                            (name.strip(), None)
                         )
                         result = cursor.fetchone()
                         added_players.append(result)
@@ -508,7 +528,7 @@ class TournamentDB:
                     query += " WHERE name ILIKE %s"
                     params.append(f"%{search}%")
                 
-                query += " ORDER BY rating DESC, name ASC"
+                query += " ORDER BY rating DESC NULLS LAST, name ASC"
                 
                 if limit:
                     query += " LIMIT %s"
@@ -695,12 +715,18 @@ class TournamentDB:
     @staticmethod
     def _record_null_match(cursor, tournament_id, player1_id, player2_id, conn):
         """Record a null match where both players are absent"""
-        # Get current ratings (for record keeping)
+        # Get current ratings (for record keeping), initialize to 300 if NULL
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
         player1_rating = cursor.fetchone()['rating']
+        if player1_rating is None:
+            player1_rating = 300
+            cursor.execute("UPDATE players SET rating = 300 WHERE id = %s", (player1_id,))
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
         player2_rating = cursor.fetchone()['rating']
+        if player2_rating is None:
+            player2_rating = 300
+            cursor.execute("UPDATE players SET rating = 300 WHERE id = %s", (player2_id,))
         
         # Apply negative points for both absent players (penalty: -15 rating points)
         NULL_MATCH_PENALTY = 15
@@ -736,12 +762,18 @@ class TournamentDB:
     @staticmethod
     def _record_walkover_match(cursor, tournament_id, player1_id, player2_id, player1_absent, player2_absent, conn):
         """Record a walkover match where one player is absent"""
-        # Get current ratings
+        # Get current ratings, initialize to 300 if NULL
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
         player1_rating = cursor.fetchone()['rating']
+        if player1_rating is None:
+            player1_rating = 300
+            cursor.execute("UPDATE players SET rating = 300 WHERE id = %s", (player1_id,))
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
         player2_rating = cursor.fetchone()['rating']
+        if player2_rating is None:
+            player2_rating = 300
+            cursor.execute("UPDATE players SET rating = 300 WHERE id = %s", (player2_id,))
         
         # Determine winner (present player wins by walkover)
         winner_id = player2_id if player1_absent else player1_id
@@ -845,12 +877,16 @@ class TournamentDB:
     @staticmethod
     def _record_normal_match(cursor, tournament_id, player1_id, player2_id, player1_goals, player2_goals, conn):
         """Record a normal match with both players present"""
-        # Get current ratings
+        # Get current ratings, use 300 as base for NULL ratings but don't update yet
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
-        player1_rating = cursor.fetchone()['rating']
+        player1_rating_result = cursor.fetchone()['rating']
+        player1_rating = 300 if player1_rating_result is None else player1_rating_result
+        player1_is_new = player1_rating_result is None
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
-        player2_rating = cursor.fetchone()['rating']
+        player2_rating_result = cursor.fetchone()['rating']
+        player2_rating = 300 if player2_rating_result is None else player2_rating_result
+        player2_is_new = player2_rating_result is None
         
         # Determine winner and calculate enhanced rating changes with goals and clean sheets
         is_draw = player1_goals == player2_goals
@@ -953,7 +989,7 @@ class TournamentDB:
                     FROM player_stats ps
                     JOIN players p ON ps.player_id = p.id
                     WHERE ps.tournament_id = %s
-                    ORDER BY ps.wins DESC, ps.goals_scored DESC, p.rating DESC
+                    ORDER BY p.rating DESC, ps.wins DESC, ps.goals_scored DESC
                 """, (tournament_id,))
                 return cursor.fetchall()
         finally:
@@ -967,6 +1003,7 @@ class TournamentDB:
             with conn.cursor() as cursor:
                 cursor.execute("""
                     SELECT * FROM players
+                    WHERE rating IS NOT NULL
                     ORDER BY rating DESC, matches_won DESC, goals_scored DESC
                 """)
                 return cursor.fetchall()
