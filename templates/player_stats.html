@@ -130,26 +130,51 @@
             <p class="text-xl text-gray-600">View overall and tournament-specific player performance</p>
         </div>
         
-        <!-- Tournament Filter -->
-        {% if tournaments %}
+        <!-- Filters -->
         <div class="glass rounded-2xl p-6 mb-8">
             <h3 class="text-lg font-semibold text-gray-900 mb-4">
-                <i class="fas fa-filter mr-2"></i>Filter by Tournament
+                <i class="fas fa-filter mr-2"></i>Filters
             </h3>
-            <div class="flex flex-wrap gap-3">
-                <a href="{{ url_for('view_player_stats') }}" 
-                   class="px-4 py-2 {% if not selected_tournament %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
-                    <i class="fas fa-globe mr-2"></i>Overall Stats
-                </a>
-                {% for tournament in tournaments %}
-                <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
-                   class="px-4 py-2 {% if selected_tournament and selected_tournament.id == tournament.id %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
-                    <i class="fas fa-trophy mr-2"></i>{{ tournament.name }}
-                </a>
-                {% endfor %}
+            
+            <!-- Tournament Filter -->
+            {% if tournaments %}
+            <div class="mb-6">
+                <h4 class="text-sm font-medium text-gray-700 mb-3">By Tournament</h4>
+                <div class="flex flex-wrap gap-3">
+                    <a href="{{ url_for('view_player_stats', award=award_filter) if award_filter else url_for('view_player_stats') }}" 
+                       class="px-4 py-2 {% if not selected_tournament %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        <i class="fas fa-globe mr-2"></i>Overall Stats
+                    </a>
+                    {% for tournament in tournaments %}
+                    <a href="{{ url_for('view_player_stats', tournament_id=tournament.id, award=award_filter) if award_filter else url_for('view_player_stats', tournament_id=tournament.id) }}" 
+                       class="px-4 py-2 {% if selected_tournament and selected_tournament.id == tournament.id %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        <i class="fas fa-trophy mr-2"></i>{{ tournament.name }}
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Award Filter -->
+            <div>
+                <h4 class="text-sm font-medium text-gray-700 mb-3">By Award Type</h4>
+                <div class="flex flex-wrap gap-3">
+                    <a href="{{ url_for('view_player_stats', tournament_id=selected_tournament.id if selected_tournament else '') }}" 
+                       class="px-4 py-2 {% if not award_filter %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        <i class="fas fa-chart-bar mr-2"></i>All (by Rating)
+                    </a>
+                    <a href="{{ url_for('view_player_stats', award='golden_boot', tournament_id=selected_tournament.id if selected_tournament else '') }}" 
+                       class="px-4 py-2 {% if award_filter == 'golden_boot' %}bg-yellow-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        <i class="fas fa-medal mr-2"></i>🥇 Golden Boot
+                    </a>
+                    <a href="{{ url_for('view_player_stats', award='golden_glove', tournament_id=selected_tournament.id if selected_tournament else '') }}" 
+                       class="px-4 py-2 {% if award_filter == 'golden_glove' %}bg-green-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        <i class="fas fa-shield-alt mr-2"></i>🧤 Golden Glove
+                    </a>
+                </div>
             </div>
         </div>
-        {% endif %}
+        
         
         <!-- Statistics Display -->
         {% if selected_tournament %}
@@ -157,7 +182,14 @@
         <div class="glass rounded-3xl p-8">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-2xl font-display font-bold text-gray-900">
-                    <i class="fas fa-trophy mr-3"></i>{{ selected_tournament.name }} Statistics
+                    <i class="fas fa-trophy mr-3"></i>{{ selected_tournament.name }} 
+                    {% if award_filter == 'golden_boot' %}
+                        - Golden Boot Rankings
+                    {% elif award_filter == 'golden_glove' %}
+                        - Golden Glove Rankings
+                    {% else %}
+                        Statistics
+                    {% endif %}
                 </h3>
                 <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium">
                     {{ tournament_stats|length }} players
@@ -171,17 +203,27 @@
                         <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4 font-semibold text-gray-900">#</th>
                             <th class="text-left py-3 px-4 font-semibold text-gray-900">Player</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            {% if award_filter == 'golden_boot' %}
+                                <th class="text-center py-3 px-4 font-semibold text-yellow-600">🥇 Goals Scored</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals/Match</th>
+                            {% elif award_filter == 'golden_glove' %}
+                                <th class="text-center py-3 px-4 font-semibold text-green-600">🧤 Glove Points</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Points/Match</th>
+                            {% else %}
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            {% endif %}
                             <th class="text-center py-3 px-4 font-semibold text-gray-900">Matches</th>
                             <th class="text-center py-3 px-4 font-semibold text-gray-900">W-D-L</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
+                            {% if award_filter != 'golden_boot' and award_filter != 'golden_glove' %}
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for stat in tournament_stats %}
-                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50">
-                            <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
+                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50 {% if loop.first and award_filter %}bg-yellow-50{% endif %}">
+                            <td class="py-3 px-4 text-gray-600 {% if loop.first and award_filter %}font-bold{% endif %}">{{ loop.index }}</td>
                             <td class="py-3 px-4">
                                 <div class="flex items-center">
                                     {% if stat.photo_url %}
@@ -194,18 +236,37 @@
                                             {{ stat.name[:2].upper() }}
                                         </div>
                                     {% endif %}
-                                    <span class="font-semibold text-gray-900">{{ stat.name }}</span>
+                                    <span class="font-semibold text-gray-900 {% if loop.first and award_filter %}text-lg{% endif %}">{{ stat.name }}</span>
+                                    {% if loop.first and award_filter == 'golden_boot' %}
+                                        <span class="ml-2 text-yellow-600">🥇</span>
+                                    {% elif loop.first and award_filter == 'golden_glove' %}
+                                        <span class="ml-2 text-green-600">🧤</span>
+                                    {% endif %}
                                 </div>
                             </td>
-                            <td class="py-3 px-4 text-center">
-                                <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
-                            </td>
+                            {% if award_filter == 'golden_boot' %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="{% if loop.first %}text-yellow-600 font-bold text-lg{% else %}text-gray-600{% endif %}">{{ stat.goals_scored }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_per_match if stat.goals_per_match else '0.0' }}</td>
+                            {% elif award_filter == 'golden_glove' %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="{% if loop.first %}text-green-600 font-bold text-lg{% else %}text-gray-600{% endif %}">{{ stat.golden_glove_points if stat.golden_glove_points is not none else '0' }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ "%.1f"|format(stat.golden_glove_points / stat.matches_played) if stat.matches_played > 0 and stat.golden_glove_points is not none else '0.0' }}</td>
+                            {% else %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
+                                </td>
+                            {% endif %}
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
                             <td class="py-3 px-4 text-center">
                                 <span class="text-green-600 font-semibold">{{ stat.wins }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.draws }}</span>-<span class="text-red-600 font-semibold">{{ stat.losses }}</span>
                             </td>
-                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
-                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
+                            {% if award_filter != 'golden_boot' and award_filter != 'golden_glove' %}
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -224,7 +285,14 @@
         <div class="glass rounded-3xl p-8">
             <div class="flex items-center justify-between mb-6">
                 <h3 class="text-2xl font-display font-bold text-gray-900">
-                    <i class="fas fa-globe mr-3"></i>Overall Player Statistics
+                    <i class="fas fa-globe mr-3"></i>Overall Player 
+                    {% if award_filter == 'golden_boot' %}
+                        - Golden Boot Rankings
+                    {% elif award_filter == 'golden_glove' %}
+                        - Golden Glove Rankings
+                    {% else %}
+                        Statistics
+                    {% endif %}
                 </h3>
                 <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
                     {{ overall_stats|length }} players
@@ -238,18 +306,28 @@
                         <tr class="border-b border-gray-200">
                             <th class="text-left py-3 px-4 font-semibold text-gray-900">#</th>
                             <th class="text-left py-3 px-4 font-semibold text-gray-900">Player</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            {% if award_filter == 'golden_boot' %}
+                                <th class="text-center py-3 px-4 font-semibold text-yellow-600">🥇 Goals Scored</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals/Match</th>
+                            {% elif award_filter == 'golden_glove' %}
+                                <th class="text-center py-3 px-4 font-semibold text-green-600">🧤 Glove Points</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Points/Match</th>
+                            {% else %}
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Rating</th>
+                            {% endif %}
                             <th class="text-center py-3 px-4 font-semibold text-gray-900">Matches</th>
                             <th class="text-center py-3 px-4 font-semibold text-gray-900">W-D-L</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
-                            <th class="text-center py-3 px-4 font-semibold text-gray-900">Win %</th>
+                            {% if award_filter != 'golden_boot' and award_filter != 'golden_glove' %}
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Goals</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Conceded</th>
+                                <th class="text-center py-3 px-4 font-semibold text-gray-900">Win %</th>
+                            {% endif %}
                         </tr>
                     </thead>
                     <tbody>
                         {% for stat in overall_stats %}
-                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50">
-                            <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
+                        <tr class="stats-card border-b border-gray-100 hover:bg-gray-50/50 {% if loop.first and award_filter %}bg-yellow-50{% endif %}">
+                            <td class="py-3 px-4 text-gray-600 {% if loop.first and award_filter %}font-bold{% endif %}">{{ loop.index }}</td>
                             <td class="py-3 px-4">
                                 <div class="flex items-center">
                                     {% if stat.photo_url %}
@@ -262,27 +340,46 @@
                                             {{ stat.name[:2].upper() }}
                                         </div>
                                     {% endif %}
-                                    <span class="font-semibold text-gray-900">{{ stat.name }}</span>
+                                    <span class="font-semibold text-gray-900 {% if loop.first and award_filter %}text-lg{% endif %}">{{ stat.name }}</span>
+                                    {% if loop.first and award_filter == 'golden_boot' %}
+                                        <span class="ml-2 text-yellow-600">🥇</span>
+                                    {% elif loop.first and award_filter == 'golden_glove' %}
+                                        <span class="ml-2 text-green-600">🧤</span>
+                                    {% endif %}
                                 </div>
                             </td>
-                            <td class="py-3 px-4 text-center">
-                                <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
-                            </td>
+                            {% if award_filter == 'golden_boot' %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="{% if loop.first %}text-yellow-600 font-bold text-lg{% else %}text-gray-600{% endif %}">{{ stat.goals_scored }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_per_match if stat.goals_per_match else '0.0' }}</td>
+                            {% elif award_filter == 'golden_glove' %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="{% if loop.first %}text-green-600 font-bold text-lg{% else %}text-gray-600{% endif %}">{{ stat.golden_glove_points if stat.golden_glove_points is not none else '0' }}</span>
+                                </td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ "%.1f"|format(stat.golden_glove_points / stat.matches_played) if stat.matches_played > 0 and stat.golden_glove_points is not none else '0.0' }}</td>
+                            {% else %}
+                                <td class="py-3 px-4 text-center">
+                                    <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
+                                </td>
+                            {% endif %}
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
                             <td class="py-3 px-4 text-center">
                                 <span class="text-green-600 font-semibold">{{ stat.matches_won }}</span>-<span class="text-yellow-600 font-semibold">{{ stat.matches_drawn }}</span>-<span class="text-red-600 font-semibold">{{ stat.matches_lost }}</span>
                             </td>
-                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
-                            <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
-                            <td class="py-3 px-4 text-center">
-                                {% if stat.matches_played > 0 %}
-                                    <span class="{% if (stat.matches_won / stat.matches_played * 100) >= 70 %}text-green-600{% elif (stat.matches_won / stat.matches_played * 100) >= 40 %}text-yellow-600{% else %}text-red-600{% endif %} font-semibold">
-                                        {{ "%.1f"|format(stat.matches_won / stat.matches_played * 100) }}%
-                                    </span>
-                                {% else %}
-                                    <span class="text-gray-400">-</span>
-                                {% endif %}
-                            </td>
+                            {% if award_filter != 'golden_boot' and award_filter != 'golden_glove' %}
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_scored }}</td>
+                                <td class="py-3 px-4 text-center text-gray-600">{{ stat.goals_conceded }}</td>
+                                <td class="py-3 px-4 text-center">
+                                    {% if stat.matches_played > 0 %}
+                                        <span class="{% if (stat.matches_won / stat.matches_played * 100) >= 70 %}text-green-600{% elif (stat.matches_won / stat.matches_played * 100) >= 40 %}text-yellow-600{% else %}text-red-600{% endif %} font-semibold">
+                                            {{ "%.1f"|format(stat.matches_won / stat.matches_played * 100) }}%
+                                        </span>
+                                    {% else %}
+                                        <span class="text-gray-400">-</span>
+                                    {% endif %}
+                                </td>
+                            {% endif %}
                         </tr>
                         {% endfor %}
                     </tbody>

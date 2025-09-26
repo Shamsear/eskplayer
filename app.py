@@ -93,6 +93,10 @@ def admin_dashboard():
     players = TournamentDB.get_all_players(limit=10)
     tournaments = TournamentDB.get_all_tournaments()
     
+    # Get awards data
+    golden_boot_overall = TournamentDB.get_golden_boot_overall()
+    golden_glove_overall = TournamentDB.get_golden_glove_overall()
+    
     # Get comprehensive statistics
     conn = get_db_connection()
     try:
@@ -149,7 +153,9 @@ def admin_dashboard():
                          players=players,
                          tournaments=tournaments,
                          stats=stats,
-                         recent_matches=recent_matches)
+                         recent_matches=recent_matches,
+                         golden_boot_overall=golden_boot_overall,
+                         golden_glove_overall=golden_glove_overall)
 
 # Player Management Routes
 @app.route('/admin/players/add', methods=['GET', 'POST'])
@@ -678,6 +684,7 @@ def player_details(player_id):
     tournament_participation = TournamentDB.get_player_tournament_participation(player_id)
     rating_history = TournamentDB.get_player_rating_history(player_id)
     vs_opponents = TournamentDB.get_player_vs_opponents(player_id)
+    player_awards = TournamentDB.get_player_awards(player_id)
     
     # Calculate additional statistics
     total_goals_for = sum([match['player_goals'] for match in match_history])
@@ -708,7 +715,8 @@ def player_details(player_id):
                          total_goals_for=total_goals_for,
                          total_goals_against=total_goals_against,
                          recent_form=recent_form,
-                         rating_trend=rating_trend)
+                         rating_trend=rating_trend,
+                         player_awards=player_awards)
 
 @app.route('/admin/stats')
 @admin_required
@@ -718,9 +726,45 @@ def view_player_stats():
     overall_stats = TournamentDB.get_overall_player_stats()
     tournaments = TournamentDB.get_all_tournaments()
     
-    # Get tournament-specific stats if requested
+    # Check for award filter
+    award_filter = request.args.get('award')
+    
+    # Sort overall stats based on award filter
+    if award_filter == 'golden_boot':
+        overall_stats = sorted(overall_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
+    elif award_filter == 'golden_glove':
+        # Filter players with at least 4 matches for overall stats, sort by highest Golden Glove points
+        qualified_stats = [s for s in overall_stats if s['matches_played'] >= 4]
+        unqualified_stats = [s for s in overall_stats if s['matches_played'] < 4]
+        qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+        overall_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+    else:
+        # Default sort by rating (already sorted by database query)
+        pass
+    
+    # Add calculated fields for overall stats
+    for stat in overall_stats:
+        stat['goals_per_match'] = round(stat['goals_scored'] / max(stat['matches_played'], 1), 1)
+        stat['goals_conceded_per_match'] = round(stat['goals_conceded'] / max(stat['matches_played'], 1), 1)
+    
+    # Get award data
+    golden_ball_overall = TournamentDB.get_golden_ball_overall()
+    golden_boot_overall = TournamentDB.get_golden_boot_overall()
+    golden_glove_overall = TournamentDB.get_golden_glove_points_overall()
+    golden_ball_top = TournamentDB.get_golden_ball_top_players(10)
+    golden_boot_top = TournamentDB.get_golden_boot_top_players(10)
+    golden_glove_top = TournamentDB.get_golden_glove_points_top_players(10)
+    
+    # Get tournament-specific stats and awards if requested
     tournament_stats = []
     selected_tournament = None
+    golden_ball_tournament = None
+    golden_boot_tournament = None
+    golden_glove_tournament = None
+    golden_ball_tournament_top = []
+    golden_boot_tournament_top = []
+    golden_glove_tournament_top = []
+    
     tournament_id = request.args.get('tournament_id')
     if tournament_id:
         try:
@@ -728,6 +772,29 @@ def view_player_stats():
             selected_tournament = next((t for t in tournaments if t['id'] == tournament_id), None)
             if selected_tournament:
                 tournament_stats = TournamentDB.get_player_tournament_stats(tournament_id)
+                # Sort based on award filter
+                if award_filter == 'golden_boot':
+                    tournament_stats = sorted(tournament_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
+                elif award_filter == 'golden_glove':
+                    # Filter players with at least 3 matches for tournament stats, sort by highest Golden Glove points
+                    qualified_stats = [s for s in tournament_stats if s['matches_played'] >= 3]
+                    unqualified_stats = [s for s in tournament_stats if s['matches_played'] < 3]
+                    qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+                    tournament_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+                else:
+                    # Default sort by rating
+                    tournament_stats = sorted(tournament_stats, key=lambda x: (x['rating'] or 0, x['wins'], x['goals_scored']), reverse=True)
+                
+                # Add calculated fields
+                for stat in tournament_stats:
+                    stat['goals_per_match'] = round(stat['goals_scored'] / max(stat['matches_played'], 1), 1)
+                    stat['goals_conceded_per_match'] = round(stat['goals_conceded'] / max(stat['matches_played'], 1), 1)
+                golden_ball_tournament = TournamentDB.get_golden_ball_tournament(tournament_id)
+                golden_boot_tournament = TournamentDB.get_golden_boot_tournament(tournament_id)
+                golden_glove_tournament = TournamentDB.get_golden_glove_points_tournament(tournament_id)
+                golden_ball_tournament_top = TournamentDB.get_golden_ball_top_players(10, tournament_id)
+                golden_boot_tournament_top = TournamentDB.get_golden_boot_top_players(10, tournament_id)
+                golden_glove_tournament_top = TournamentDB.get_golden_glove_points_top_players(10, tournament_id)
         except ValueError:
             pass
     
@@ -735,7 +802,20 @@ def view_player_stats():
                          overall_stats=overall_stats,
                          tournaments=tournaments,
                          tournament_stats=tournament_stats,
-                         selected_tournament=selected_tournament)
+                         selected_tournament=selected_tournament,
+                         award_filter=award_filter,
+                         golden_ball_overall=golden_ball_overall,
+                         golden_boot_overall=golden_boot_overall,
+                         golden_glove_overall=golden_glove_overall,
+                         golden_ball_top=golden_ball_top,
+                         golden_boot_top=golden_boot_top,
+                         golden_glove_top=golden_glove_top,
+                         golden_ball_tournament=golden_ball_tournament,
+                         golden_boot_tournament=golden_boot_tournament,
+                         golden_glove_tournament=golden_glove_tournament,
+                         golden_ball_tournament_top=golden_ball_tournament_top,
+                         golden_boot_tournament_top=golden_boot_tournament_top,
+                         golden_glove_tournament_top=golden_glove_tournament_top)
 
 
 @app.route('/admin/matches/bulk', methods=['GET', 'POST'])

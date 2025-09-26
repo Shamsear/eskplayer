@@ -66,6 +66,12 @@ def init_db():
                         ALTER TABLE players ADD COLUMN matches_lost INTEGER DEFAULT 0;
                         UPDATE players SET matches_lost = losses WHERE losses IS NOT NULL;
                     END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='clean_sheets') THEN
+                        ALTER TABLE players ADD COLUMN clean_sheets INTEGER DEFAULT 0;
+                    END IF;
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='players' AND column_name='golden_glove_points') THEN
+                        ALTER TABLE players ADD COLUMN golden_glove_points INTEGER DEFAULT 0;
+                    END IF;
                 END $$;
             """)
             
@@ -127,6 +133,8 @@ def init_db():
                     goals_scored INTEGER DEFAULT 0,
                     goals_conceded INTEGER DEFAULT 0,
                     rating_change INTEGER DEFAULT 0,
+                    clean_sheets INTEGER DEFAULT 0,
+                    golden_glove_points INTEGER DEFAULT 0,
                     UNIQUE(player_id, tournament_id)
                 );
             ''')
@@ -1062,6 +1070,14 @@ class TournamentDB:
         """, (match_id, tournament_id, player1_id, player2_id, player1_goals, player2_goals,
               winner_id, is_draw, player1_rating, player2_rating, new_rating1, new_rating2))
         
+        # Calculate Golden Glove points for each player
+        glove_points1 = TournamentDB.calculate_golden_glove_points(
+            player1_goals, player2_goals, winner_id == player1_id, is_draw
+        )
+        glove_points2 = TournamentDB.calculate_golden_glove_points(
+            player2_goals, player1_goals, winner_id == player2_id, is_draw
+        )
+        
         # Update player ratings and stats
         cursor.execute("""
             UPDATE players SET 
@@ -1071,13 +1087,18 @@ class TournamentDB:
                 matches_drawn = matches_drawn + %s,
                 matches_lost = matches_lost + %s,
                 goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                goals_conceded = goals_conceded + %s,
+                clean_sheets = clean_sheets + %s,
+                golden_glove_points = golden_glove_points + %s
             WHERE id = %s
         """, (new_rating1, 
               1 if winner_id == player1_id else 0,
               1 if is_draw else 0,
               1 if winner_id == player2_id else 0,
-              player1_goals, player2_goals, player1_id))
+              player1_goals, player2_goals,
+              1 if player2_goals == 0 else 0,
+              glove_points1,
+              player1_id))
         
         cursor.execute("""
             UPDATE players SET 
@@ -1087,23 +1108,28 @@ class TournamentDB:
                 matches_drawn = matches_drawn + %s,
                 matches_lost = matches_lost + %s,
                 goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                goals_conceded = goals_conceded + %s,
+                clean_sheets = clean_sheets + %s,
+                golden_glove_points = golden_glove_points + %s
             WHERE id = %s
         """, (new_rating2, 
               1 if winner_id == player2_id else 0,
               1 if is_draw else 0,
               1 if winner_id == player1_id else 0,
-              player2_goals, player1_goals, player2_id))
+              player2_goals, player1_goals,
+              1 if player1_goals == 0 else 0,
+              glove_points2,
+              player2_id))
         
         # Update tournament stats
-        for player_id, goals_scored, goals_conceded, is_winner in [
-            (player1_id, player1_goals, player2_goals, winner_id == player1_id),
-            (player2_id, player2_goals, player1_goals, winner_id == player2_id)
+        for player_id, goals_scored, goals_conceded, is_winner, glove_points in [
+            (player1_id, player1_goals, player2_goals, winner_id == player1_id, glove_points1),
+            (player2_id, player2_goals, player1_goals, winner_id == player2_id, glove_points2)
         ]:
             cursor.execute("""
                 INSERT INTO player_stats 
-                (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
-                VALUES (%s, %s, 1, %s, %s, %s, %s, %s)
+                (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, golden_glove_points)
+                VALUES (%s, %s, 1, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (player_id, tournament_id)
                 DO UPDATE SET
                     matches_played = player_stats.matches_played + 1,
@@ -1111,16 +1137,22 @@ class TournamentDB:
                     draws = player_stats.draws + %s,
                     losses = player_stats.losses + %s,
                     goals_scored = player_stats.goals_scored + %s,
-                    goals_conceded = player_stats.goals_conceded + %s
+                    goals_conceded = player_stats.goals_conceded + %s,
+                    clean_sheets = player_stats.clean_sheets + %s,
+                    golden_glove_points = player_stats.golden_glove_points + %s
             """, (player_id, tournament_id,
                   1 if is_winner else 0,
                   1 if is_draw else 0,
                   1 if not is_winner and not is_draw else 0,
                   goals_scored, goals_conceded,
+                  1 if goals_conceded == 0 else 0,
+                  glove_points,
                   1 if is_winner else 0,
                   1 if is_draw else 0,
                   1 if not is_winner and not is_draw else 0,
-                  goals_scored, goals_conceded))
+                  goals_scored, goals_conceded,
+                  1 if goals_conceded == 0 else 0,
+                  glove_points))
         
         conn.commit()
         return match_id
@@ -1132,7 +1164,7 @@ class TournamentDB:
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT p.name, ps.*, p.rating
+                    SELECT p.name, p.photo_url, ps.*, p.rating
                     FROM player_stats ps
                     JOIN players p ON ps.player_id = p.id
                     WHERE ps.tournament_id = %s
@@ -1178,7 +1210,9 @@ class TournamentDB:
                         matches_drawn = 0,
                         matches_lost = 0,
                         goals_scored = 0,
-                        goals_conceded = 0
+                        goals_conceded = 0,
+                        clean_sheets = 0,
+                        golden_glove_points = 0
                 """)
                 
                 # 2) Clear tournament-specific aggregates
@@ -2509,5 +2543,405 @@ class TournamentDB:
         except Exception as e:
             conn.rollback()
             raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_ball_overall():
+        """Get overall Golden Ball winner (best overall player based on rating and performance)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, p.rating, p.matches_played,
+                           p.matches_won, p.matches_drawn, p.matches_lost,
+                           p.goals_scored, p.goals_conceded,
+                           CASE WHEN p.matches_played > 0 
+                                THEN ROUND((p.matches_won * 100.0 / p.matches_played), 1) 
+                                ELSE 0 END as win_percentage,
+                           ROUND(p.goals_scored::decimal / GREATEST(p.matches_played, 1), 2) as goals_per_match,
+                           ROUND(p.goals_conceded::decimal / GREATEST(p.matches_played, 1), 2) as goals_conceded_per_match
+                    FROM players p
+                    WHERE p.matches_played >= 5
+                    ORDER BY p.rating DESC, win_percentage DESC, p.matches_played DESC
+                    LIMIT 1
+                """)
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_ball_tournament(tournament_id):
+        """Get Golden Ball winner for a specific tournament (best overall player)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, p.rating, ps.matches_played,
+                           ps.wins, ps.draws, ps.losses,
+                           ps.goals_scored, ps.goals_conceded,
+                           CASE WHEN ps.matches_played > 0 
+                                THEN ROUND((ps.wins * 100.0 / ps.matches_played), 1) 
+                                ELSE 0 END as win_percentage,
+                           ROUND(ps.goals_scored::decimal / GREATEST(ps.matches_played, 1), 2) as goals_per_match,
+                           ROUND(ps.goals_conceded::decimal / GREATEST(ps.matches_played, 1), 2) as goals_conceded_per_match
+                    FROM players p
+                    JOIN player_stats ps ON p.id = ps.player_id
+                    WHERE ps.tournament_id = %s AND ps.matches_played >= 3
+                    ORDER BY win_percentage DESC, ps.goals_scored DESC, ps.goals_conceded ASC
+                    LIMIT 1
+                """, (tournament_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_ball_top_players(limit=10, tournament_id=None):
+        """Get top Golden Ball candidates (best overall players)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                if tournament_id:
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.rating, ps.matches_played,
+                               ps.wins, ps.draws, ps.losses,
+                               ps.goals_scored, ps.goals_conceded,
+                               CASE WHEN ps.matches_played > 0 
+                                    THEN ROUND((ps.wins * 100.0 / ps.matches_played), 1) 
+                                    ELSE 0 END as win_percentage,
+                               ROUND(ps.goals_scored::decimal / GREATEST(ps.matches_played, 1), 2) as goals_per_match,
+                               ROUND(ps.goals_conceded::decimal / GREATEST(ps.matches_played, 1), 2) as goals_conceded_per_match
+                        FROM players p
+                        JOIN player_stats ps ON p.id = ps.player_id
+                        WHERE ps.tournament_id = %s AND ps.matches_played >= 3
+                        ORDER BY win_percentage DESC, ps.goals_scored DESC, ps.goals_conceded ASC
+                        LIMIT %s
+                    """, (tournament_id, limit))
+                else:
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.rating, p.matches_played,
+                               p.matches_won, p.matches_drawn, p.matches_lost,
+                               p.goals_scored, p.goals_conceded,
+                               CASE WHEN p.matches_played > 0 
+                                    THEN ROUND((p.matches_won * 100.0 / p.matches_played), 1) 
+                                    ELSE 0 END as win_percentage,
+                               ROUND(p.goals_scored::decimal / GREATEST(p.matches_played, 1), 2) as goals_per_match,
+                               ROUND(p.goals_conceded::decimal / GREATEST(p.matches_played, 1), 2) as goals_conceded_per_match
+                        FROM players p
+                        WHERE p.matches_played >= 5
+                        ORDER BY p.rating DESC, win_percentage DESC, p.matches_played DESC
+                        LIMIT %s
+                    """, (limit,))
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_boot_overall():
+        """Get overall Golden Boot winner (most goals scored)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, p.goals_scored, p.matches_played,
+                           ROUND(p.goals_scored::decimal / GREATEST(p.matches_played, 1), 2) as goals_per_match
+                    FROM players p
+                    WHERE p.matches_played > 0
+                    ORDER BY p.goals_scored DESC, goals_per_match DESC
+                    LIMIT 1
+                """)
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_glove_overall():
+        """Get overall Golden Glove winner (best goals conceded per match, min 10 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, p.goals_conceded, p.matches_played,
+                           ROUND(p.goals_conceded::decimal / p.matches_played, 2) as goals_conceded_per_match,
+                           p.matches_played - (p.matches_won + p.matches_drawn + p.matches_lost) as clean_sheets
+                    FROM players p
+                    WHERE p.matches_played >= 10
+                    ORDER BY goals_conceded_per_match ASC, p.goals_conceded ASC
+                    LIMIT 1
+                """)
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_boot_tournament(tournament_id):
+        """Get Golden Boot winner for a specific tournament"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, ps.goals_scored, ps.matches_played,
+                           ROUND(ps.goals_scored::decimal / GREATEST(ps.matches_played, 1), 2) as goals_per_match
+                    FROM players p
+                    JOIN player_stats ps ON p.id = ps.player_id
+                    WHERE ps.tournament_id = %s AND ps.matches_played > 0
+                    ORDER BY ps.goals_scored DESC, goals_per_match DESC
+                    LIMIT 1
+                """, (tournament_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_glove_tournament(tournament_id):
+        """Get Golden Glove winner for a specific tournament (min 10 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, ps.goals_conceded, ps.matches_played,
+                           ROUND(ps.goals_conceded::decimal / ps.matches_played, 2) as goals_conceded_per_match
+                    FROM players p
+                    JOIN player_stats ps ON p.id = ps.player_id
+                    WHERE ps.tournament_id = %s AND ps.matches_played >= 10
+                    ORDER BY goals_conceded_per_match ASC, ps.goals_conceded ASC
+                    LIMIT 1
+                """, (tournament_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_boot_top_players(limit=10, tournament_id=None):
+        """Get top Golden Boot candidates"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                if tournament_id:
+                    cursor.execute("""
+                        SELECT p.id, p.name, ps.goals_scored, ps.matches_played,
+                               ROUND(ps.goals_scored::decimal / GREATEST(ps.matches_played, 1), 2) as goals_per_match
+                        FROM players p
+                        JOIN player_stats ps ON p.id = ps.player_id
+                        WHERE ps.tournament_id = %s AND ps.matches_played > 0
+                        ORDER BY ps.goals_scored DESC, goals_per_match DESC
+                        LIMIT %s
+                    """, (tournament_id, limit))
+                else:
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.goals_scored, p.matches_played,
+                               ROUND(p.goals_scored::decimal / GREATEST(p.matches_played, 1), 2) as goals_per_match
+                        FROM players p
+                        WHERE p.matches_played > 0
+                        ORDER BY p.goals_scored DESC, goals_per_match DESC
+                        LIMIT %s
+                    """, (limit,))
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_glove_top_players(limit=10, tournament_id=None):
+        """Get top Golden Glove candidates (min 10 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                if tournament_id:
+                    cursor.execute("""
+                        SELECT p.id, p.name, ps.goals_conceded, ps.matches_played,
+                               ROUND(ps.goals_conceded::decimal / ps.matches_played, 2) as goals_conceded_per_match
+                        FROM players p
+                        JOIN player_stats ps ON p.id = ps.player_id
+                        WHERE ps.tournament_id = %s AND ps.matches_played >= 10
+                        ORDER BY goals_conceded_per_match ASC, ps.goals_conceded ASC
+                        LIMIT %s
+                    """, (tournament_id, limit))
+                else:
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.goals_conceded, p.matches_played,
+                               ROUND(p.goals_conceded::decimal / p.matches_played, 2) as goals_conceded_per_match
+                        FROM players p
+                        WHERE p.matches_played >= 10
+                        ORDER BY goals_conceded_per_match ASC, p.goals_conceded ASC
+                        LIMIT %s
+                    """, (limit,))
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def calculate_golden_glove_points(player_goals, opponent_goals, is_winner, is_draw):
+        """Calculate Golden Glove points for a match based on the new system:
+        - Clean Sheet (+5) + Win bonus (+2) = 7 pts (if win with clean sheet)
+        - Clean Sheet (+5) = 5 pts (if draw with clean sheet)
+        - Goal conceded penalty (-1 per goal)
+        - Win bonus (+2) if winner
+        """
+        points = 0
+        
+        # Clean sheet bonus
+        if opponent_goals == 0:
+            points += 5
+        
+        # Win bonus
+        if is_winner:
+            points += 2
+        
+        # Goal conceded penalty
+        points -= opponent_goals
+        
+        return points
+    
+    @staticmethod
+    def get_golden_glove_points_overall():
+        """Get overall Golden Glove winner by points (min 4 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, p.golden_glove_points, p.matches_played, p.clean_sheets,
+                           ROUND(p.golden_glove_points::decimal / p.matches_played, 2) as points_per_match
+                    FROM players p
+                    WHERE p.matches_played >= 4
+                    ORDER BY p.golden_glove_points DESC, points_per_match DESC
+                    LIMIT 1
+                """)
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_glove_points_tournament(tournament_id):
+        """Get Golden Glove winner for a specific tournament by points (min 4 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT p.id, p.name, ps.golden_glove_points, ps.matches_played, ps.clean_sheets,
+                           ROUND(ps.golden_glove_points::decimal / ps.matches_played, 2) as points_per_match
+                    FROM players p
+                    JOIN player_stats ps ON p.id = ps.player_id
+                    WHERE ps.tournament_id = %s AND ps.matches_played >= 4
+                    ORDER BY ps.golden_glove_points DESC, points_per_match DESC
+                    LIMIT 1
+                """, (tournament_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_golden_glove_points_top_players(limit=10, tournament_id=None):
+        """Get top Golden Glove candidates by points (min 4 matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                if tournament_id:
+                    cursor.execute("""
+                        SELECT p.id, p.name, ps.golden_glove_points, ps.matches_played, ps.clean_sheets,
+                               ROUND(ps.golden_glove_points::decimal / ps.matches_played, 2) as points_per_match
+                        FROM players p
+                        JOIN player_stats ps ON p.id = ps.player_id
+                        WHERE ps.tournament_id = %s AND ps.matches_played >= 4
+                        ORDER BY ps.golden_glove_points DESC, points_per_match DESC
+                        LIMIT %s
+                    """, (tournament_id, limit))
+                else:
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.golden_glove_points, p.matches_played, p.clean_sheets,
+                               ROUND(p.golden_glove_points::decimal / p.matches_played, 2) as points_per_match
+                        FROM players p
+                        WHERE p.matches_played >= 4
+                        ORDER BY p.golden_glove_points DESC, points_per_match DESC
+                        LIMIT %s
+                    """, (limit,))
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_player_awards(player_id):
+        """Get all Golden Boot and Golden Glove awards for a player"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                awards = []
+                
+                # Check overall Golden Ball
+                golden_ball_overall = TournamentDB.get_golden_ball_overall()
+                if golden_ball_overall and golden_ball_overall['id'] == player_id:
+                    awards.append({
+                        'type': 'Golden Ball',
+                        'scope': 'Overall',
+                        'tournament': None,
+                        'value': golden_ball_overall['rating'],
+                        'description': f"Best overall player - {golden_ball_overall['rating']} rating, {golden_ball_overall['win_percentage']}% win rate"
+                    })
+                
+                # Check overall Golden Boot
+                golden_boot_overall = TournamentDB.get_golden_boot_overall()
+                if golden_boot_overall and golden_boot_overall['id'] == player_id:
+                    awards.append({
+                        'type': 'Golden Boot',
+                        'scope': 'Overall',
+                        'tournament': None,
+                        'value': golden_boot_overall['goals_scored'],
+                        'description': f"{golden_boot_overall['goals_scored']} goals in {golden_boot_overall['matches_played']} matches"
+                    })
+                
+                # Check overall Golden Glove
+                golden_glove_overall = TournamentDB.get_golden_glove_overall()
+                if golden_glove_overall and golden_glove_overall['id'] == player_id:
+                    awards.append({
+                        'type': 'Golden Glove',
+                        'scope': 'Overall',
+                        'tournament': None,
+                        'value': golden_glove_overall['goals_conceded_per_match'],
+                        'description': f"{golden_glove_overall['goals_conceded_per_match']} goals conceded per match"
+                    })
+                
+                # Check tournament-specific awards
+                cursor.execute("""
+                    SELECT DISTINCT t.id, t.name
+                    FROM tournaments t
+                    JOIN player_stats ps ON t.id = ps.tournament_id
+                    WHERE ps.player_id = %s
+                """, (player_id,))
+                tournaments = cursor.fetchall()
+                
+                for tournament in tournaments:
+                    # Check Golden Ball for this tournament
+                    golden_ball_tournament = TournamentDB.get_golden_ball_tournament(tournament['id'])
+                    if golden_ball_tournament and golden_ball_tournament['id'] == player_id:
+                        awards.append({
+                            'type': 'Golden Ball',
+                            'scope': 'Tournament',
+                            'tournament': tournament['name'],
+                            'value': golden_ball_tournament['win_percentage'],
+                            'description': f"Best overall player in {tournament['name']} - {golden_ball_tournament['win_percentage']}% win rate"
+                        })
+                    
+                    # Check Golden Boot for this tournament
+                    golden_boot_tournament = TournamentDB.get_golden_boot_tournament(tournament['id'])
+                    if golden_boot_tournament and golden_boot_tournament['id'] == player_id:
+                        awards.append({
+                            'type': 'Golden Boot',
+                            'scope': 'Tournament',
+                            'tournament': tournament['name'],
+                            'value': golden_boot_tournament['goals_scored'],
+                            'description': f"{golden_boot_tournament['goals_scored']} goals in {tournament['name']}"
+                        })
+                    
+                    # Check Golden Glove for this tournament
+                    golden_glove_tournament = TournamentDB.get_golden_glove_tournament(tournament['id'])
+                    if golden_glove_tournament and golden_glove_tournament['id'] == player_id:
+                        awards.append({
+                            'type': 'Golden Glove',
+                            'scope': 'Tournament',
+                            'tournament': tournament['name'],
+                            'value': golden_glove_tournament['goals_conceded_per_match'],
+                            'description': f"{golden_glove_tournament['goals_conceded_per_match']} goals conceded per match in {tournament['name']}"
+                        })
+                
+                return awards
         finally:
             conn.close()
