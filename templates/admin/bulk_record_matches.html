@@ -870,6 +870,14 @@
                 validateMatch(currentMatchIndex);
             });
             
+            // Add event listener for guest name input
+            const guestNameInput = document.getElementById(`match_${currentMatchIndex}_guest_name`);
+            if (guestNameInput) {
+                guestNameInput.addEventListener('input', function() {
+                    validateMatch(currentMatchIndex);
+                });
+            }
+            
             matchCount++;
             document.getElementById('match_count').value = matchCount;
             updateSubmitButton();
@@ -1057,8 +1065,22 @@
                 const index = matchRow.getAttribute('data-match-index');
                 const player1 = document.getElementById(`match_${index}_player1_id`);
                 const player2 = document.getElementById(`match_${index}_player2_id`);
+                const isGuestMatch = document.getElementById(`match_${index}_is_guest_match`);
+                const guestName = document.getElementById(`match_${index}_guest_name`);
                 
-                if (player1 && player2 && player1.value && player2.value && player1.value !== player2.value) {
+                let isValidMatch = false;
+                
+                if (player1 && player1.value) {
+                    if (isGuestMatch && isGuestMatch.checked) {
+                        // For guest matches: need player1 (tournament player) and guest name
+                        isValidMatch = guestName && guestName.value.trim().length > 0;
+                    } else {
+                        // For regular matches: need both players, and they must be different
+                        isValidMatch = player2 && player2.value && player1.value !== player2.value;
+                    }
+                }
+                
+                if (isValidMatch) {
                     validMatches++;
                 }
             });

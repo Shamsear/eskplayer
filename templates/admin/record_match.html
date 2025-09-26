@@ -560,6 +560,9 @@
                     loadTournamentPlayers();
                 }
             }
+            
+            // Update submit button state after mode change
+            updateSubmitButton();
         }
         
         function loadAllPlayersForGuestMode() {
@@ -939,19 +942,28 @@
         function updatePlayerLabels() {
             const player1Id = document.getElementById('player1_id').value;
             const player2Id = document.getElementById('player2_id').value;
+            const guestName = document.getElementById('guest_name').value.trim();
+            const isGuestMatch = document.getElementById('is_guest_match').checked;
             
-            if (player1Id && player2Id) {
+            if (player1Id) {
                 const player1 = tournamentPlayers.find(p => p.id == player1Id);
-                const player2 = tournamentPlayers.find(p => p.id == player2Id);
                 
-                if (player1 && player2) {
-                    // Update absence labels
+                if (player1) {
                     document.getElementById('player1_absent_label').textContent = player1.name;
-                    document.getElementById('player2_absent_label').textContent = player2.name;
-                    
-                    // Update goals labels
                     document.getElementById('player1_goals_label').textContent = player1.name;
-                    document.getElementById('player2_goals_label').textContent = player2.name;
+                    
+                    if (isGuestMatch && guestName.length > 0) {
+                        // Guest match
+                        document.getElementById('player2_absent_label').textContent = guestName;
+                        document.getElementById('player2_goals_label').textContent = guestName;
+                    } else if (!isGuestMatch && player2Id) {
+                        // Regular match
+                        const player2 = tournamentPlayers.find(p => p.id == player2Id);
+                        if (player2) {
+                            document.getElementById('player2_absent_label').textContent = player2.name;
+                            document.getElementById('player2_goals_label').textContent = player2.name;
+                        }
+                    }
                 }
             }
         }
@@ -999,19 +1011,43 @@
         function updateMatchPreview() {
             const player1Id = document.getElementById('player1_id').value;
             const player2Id = document.getElementById('player2_id').value;
+            const guestName = document.getElementById('guest_name').value.trim();
+            const isGuestMatch = document.getElementById('is_guest_match').checked;
             const goals1 = parseInt(document.getElementById('player1_goals').value) || 0;
             const goals2 = parseInt(document.getElementById('player2_goals').value) || 0;
             const player1Absent = document.getElementById('player1_absent').checked;
             const player2Absent = document.getElementById('player2_absent').checked;
             
-            if (player1Id && player2Id) {
-                const player1 = tournamentPlayers.find(p => p.id == player1Id);
-                const player2 = tournamentPlayers.find(p => p.id == player2Id);
+            // Check if we have the required data for preview
+            let canShowPreview = false;
+            let player1 = null;
+            let player2Name = '';
+            let player2Rating = '';
+            
+            if (player1Id) {
+                player1 = tournamentPlayers.find(p => p.id == player1Id);
                 
+                if (isGuestMatch && guestName.length > 0) {
+                    // Guest match: player1 vs guest
+                    canShowPreview = true;
+                    player2Name = guestName;
+                    player2Rating = 'Guest (No Rating)';
+                } else if (!isGuestMatch && player2Id) {
+                    // Regular match: player1 vs player2
+                    const player2 = tournamentPlayers.find(p => p.id == player2Id);
+                    if (player2) {
+                        canShowPreview = true;
+                        player2Name = player2.name;
+                        player2Rating = `Rating: ${player2.rating}`;
+                    }
+                }
+            }
+            
+            if (canShowPreview && player1) {
                 document.getElementById('preview_player1').textContent = player1.name;
-                document.getElementById('preview_player2').textContent = player2.name;
+                document.getElementById('preview_player2').textContent = player2Name;
                 document.getElementById('preview_rating1').textContent = `Rating: ${player1.rating}`;
-                document.getElementById('preview_rating2').textContent = `Rating: ${player2.rating}`;
+                document.getElementById('preview_rating2').textContent = player2Rating;
                 document.getElementById('preview_goals1').textContent = goals1;
                 document.getElementById('preview_goals2').textContent = goals2;
                 
@@ -1023,7 +1059,7 @@
                     result = 'Match Nullified (Both Absent)';
                     resultClass = 'text-sm font-semibold text-red-600';
                 } else if (player1Absent) {
-                    result = `${player2.name} Wins by Walkover`;
+                    result = `${player2Name} Wins by Walkover`;
                     resultClass = 'text-sm font-semibold text-blue-600';
                 } else if (player2Absent) {
                     result = `${player1.name} Wins by Walkover`;
@@ -1034,7 +1070,7 @@
                         result = `${player1.name} Wins!`;
                         resultClass = 'text-sm font-semibold text-green-600';
                     } else if (goals2 > goals1) {
-                        result = `${player2.name} Wins!`;
+                        result = `${player2Name} Wins!`;
                         resultClass = 'text-sm font-semibold text-blue-600';
                     } else {
                         result = 'Draw';
@@ -1055,9 +1091,23 @@
             const tournamentId = document.getElementById('tournament_id').value;
             const player1Id = document.getElementById('player1_id').value;
             const player2Id = document.getElementById('player2_id').value;
+            const guestName = document.getElementById('guest_name').value.trim();
+            const isGuestMatch = document.getElementById('is_guest_match').checked;
             const submitBtn = document.getElementById('submitBtn');
             
-            if (tournamentId && player1Id && player2Id && player1Id !== player2Id) {
+            let canSubmit = false;
+            
+            if (tournamentId && player1Id) {
+                if (isGuestMatch) {
+                    // For guest matches: need player1 (clan member) and guest name
+                    canSubmit = guestName.length > 0;
+                } else {
+                    // For regular matches: need both players, and they must be different
+                    canSubmit = player2Id && player1Id !== player2Id;
+                }
+            }
+            
+            if (canSubmit) {
                 submitBtn.disabled = false;
                 submitBtn.classList.remove('disabled:opacity-50', 'disabled:cursor-not-allowed');
             } else {
@@ -1075,6 +1125,14 @@
             // Add event listeners for goal inputs
             document.getElementById('player1_goals').addEventListener('input', updateMatchPreview);
             document.getElementById('player2_goals').addEventListener('input', updateMatchPreview);
+            
+            // Add event listeners for guest name input
+            const guestNameInput = document.getElementById('guest_name');
+            guestNameInput.addEventListener('input', function() {
+                updateSubmitButton();
+                updatePlayerLabels();
+                updateMatchPreview();
+            });
             
             // Auto-load tournament players if tournament is pre-selected
             const tournamentSelect = document.getElementById('tournament_id');
