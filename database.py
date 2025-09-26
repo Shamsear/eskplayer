@@ -338,6 +338,48 @@ def migrate_database(conn):
                 print(f"Updated {unplayed_count} players' ratings to NULL successfully!")
             else:
                 print("No unplayed players with rating=300 found")
+            
+            # Migration 5: Add photo columns to players table
+            photo_columns = ['photo_url', 'photo_file_id']
+            for column_name in photo_columns:
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='players' AND column_name=%s
+                """, (column_name,))
+                column_exists = cursor.fetchone()
+                
+                if not column_exists:
+                    print(f"Adding {column_name} column to players table...")
+                    if column_name == 'photo_url':
+                        cursor.execute("ALTER TABLE players ADD COLUMN photo_url TEXT")
+                    elif column_name == 'photo_file_id':
+                        cursor.execute("ALTER TABLE players ADD COLUMN photo_file_id VARCHAR(255)")
+                    conn.commit()
+                    print(f"{column_name} column added successfully!")
+                else:
+                    print(f"{column_name} column already exists in players table")
+            
+            # Migration 6: Add photo columns to tournaments table
+            tournament_photo_columns = ['tournament_photo_url', 'tournament_photo_file_id']
+            for column_name in tournament_photo_columns:
+                cursor.execute("""
+                    SELECT column_name 
+                    FROM information_schema.columns 
+                    WHERE table_name='tournaments' AND column_name=%s
+                """, (column_name,))
+                column_exists = cursor.fetchone()
+                
+                if not column_exists:
+                    print(f"Adding {column_name} column to tournaments table...")
+                    if column_name == 'tournament_photo_url':
+                        cursor.execute("ALTER TABLE tournaments ADD COLUMN tournament_photo_url TEXT")
+                    elif column_name == 'tournament_photo_file_id':
+                        cursor.execute("ALTER TABLE tournaments ADD COLUMN tournament_photo_file_id VARCHAR(255)")
+                    conn.commit()
+                    print(f"{column_name} column added successfully!")
+                else:
+                    print(f"{column_name} column already exists in tournaments table")
                 
     except Exception as e:
         print(f"Migration error (non-critical): {e}")
@@ -540,14 +582,14 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def create_tournament(name):
-        """Create a new tournament"""
+    def create_tournament(name, tournament_photo_url=None, tournament_photo_file_id=None):
+        """Create a new tournament with optional photo"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO tournaments (name) VALUES (%s) RETURNING id",
-                    (name,)
+                    "INSERT INTO tournaments (name, tournament_photo_url, tournament_photo_file_id) VALUES (%s, %s, %s) RETURNING id",
+                    (name, tournament_photo_url, tournament_photo_file_id)
                 )
                 tournament_id = cursor.fetchone()['id']
                 conn.commit()
@@ -606,6 +648,73 @@ class TournamentDB:
                     ORDER BY p.rating DESC, p.name ASC
                 """, (tournament_id,))
                 return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_tournament_by_id(tournament_id):
+        """Get a specific tournament by ID"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def update_tournament_photo(tournament_id, tournament_photo_url, tournament_photo_file_id):
+        """Update tournament photo information"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Check if tournament exists
+                cursor.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+                tournament = cursor.fetchone()
+                if not tournament:
+                    raise ValueError("Tournament not found")
+                
+                # Update photo fields
+                cursor.execute(
+                    "UPDATE tournaments SET tournament_photo_url = %s, tournament_photo_file_id = %s WHERE id = %s",
+                    (tournament_photo_url, tournament_photo_file_id, tournament_id)
+                )
+                conn.commit()
+                return tournament_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def update_tournament(tournament_id, name, tournament_photo_url=None, tournament_photo_file_id=None):
+        """Update tournament name and photo"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Check if tournament exists
+                cursor.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+                tournament = cursor.fetchone()
+                if not tournament:
+                    raise ValueError("Tournament not found")
+                
+                # Check if name already exists for another tournament
+                cursor.execute("SELECT id FROM tournaments WHERE name = %s AND id != %s", (name, tournament_id))
+                existing_tournament = cursor.fetchone()
+                if existing_tournament:
+                    raise ValueError(f"A tournament with the name '{name}' already exists")
+                
+                # Update the tournament
+                cursor.execute(
+                    "UPDATE tournaments SET name = %s, tournament_photo_url = %s, tournament_photo_file_id = %s WHERE id = %s",
+                    (name.strip(), tournament_photo_url, tournament_photo_file_id, tournament_id)
+                )
+                conn.commit()
+                return tournament_id
+        except Exception as e:
+            conn.rollback()
+            raise
         finally:
             conn.close()
     

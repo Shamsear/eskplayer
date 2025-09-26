@@ -184,10 +184,16 @@
                             <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
                             <td class="py-3 px-4">
                                 <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
-                                         data-name="{{ stat.name }}">
-                                        {{ stat.name[:2].upper() }}
-                                    </div>
+                                    {% if stat.photo_url %}
+                                        <img src="{{ stat.photo_url }}?tr=w-32,h-32,c-face,q-80,f-webp" 
+                                             alt="{{ stat.name }}" 
+                                             class="w-8 h-8 rounded-full object-cover border border-white shadow mr-3">
+                                    {% else %}
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
+                                             data-name="{{ stat.name }}">
+                                            {{ stat.name[:2].upper() }}
+                                        </div>
+                                    {% endif %}
                                     <span class="font-semibold text-gray-900">{{ stat.name }}</span>
                                 </div>
                             </td>
@@ -246,10 +252,16 @@
                             <td class="py-3 px-4 text-gray-600">{{ loop.index }}</td>
                             <td class="py-3 px-4">
                                 <div class="flex items-center">
-                                    <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
-                                         data-name="{{ stat.name }}">
-                                        {{ stat.name[:2].upper() }}
-                                    </div>
+                                    {% if stat.photo_url %}
+                                        <img src="{{ stat.photo_url }}?tr=w-32,h-32,c-face,q-80,f-webp" 
+                                             alt="{{ stat.name }}" 
+                                             class="w-8 h-8 rounded-full object-cover border border-white shadow mr-3">
+                                    {% else %}
+                                        <div class="w-8 h-8 rounded-full flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
+                                             data-name="{{ stat.name }}">
+                                            {{ stat.name[:2].upper() }}
+                                        </div>
+                                    {% endif %}
                                     <span class="font-semibold text-gray-900">{{ stat.name }}</span>
                                 </div>
                             </td>

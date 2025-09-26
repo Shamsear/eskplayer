@@ -471,6 +471,96 @@ def add_players_to_tournament(tournament_id):
     
     return redirect(url_for('manage_tournament', tournament_id=tournament_id))
 
+@app.route('/admin/tournaments/<int:tournament_id>/edit', methods=['GET', 'POST'])
+@admin_required
+@no_cache
+def edit_tournament(tournament_id):
+    """Edit tournament details including name and photo"""
+    tournament = TournamentDB.get_tournament_by_id(tournament_id)
+    if not tournament:
+        flash('Tournament not found', 'error')
+        return redirect(url_for('manage_tournaments'))
+    
+    if request.method == 'POST':
+        try:
+            name = request.form['name'].strip()
+            photo_file = request.files.get('photo')
+            cropped_image_data = request.form.get('cropped_image_data')
+            remove_photo = request.form.get('remove_photo') == 'true'
+            
+            if not name:
+                flash('Tournament name cannot be empty', 'error')
+            else:
+                # Handle photo operations first
+                current_photo_file_id = tournament.get('tournament_photo_file_id')
+                tournament_photo_url = tournament.get('tournament_photo_url')
+                tournament_photo_file_id = current_photo_file_id
+                
+                if remove_photo and current_photo_file_id:
+                    # Remove current photo
+                    try:
+                        from imagekit_config import delete_tournament_photo
+                        delete_tournament_photo(current_photo_file_id)
+                        tournament_photo_url = None
+                        tournament_photo_file_id = None
+                        flash(f'Tournament "{name}" updated successfully! Photo removed.', 'success')
+                    except Exception as e:
+                        flash(f'Tournament updated but photo removal failed: {str(e)}', 'error')
+                elif cropped_image_data:
+                    # Handle cropped image data (base64)
+                    try:
+                        from imagekit_config import upload_tournament_photo_base64
+                        upload_result = upload_tournament_photo_base64(cropped_image_data, name, tournament_id)
+                        if upload_result['success']:
+                            # Delete old photo if it exists
+                            if current_photo_file_id:
+                                try:
+                                    from imagekit_config import delete_tournament_photo
+                                    delete_tournament_photo(current_photo_file_id)
+                                except:
+                                    pass  # Don't fail if old photo deletion fails
+                            
+                            tournament_photo_url = upload_result['url']
+                            tournament_photo_file_id = upload_result['file_id']
+                            flash(f'Tournament "{name}" updated successfully! Cropped photo uploaded.', 'success')
+                        else:
+                            flash(f'Tournament updated but photo upload failed: {upload_result["error"]}', 'error')
+                    except Exception as e:
+                        flash(f'Tournament updated but photo processing failed: {str(e)}', 'error')
+                elif photo_file and photo_file.filename:
+                    # Upload new photo (fallback for direct file upload)
+                    try:
+                        from imagekit_config import upload_tournament_photo
+                        upload_result = upload_tournament_photo(photo_file, name, tournament_id)
+                        if upload_result['success']:
+                            # Delete old photo if it exists
+                            if current_photo_file_id:
+                                try:
+                                    from imagekit_config import delete_tournament_photo
+                                    delete_tournament_photo(current_photo_file_id)
+                                except:
+                                    pass  # Don't fail if old photo deletion fails
+                            
+                            tournament_photo_url = upload_result['url']
+                            tournament_photo_file_id = upload_result['file_id']
+                            flash(f'Tournament "{name}" updated successfully! Photo uploaded.', 'success')
+                        else:
+                            flash(f'Tournament updated but photo upload failed: {upload_result["error"]}', 'error')
+                    except Exception as e:
+                        flash(f'Tournament updated but photo processing failed: {str(e)}', 'error')
+                else:
+                    flash(f'Tournament "{name}" updated successfully!', 'success')
+                
+                # Update tournament in database
+                TournamentDB.update_tournament(tournament_id, name, tournament_photo_url, tournament_photo_file_id)
+                return redirect(url_for('manage_tournaments'))
+        except ValueError as e:
+            flash(str(e), 'error')
+        except Exception as e:
+            flash(f'Error updating tournament: {str(e)}', 'error')
+    
+    return render_template('edit_tournament.html', tournament=tournament)
+
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])
 @admin_required

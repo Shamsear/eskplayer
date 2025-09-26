@@ -204,10 +204,16 @@
             <div class="glass player-card rounded-2xl p-6">
                 <!-- Player Header -->
                 <div class="flex items-center justify-between mb-4">
-                    <div class="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg player-avatar" 
-                         data-name="{{ player.name }}">
-                        {{ player.name[:2].upper() }}
-                    </div>
+                    {% if player.photo_url %}
+                        <img src="{{ player.photo_url }}?tr=w-48,h-48,c-face,q-80,f-webp" 
+                             alt="{{ player.name }}" 
+                             class="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-lg">
+                    {% else %}
+                        <div class="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-lg player-avatar" 
+                             data-name="{{ player.name }}">
+                            {{ player.name[:2].upper() }}
+                        </div>
+                    {% endif %}
                     <span class="rating-badge {% if player.rating and player.rating >= 750 %}rating-high{% elif player.rating and player.rating >= 500 %}rating-medium{% else %}rating-low{% endif %} text-white px-3 py-1 rounded-xl text-sm font-bold">
                         {{ player.rating if player.rating is not none else 'Unrated' }}
                     </span>

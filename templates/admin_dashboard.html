@@ -309,10 +309,16 @@
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
                 {% for player in players[:10] %}
                 <div class="bg-white/50 rounded-xl p-4 text-center hover:bg-white/80 transition-all">
-                    <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 font-bold text-white text-sm player-avatar-small" 
-                         data-name="{{ player.name }}">
-                        {{ player.name[:2].upper() }}
-                    </div>
+                    {% if player.photo_url %}
+                        <img src="{{ player.photo_url }}?tr=w-40,h-40,c-face,q-80,f-webp" 
+                             alt="{{ player.name }}" 
+                             class="w-10 h-10 rounded-full object-cover border border-white shadow mx-auto mb-2">
+                    {% else %}
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center mx-auto mb-2 font-bold text-white text-sm player-avatar-small" 
+                             data-name="{{ player.name }}">
+                            {{ player.name[:2].upper() }}
+                        </div>
+                    {% endif %}
                     <h4 class="font-semibold text-gray-900 text-sm truncate">{{ player.name }}</h4>
                     <div class="rating-badge mt-2">{{ player.rating if player.rating is not none else 'Unrated' }}</div>
                     <p class="text-xs text-gray-500 mt-1">{{ player.matches_won }}W {{ player.matches_drawn }}D {{ player.matches_lost }}L</p>
