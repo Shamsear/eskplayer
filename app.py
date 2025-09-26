@@ -81,7 +81,7 @@ def admin_logout():
     """Admin logout"""
     session.clear()
     flash('You have been logged out.', 'info')
-    return redirect(url_for('admin_login'))
+    return redirect(url_for('public_home'))
 
 @app.route('/admin')
 @admin_required
@@ -1079,27 +1079,55 @@ def public_rankings():
     try:
         search = request.args.get('search', '')
         award_filter = request.args.get('award')
+        scope = request.args.get('scope', 'overall')  # overall, or tournament_id
         
-        # Get player statistics
-        overall_stats = TournamentDB.get_overall_player_stats()
+        # Get tournaments for the filter tabs
+        tournaments = TournamentDB.get_all_tournaments()
+        
+        # Get player statistics based on scope
+        if scope == 'overall':
+            players_stats = TournamentDB.get_overall_player_stats()
+        else:
+            # Try to get tournament-specific stats
+            try:
+                tournament_id = int(scope)
+                players_stats = TournamentDB.get_player_tournament_stats(tournament_id)
+                if not players_stats:
+                    players_stats = TournamentDB.get_overall_player_stats()
+            except (ValueError, TypeError):
+                # Fallback to overall if invalid tournament id
+                players_stats = TournamentDB.get_overall_player_stats()
+                scope = 'overall'
         
         # Apply search filter
         if search:
-            overall_stats = [s for s in overall_stats if search.lower() in s['name'].lower()]
+            players_stats = [s for s in players_stats if search.lower() in s['name'].lower()]
         
         # Sort based on award filter
         if award_filter == 'golden_boot':
-            overall_stats = sorted(overall_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
+            players_stats = sorted(players_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
         elif award_filter == 'golden_glove':
-            qualified_stats = [s for s in overall_stats if s['matches_played'] >= 4]
-            unqualified_stats = [s for s in overall_stats if s['matches_played'] < 4]
+            qualified_stats = [s for s in players_stats if s['matches_played'] >= 4]
+            unqualified_stats = [s for s in players_stats if s['matches_played'] < 4]
             qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
-            overall_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+            players_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+        
+        # Find selected tournament for display
+        selected_tournament = None
+        if scope != 'overall':
+            try:
+                tournament_id = int(scope)
+                selected_tournament = next((t for t in tournaments if t['id'] == tournament_id), None)
+            except (ValueError, TypeError):
+                pass
         
         return render_template('public_rankings.html',
-                             players=overall_stats,
+                             players=players_stats,
+                             tournaments=tournaments,
                              search=search,
-                             award_filter=award_filter)
+                             award_filter=award_filter,
+                             scope=scope,
+                             selected_tournament=selected_tournament)
     except Exception as e:
         return f"Error loading rankings: {str(e)}", 500
 

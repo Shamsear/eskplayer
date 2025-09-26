@@ -138,9 +138,12 @@
                 </button>
             </form>
             
-            <!-- Footer -->
-            <div class="text-center mt-8 text-sm text-gray-500">
-                <p><i class="fas fa-info-circle mr-1"></i>Default credentials: admin / admin123</p>
+            <!-- Back to Home Button -->
+            <div class="text-center mt-6">
+                <a href="{{ url_for('public_home') }}" 
+                   class="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-600 bg-white/50 border border-gray-300 rounded-lg hover:bg-white/70 hover:text-gray-800 transition-all duration-200 hover:-translate-y-0.5">
+                    <i class="fas fa-home mr-2"></i>Back to Home Page
+                </a>
             </div>
         </div>
     </div>

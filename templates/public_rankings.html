@@ -156,30 +156,34 @@
 
     <!-- Tournament/Overall Filter -->
     <div class="glass rounded-3xl p-4 mb-6">
-        <div class="flex justify-center gap-6">
+        <div class="flex flex-wrap justify-center gap-4">
             <a href="{{ url_for('public_rankings', scope='overall') }}" 
-               class="filter-tab {% if request.args.get('scope', 'overall') == 'overall' %}active{% endif %}">
-                <i class="fas fa-globe mr-2"></i> Overall Rankings
+               class="filter-tab {% if scope == 'overall' %}active{% endif %}">
+                <i class="fas fa-globe mr-2"></i> Overall
             </a>
-            <a href="{{ url_for('public_rankings', scope='tournament') }}" 
-               class="filter-tab {% if request.args.get('scope') == 'tournament' %}active{% endif %}">
-                <i class="fas fa-trophy mr-2"></i> Tournament Rankings
-            </a>
+            {% if tournaments %}
+                {% for tournament in tournaments %}
+                <a href="{{ url_for('public_rankings', scope=tournament.id|string) }}" 
+                   class="filter-tab {% if scope == tournament.id|string %}active{% endif %}">
+                    <i class="fas fa-trophy mr-2"></i> {{ tournament.name }}
+                </a>
+                {% endfor %}
+            {% endif %}
         </div>
     </div>
     
     <!-- Award Filter Tabs -->
     <div class="glass rounded-3xl p-6 mb-8">
         <div class="flex flex-wrap justify-center gap-4">
-            <a href="{{ url_for('public_rankings', scope=request.args.get('scope', 'overall')) }}" 
+            <a href="{{ url_for('public_rankings', scope=scope) }}" 
                class="filter-tab {% if not award_filter %}active{% endif %}">
                 <i class="fas fa-star mr-2"></i> All Players
             </a>
-            <a href="{{ url_for('public_rankings', award='golden_boot', scope=request.args.get('scope', 'overall')) }}" 
+            <a href="{{ url_for('public_rankings', award='golden_boot', scope=scope) }}" 
                class="filter-tab {% if award_filter == 'golden_boot' %}active{% endif %}">
                 <i class="fas fa-futbol mr-2"></i> Golden Boot
             </a>
-            <a href="{{ url_for('public_rankings', award='golden_glove', scope=request.args.get('scope', 'overall')) }}" 
+            <a href="{{ url_for('public_rankings', award='golden_glove', scope=scope) }}" 
                class="filter-tab {% if award_filter == 'golden_glove' %}active{% endif %}">
                 <i class="fas fa-hands mr-2"></i> Golden Glove
             </a>
@@ -195,10 +199,17 @@
                     <h2 class="text-2xl font-bold flex items-center">
                         {% if award_filter == 'golden_boot' %}
                             <i class="fas fa-futbol mr-3"></i> Golden Boot Rankings
+                            {% if selected_tournament %} - {{ selected_tournament.name }}{% endif %}
                         {% elif award_filter == 'golden_glove' %}
                             <i class="fas fa-hands mr-3"></i> Golden Glove Rankings
+                            {% if selected_tournament %} - {{ selected_tournament.name }}{% endif %}
                         {% else %}
-                            <i class="fas fa-medal mr-3"></i> Overall Player Rankings
+                            <i class="fas fa-medal mr-3"></i> 
+                            {% if selected_tournament %}
+                                {{ selected_tournament.name }} Rankings
+                            {% else %}
+                                Overall Player Rankings
+                            {% endif %}
                         {% endif %}
                     </h2>
                 </div>
@@ -273,7 +284,7 @@
                             </td>
                             <td class="px-6 py-4 text-center font-medium">{{ player.matches_played or 0 }}</td>
                             <td class="px-6 py-4 text-center">
-                                <span class="text-green-600 font-semibold">{{ player.wins or 0 }}</span>-<span class="text-gray-600">{{ player.draws or 0 }}</span>-<span class="text-red-600 font-semibold">{{ player.losses or 0 }}</span>
+                                <span class="text-green-600 font-semibold">{{ player.wins or player.matches_won or 0 }}</span>-<span class="text-gray-600">{{ player.draws or player.matches_drawn or 0 }}</span>-<span class="text-red-600 font-semibold">{{ player.losses or player.matches_lost or 0 }}</span>
                             </td>
                                     {% if award_filter == 'golden_boot' %}
                                     <td class="text-center">
@@ -291,14 +302,14 @@
                                     <td class="text-center">{{ player.goals_scored or 0 }}</td>
                                     <td class="text-center">
                                         {% if player.matches_played and player.matches_played > 0 %}
-                                            {{ "%.1f"|format((player.wins or 0) * 100 / player.matches_played) }}%
+                                            {{ "%.1f"|format((player.wins or player.matches_won or 0) * 100 / player.matches_played) }}%
                                         {% else %}
                                             0.0%
                                         {% endif %}
                                     </td>
                                     {% endif %}
                             <td class="px-6 py-4 text-center">
-                                <a href="{{ url_for('public_player_profile', player_id=player.id) }}" 
+                                <a href="{{ url_for('public_player_profile', player_id=player.id or player.player_id) }}"
                                    class="inline-flex items-center px-4 py-2 bg-white border-2 border-indigo-200 text-indigo-600 rounded-lg font-semibold hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-transparent transition-all">
                                     <i class="fas fa-eye mr-2"></i> View
                                 </a>
