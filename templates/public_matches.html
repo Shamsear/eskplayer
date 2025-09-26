@@ -18,12 +18,7 @@
     
     .match-card {
         animation: slideIn 0.5s ease-out;
-        transition: all 0.3s ease;
-    }
-    
-    .match-card:hover {
-        transform: translateX(8px);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
     }
     
     /* Score badge styling */
@@ -181,10 +176,10 @@
         
         <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
             <div class="stats-icon bg-gradient-to-br from-blue-500 to-indigo-600 text-white mx-auto mb-4">
-                <i class="fas fa-clock"></i>
+                <i class="fas fa-handshake"></i>
             </div>
-            <h3 class="text-3xl font-bold gradient-text">{{ today_matches }}</h3>
-            <p class="text-gray-600 mt-1">Today's Matches</p>
+            <h3 class="text-3xl font-bold gradient-text">{{ draw_matches }}</h3>
+            <p class="text-gray-600 mt-1">Draw Matches</p>
         </div>
         
         <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
@@ -221,21 +216,17 @@
             {% if matches %}
             <div class="divide-y divide-gray-200">
                 {% for match in matches %}
-                <div class="match-card p-6 hover:bg-gray-50 transition-all" style="animation-delay: {{ loop.index * 0.05 }}s;">
+                <div class="match-card p-6 transition-all" style="animation-delay: {{ loop.index * 0.05 }}s;">
                     <div class="grid md:grid-cols-12 gap-4 items-center">
-                        <!-- Date & Tournament -->
-                        <div class="md:col-span-3">
-                            <div class="flex flex-col">
-                                <span class="text-sm font-semibold text-gray-900">{{ match.played_at.strftime('%B %d, %Y') }}</span>
-                                <span class="text-xs text-gray-600">{{ match.played_at.strftime('%H:%M') }}</span>
-                                <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 text-xs font-semibold rounded-full mt-2 w-fit">
-                                    <i class="fas fa-trophy mr-1"></i> {{ match.tournament_name or 'Unknown' }}
-                                </span>
-                            </div>
+                        <!-- Tournament Info -->
+                        <div class="md:col-span-2">
+                            <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 text-xs font-semibold rounded-full w-fit">
+                                <i class="fas fa-trophy mr-1"></i> {{ match.tournament_name or 'Unknown' }}
+                            </span>
                         </div>
                         
-                        <!-- Player 1 -->
-                        <div class="md:col-span-3">
+                        <!-- Player 1 with Rating Change -->
+                        <div class="md:col-span-4">
                             <div class="flex items-center justify-start md:justify-end">
                                 {% if match.player1_photo_url %}
                                     <img src="{{ match.player1_photo_url }}" 
@@ -248,55 +239,86 @@
                                 {% endif %}
                                 <div class="text-right">
                                     <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
-                                       class="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                                       class="font-bold text-gray-900 transition-colors">
                                         {{ match.player1_name }}
                                     </a>
+                                    <div class="flex items-center justify-end mt-1 space-x-2">
+                                        <span class="text-xs text-gray-500">{{ match.player1_rating_before or 300 }}</span>
+                                        {% if match.player1_rating_after and match.player1_rating_before %}
+                                            {% set rating_change = match.player1_rating_after - match.player1_rating_before %}
+                                            {% if rating_change > 0 %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                                                    <i class="fas fa-arrow-up mr-1"></i>+{{ rating_change }}
+                                                </span>
+                                            {% elif rating_change < 0 %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                                                    <i class="fas fa-arrow-down mr-1"></i>{{ rating_change }}
+                                                </span>
+                                            {% else %}
+                                                <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded">
+                                                    <i class="fas fa-minus mr-1"></i>0
+                                                </span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
                                     {% if match.player1_absent %}
-                                        <div class="text-xs text-red-600 font-semibold">ABSENT</div>
-                                    {% endif %}
-                                    {% if match.player1_goals > match.player2_goals and not match.player1_absent %}
-                                        <div class="text-xs text-green-600 font-semibold">WINNER</div>
+                                        <div class="text-xs text-red-600 font-semibold mt-1">ABSENT</div>
+                                    {% elif match.player1_goals > match.player2_goals %}
+                                        <div class="text-xs text-green-600 font-semibold mt-1">WINNER</div>
                                     {% endif %}
                                 </div>
                             </div>
                         </div>
                         
                         <!-- Score -->
-                        <div class="md:col-span-3">
+                        <div class="md:col-span-2">
                             <div class="text-center">
                                 <span class="score-badge">
                                     <span class="text-2xl">{{ match.player1_goals }}</span>
                                     <span class="text-lg mx-2">-</span>
                                     <span class="text-2xl">{{ match.player2_goals }}</span>
                                 </span>
-                                {% if (match.player1_goals + match.player2_goals) > 10 %}
-                                    <div class="mt-2">
-                                        <span class="high-score-badge">
-                                            <i class="fas fa-fire mr-1"></i> High Score
-                                        </span>
-                                    </div>
-                                {% endif %}
                             </div>
                         </div>
                         
-                        <!-- Player 2 -->
-                        <div class="md:col-span-3">
+                        <!-- Player 2 with Rating Change -->
+                        <div class="md:col-span-4">
                             <div class="flex items-center">
                                 <div class="text-left">
                                     {% if match.player2_name %}
                                         <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
-                                           class="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                                           class="font-bold text-gray-900 transition-colors">
                                             {{ match.player2_name }}
                                         </a>
                                     {% else %}
                                         <span class="font-bold text-gray-700">{{ match.guest_name }}</span>
                                         <span class="text-xs text-gray-500 block">Guest Player</span>
                                     {% endif %}
-                                    {% if match.player2_absent %}
-                                        <div class="text-xs text-red-600 font-semibold">ABSENT</div>
+                                    {% if match.player2_name %}
+                                        <div class="flex items-center mt-1 space-x-2">
+                                            <span class="text-xs text-gray-500">{{ match.player2_rating_before or 300 }}</span>
+                                            {% if match.player2_rating_after and match.player2_rating_before %}
+                                                {% set rating_change = match.player2_rating_after - match.player2_rating_before %}
+                                                {% if rating_change > 0 %}
+                                                    <span class="inline-flex items-center px-2 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded">
+                                                        <i class="fas fa-arrow-up mr-1"></i>+{{ rating_change }}
+                                                    </span>
+                                                {% elif rating_change < 0 %}
+                                                    <span class="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
+                                                        <i class="fas fa-arrow-down mr-1"></i>{{ rating_change }}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="inline-flex items-center px-2 py-1 bg-gray-100 text-gray-800 text-xs font-semibold rounded">
+                                                        <i class="fas fa-minus mr-1"></i>0
+                                                    </span>
+                                                {% endif %}
+                                            {% endif %}
+                                        </div>
                                     {% endif %}
-                                    {% if match.player2_goals > match.player1_goals and not match.player2_absent %}
-                                        <div class="text-xs text-green-600 font-semibold">WINNER</div>
+                                    {% if match.player2_absent %}
+                                        <div class="text-xs text-red-600 font-semibold mt-1">ABSENT</div>
+                                    {% elif match.player2_goals > match.player1_goals %}
+                                        <div class="text-xs text-green-600 font-semibold mt-1">WINNER</div>
                                     {% endif %}
                                 </div>
                                 {% if match.player2_photo_url %}
@@ -401,67 +423,6 @@
             {% endif %}
         </div>
     </div>
-
-    <!-- High Scoring Matches -->
-    {% if high_scoring_matches %}
-    <div class="mt-12">
-        <div class="glass rounded-3xl p-8">
-            <div class="flex items-center justify-between mb-8">
-                <div class="flex items-center">
-                    <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center mr-3">
-                        <i class="fas fa-fire text-white text-xl"></i>
-                    </div>
-                    <h3 class="text-2xl font-bold text-gray-900">High Scoring Matches</h3>
-                </div>
-                <span class="bg-gradient-to-r from-red-100 to-orange-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
-                    🔥 Hot Games
-                </span>
-            </div>
-            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {% for match in high_scoring_matches[:6] %}
-                <div class="bg-gradient-to-br from-white to-gray-50 p-6 rounded-2xl border border-gray-200 hover:shadow-xl transition-all hover:scale-105">
-                    <div class="flex justify-between items-start mb-4">
-                        <div class="flex-1">
-                            <div class="font-bold text-gray-900">
-                                <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
-                                   class="hover:text-indigo-600 transition-colors">
-                                    {{ match.player1_name }}
-                                </a>
-                            </div>
-                            <div class="text-sm text-gray-600 my-1">vs</div>
-                            <div class="font-bold text-gray-900">
-                                {% if match.player2_name %}
-                                    <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
-                                       class="hover:text-indigo-600 transition-colors">
-                                        {{ match.player2_name }}
-                                    </a>
-                                {% else %}
-                                    {{ match.guest_name }}
-                                {% endif %}
-                            </div>
-                        </div>
-                        <div class="text-right">
-                            <span class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-2 rounded-lg font-bold text-lg">
-                                {{ match.player1_goals + match.player2_goals }}
-                            </span>
-                            <div class="text-xs text-gray-500 mt-1">Total Goals</div>
-                        </div>
-                    </div>
-                    <div class="flex justify-between items-center pt-4 border-t border-gray-200">
-                        <span class="text-sm text-gray-600">
-                            <i class="fas fa-calendar mr-1"></i>
-                            {{ match.played_at.strftime('%b %d, %H:%M') }}
-                        </span>
-                        <span class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
-                            {{ match.player1_goals }}-{{ match.player2_goals }}
-                        </span>
-                    </div>
-                </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
     {% endif %}
 </div>
 {% endblock %}

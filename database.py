@@ -2129,8 +2129,8 @@ class TournamentDB:
                 if existing_player:
                     raise ValueError(f"A player with the name '{name}' already exists")
                 
-                # Validate rating range
-                if rating < 0 or rating > 1000:
+                # Validate rating range if rating is provided
+                if rating is not None and (rating < 0 or rating > 1000):
                     raise ValueError("Rating must be between 0 and 1000")
                 
                 # Update the player

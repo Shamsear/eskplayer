@@ -183,16 +183,32 @@
                     <label for="rating" class="block text-sm font-medium text-gray-700 mb-2">
                         <i class="fas fa-star mr-2 text-yellow-500"></i>Player Rating
                     </label>
-                    <input type="number" 
-                           id="rating" 
-                           name="rating" 
-                           value="{{ player.rating if player.rating is not none else '' }}"
-                           min="0" 
-                           max="1000"
-                           required
-                           class="form-input w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                           placeholder="Enter rating (0-1000)">
-                    <p class="text-sm text-gray-500 mt-2">Rating must be between 0 and 1000</p>
+                    
+                    <!-- Rating Status Toggle -->
+                    <div class="mb-3">
+                        <label class="flex items-center">
+                            <input type="checkbox" 
+                                   id="isRated" 
+                                   name="is_rated" 
+                                   {{ 'checked' if player.rating is not none else '' }}
+                                   class="mr-2 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                            <span class="text-sm text-gray-700">Player has a rating (uncheck to keep as unrated)</span>
+                        </label>
+                    </div>
+                    
+                    <!-- Rating Input -->
+                    <div id="ratingInputGroup">
+                        <input type="number" 
+                               id="rating" 
+                               name="rating" 
+                               value="{{ player.rating if player.rating is not none else '' }}"
+                               min="0" 
+                               max="1000"
+                               class="form-input w-full px-4 py-3 bg-white/80 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                               placeholder="Enter rating between 0-1000">
+                    </div>
+                    
+                    <p class="text-sm text-gray-500 mt-2">Rating must be between 0 and 1000. Unrated players will show as "Unrated" in the system.</p>
                 </div>
                 
                 <!-- Player Photo -->
@@ -496,12 +512,103 @@
             }
         });
         
-        // Form validation and photo handling
+            // Form validation and photo handling
         document.addEventListener('DOMContentLoaded', function() {
             const form = document.querySelector('form[method="POST"]');
             const nameInput = document.getElementById('name');
             const ratingInput = document.getElementById('rating');
+            const isRatedCheckbox = document.getElementById('isRated');
+            const ratingInputGroup = document.getElementById('ratingInputGroup');
             const photoInput = document.getElementById('photo');
+
+            // Function to toggle rating input based on checkbox
+            function toggleRatingInput() {
+                if (isRatedCheckbox.checked) {
+                    // Player has a rating - enable and show input
+                    ratingInput.disabled = false;
+                    ratingInput.required = true;
+                    ratingInput.name = 'rating'; // Restore the name attribute
+                    ratingInput.classList.remove('bg-gray-100', 'text-gray-500');
+                    ratingInput.classList.add('bg-white', 'border-gray-300');
+                    ratingInputGroup.style.opacity = '1';
+                } else {
+                    // Player is unrated - disable and visually mute input
+                    ratingInput.disabled = true;
+                    ratingInput.required = false;
+                    ratingInput.name = ''; // Remove name attribute to prevent form submission
+                    ratingInput.value = ''; // Clear the value
+                    ratingInput.classList.remove('bg-white', 'border-gray-300');
+                    ratingInput.classList.add('bg-gray-100', 'text-gray-500');
+                    ratingInputGroup.style.opacity = '0.6';
+                    clearRatingError();
+                }
+            }
+
+            // Function to show rating error
+            function showRatingError(message) {
+                let errorElement = document.getElementById('ratingError');
+                if (!errorElement) {
+                    errorElement = document.createElement('p');
+                    errorElement.id = 'ratingError';
+                    errorElement.className = 'text-red-500 text-sm mt-1';
+                    ratingInputGroup.appendChild(errorElement);
+                }
+                errorElement.textContent = message;
+                ratingInput.classList.remove('border-gray-300');
+                ratingInput.classList.add('border-red-500');
+            }
+
+            // Function to clear rating error
+            function clearRatingError() {
+                const errorElement = document.getElementById('ratingError');
+                if (errorElement) {
+                    errorElement.remove();
+                }
+                ratingInput.classList.remove('border-red-500');
+                ratingInput.classList.add('border-gray-300');
+            }
+
+            // Function to validate rating
+            function validateRating() {
+                if (!isRatedCheckbox.checked || ratingInput.disabled) {
+                    clearRatingError();
+                    return true;
+                }
+
+                const value = ratingInput.value.trim();
+                
+                if (value === '') {
+                    showRatingError('Rating is required when player has a rating.');
+                    return false;
+                }
+
+                const rating = parseFloat(value);
+                
+                if (isNaN(rating)) {
+                    showRatingError('Rating must be a valid number.');
+                    return false;
+                }
+
+                if (rating < 0 || rating > 1000) {
+                    showRatingError('Rating must be between 0 and 1000.');
+                    return false;
+                }
+
+                clearRatingError();
+                return true;
+            }
+
+            // Initialize rating input state on page load
+            if (isRatedCheckbox) {
+                toggleRatingInput();
+                isRatedCheckbox.addEventListener('change', toggleRatingInput);
+            }
+
+            // Add real-time validation for rating input
+            if (ratingInput) {
+                ratingInput.addEventListener('input', validateRating);
+                ratingInput.addEventListener('blur', validateRating);
+            }
             const photoPreview = document.getElementById('photoPreview');
             const previewImage = document.getElementById('previewImage');
             const removePhotoPreviewBtn = document.getElementById('removePhotoPreview');
@@ -549,6 +656,13 @@
             form.addEventListener('submit', function(e) {
                 let isValid = true;
                 
+                // Ensure rating input is properly handled based on checkbox state
+                if (!isRatedCheckbox.checked) {
+                    // If checkbox is unchecked, ensure rating is cleared and name removed
+                    ratingInput.value = '';
+                    ratingInput.name = '';
+                }
+                
                 // Validate name
                 if (!nameInput.value.trim()) {
                     isValid = false;
@@ -557,27 +671,15 @@
                     return;
                 }
                 
-                // Validate rating
-                const rating = parseInt(ratingInput.value);
-                if (isNaN(rating) || rating < 0 || rating > 1000) {
+                // Validate rating using our new validation function
+                if (!validateRating()) {
                     isValid = false;
-                    alert('Rating must be a number between 0 and 1000');
                     ratingInput.focus();
                     return;
                 }
                 
                 if (!isValid) {
                     e.preventDefault();
-                }
-            });
-            
-            // Real-time rating validation
-            ratingInput.addEventListener('input', function() {
-                const rating = parseInt(this.value);
-                if (this.value && (isNaN(rating) || rating < 0 || rating > 1000)) {
-                    this.style.borderColor = '#ef4444';
-                } else {
-                    this.style.borderColor = '#d1d5db';
                 }
             });
             

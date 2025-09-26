@@ -279,15 +279,33 @@ def edit_player(player_id):
     if request.method == 'POST':
         try:
             name = request.form['name'].strip()
-            rating = int(request.form['rating'])
+            rating_str = request.form.get('rating', '').strip()
+            is_rated = request.form.get('is_rated') == 'on'
+            
+            # Handle rating based on checkbox state
+            if is_rated:
+                # Player should have a rating
+                if not rating_str:
+                    flash('Rating is required when "Player has a rating" is checked', 'error')
+                    return render_template('admin/edit_player.html', player=player)
+                try:
+                    rating = int(rating_str)
+                    if rating < 0 or rating > 1000:
+                        flash('Rating must be between 0 and 1000', 'error')
+                        return render_template('admin/edit_player.html', player=player)
+                except ValueError:
+                    flash('Rating must be a valid number', 'error')
+                    return render_template('admin/edit_player.html', player=player)
+            else:
+                # Player is unrated
+                rating = None
+            
             photo_file = request.files.get('photo')
             cropped_image_data = request.form.get('cropped_image_data')
             remove_photo = request.form.get('remove_photo') == 'true'
             
             if not name:
                 flash('Player name cannot be empty', 'error')
-            elif rating < 0 or rating > 1000:
-                flash('Rating must be between 0 and 1000', 'error')
             else:
                 # Update basic player info first
                 TournamentDB.edit_player(player_id, name, rating)

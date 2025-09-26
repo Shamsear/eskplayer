@@ -147,25 +147,9 @@
     }
     
     /* Mobile Responsive Adjustments */
-    @media (max-width: 1024px) {
-        .grid.lg\:grid-cols-4 {
-            grid-template-columns: 1fr;
-            gap: 1rem;
-        }
-        
-        .lg\:col-span-3,
-        .lg\:col-span-1 {
-            grid-column: span 1;
-        }
-    }
-    
     @media (max-width: 768px) {
-        .match-card {
-            padding: 0.75rem !important;
-        }
-        
         .match-card .grid {
-            gap: 1rem;
+            gap: 0.75rem;
         }
         
         .col-span-2 {
@@ -178,6 +162,10 @@
         
         .tournament-container {
             margin-bottom: 1rem;
+        }
+        
+        .space-y-6 > * + * {
+            margin-top: 1rem;
         }
     }
 </style>
@@ -270,224 +258,260 @@
             </div>
         </div>
     </div>
-            <!-- Tournament Matches -->
-            <div class="lg:col-span-3">
-                <div class="stat-card glass rounded-2xl overflow-hidden h-fit">
-                    <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
-                        <h2 class="text-xl font-bold flex items-center">
-                            <i class="fas fa-gamepad mr-2"></i> Recent Matches
-                        </h2>
-                    </div>
-                    <div class="p-0">
-                        {% if tournament_matches %}
-                        <div class="divide-y divide-gray-100">
-                            {% for match in tournament_matches[:8] %}
-                            <div class="match-card p-3 hover:bg-gray-50 transition-all">
-                                <div class="grid grid-cols-12 gap-2 items-center">
-                                    <!-- Date -->
-                                    <div class="col-span-2">
-                                        <div class="text-xs font-semibold text-gray-700">{{ match.played_at.strftime('%m/%d') }}</div>
-                                        <div class="text-xs text-gray-500">{{ match.played_at.strftime('%H:%M') }}</div>
-                                    </div>
-                                    
-                                    <!-- Player 1 -->
-                                    <div class="col-span-4">
-                                        <div class="flex items-center justify-end space-x-2">
-                                            <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
-                                               class="text-sm font-semibold text-gray-900 hover:text-indigo-600 transition-colors truncate">
-                                                {{ match.player1_name }}
-                                            </a>
-                                            {% if match.player1_photo_url %}
-                                                <img src="{{ match.player1_photo_url }}" 
-                                                     alt="{{ match.player1_name }}" 
-                                                     class="w-6 h-6 rounded-full object-cover flex-shrink-0">
-                                            {% else %}
-                                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                                                    <i class="fas fa-user text-white text-xs"></i>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Score -->
-                                    <div class="col-span-2">
-                                        <div class="text-center">
-                                            <span class="score-badge text-sm px-2 py-1">
-                                                {{ match.player1_goals }} - {{ match.player2_goals }}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    
-                                    <!-- Player 2 -->
-                                    <div class="col-span-4">
-                                        <div class="flex items-center space-x-2">
-                                            {% if match.player2_photo_url %}
-                                                <img src="{{ match.player2_photo_url }}" 
-                                                     alt="{{ match.player2_name or match.guest_name }}" 
-                                                     class="w-6 h-6 rounded-full object-cover flex-shrink-0">
-                                            {% else %}
-                                                <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
-                                                    <i class="fas fa-user text-white text-xs"></i>
-                                                </div>
-                                            {% endif %}
-                                            {% if match.player2_name %}
-                                                <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
-                                                   class="text-sm font-semibold text-gray-900 hover:text-indigo-600 transition-colors truncate">
-                                                    {{ match.player2_name }}
-                                                </a>
-                                            {% else %}
-                                                <div>
-                                                    <span class="text-sm font-semibold text-gray-700">{{ match.guest_name }}</span>
-                                                    <span class="text-xs text-gray-500 block">(Guest)</span>
-                                                </div>
-                                            {% endif %}
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                            {% endfor %}
+    <!-- Tournament Matches -->
+    <div class="stat-card glass rounded-2xl overflow-hidden">
+        <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-4 text-white">
+            <h2 class="text-xl font-bold flex items-center">
+                <i class="fas fa-gamepad mr-2"></i> Recent Matches
+            </h2>
+        </div>
+        <div class="p-0">
+            {% if tournament_matches %}
+            <div class="divide-y divide-gray-100">
+                {% for match in tournament_matches[:10] %}
+                <div class="match-card p-4">
+                    <div class="grid grid-cols-12 gap-3 items-center">
+                        <!-- Date -->
+                        <div class="col-span-2">
+                            <div class="text-xs font-semibold text-gray-700">{{ match.played_at.strftime('%m/%d') }}</div>
+                            <div class="text-xs text-gray-500">{{ match.played_at.strftime('%H:%M') }}</div>
                         </div>
                         
-                        {% if tournament_matches|length > 8 %}
-                        <div class="p-3 bg-gray-50 text-center border-t border-gray-100">
-                            <a href="{{ url_for('public_matches', tournament_id=tournament.id) }}" 
-                               class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all text-sm">
-                                <i class="fas fa-list mr-2"></i>
-                                View All {{ tournament_matches|length }} Matches
-                            </a>
-                        </div>
-                        {% endif %}
-                        
-                        {% else %}
-                        <div class="text-center py-12">
-                            <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-4">
-                                <i class="fas fa-gamepad text-gray-400 text-2xl"></i>
+                        <!-- Player 1 -->
+                        <div class="col-span-4">
+                            <div class="flex items-center justify-end space-x-2">
+                                <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
+                                   class="text-sm font-semibold text-gray-900 transition-colors truncate">
+                                    {{ match.player1_name }}
+                                </a>
+                                {% if match.player1_photo_url %}
+                                    <img src="{{ match.player1_photo_url }}" 
+                                         alt="{{ match.player1_name }}" 
+                                         class="w-6 h-6 rounded-full object-cover flex-shrink-0">
+                                {% else %}
+                                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user text-white text-xs"></i>
+                                    </div>
+                                {% endif %}
                             </div>
-                            <h3 class="text-lg font-semibold text-gray-700 mb-2">No matches played yet</h3>
-                            <p class="text-gray-500 text-sm">Matches will appear here once they are recorded</p>
                         </div>
-                        {% endif %}
+                        
+                        <!-- Score -->
+                        <div class="col-span-2">
+                            <div class="text-center">
+                                <span class="score-badge text-sm px-3 py-1">
+                                    {{ match.player1_goals }} - {{ match.player2_goals }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Player 2 -->
+                        <div class="col-span-4">
+                            <div class="flex items-center space-x-2">
+                                {% if match.player2_photo_url %}
+                                    <img src="{{ match.player2_photo_url }}" 
+                                         alt="{{ match.player2_name or match.guest_name }}" 
+                                         class="w-6 h-6 rounded-full object-cover flex-shrink-0">
+                                {% else %}
+                                    <div class="w-6 h-6 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center flex-shrink-0">
+                                        <i class="fas fa-user text-white text-xs"></i>
+                                    </div>
+                                {% endif %}
+                                {% if match.player2_name %}
+                                    <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
+                                       class="text-sm font-semibold text-gray-900 transition-colors truncate">
+                                        {{ match.player2_name }}
+                                    </a>
+                                {% else %}
+                                    <div>
+                                        <span class="text-sm font-semibold text-gray-700">{{ match.guest_name }}</span>
+                                        <span class="text-xs text-gray-500 block">(Guest)</span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
+                {% endfor %}
             </div>
+            
+            {% if tournament_matches|length > 10 %}
+            <div class="p-4 bg-gray-50 text-center border-t border-gray-100">
+                <a href="{{ url_for('public_matches', tournament_id=tournament.id) }}" 
+                   class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-lg font-semibold transition-all text-sm">
+                    <i class="fas fa-list mr-2"></i>
+                    View All {{ tournament_matches|length }} Matches
+                </a>
+            </div>
+            {% endif %}
+            
+            {% else %}
+            <div class="text-center py-12">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-4">
+                    <i class="fas fa-gamepad text-gray-400 text-2xl"></i>
+                </div>
+                <h3 class="text-lg font-semibold text-gray-700 mb-2">No matches played yet</h3>
+                <p class="text-gray-500 text-sm">Matches will appear here once they are recorded</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
 
-            <!-- Tournament Awards & Stats Sidebar -->
-            <div class="lg:col-span-1 space-y-4">
-                <!-- Tournament Awards -->
-                {% if golden_ball_tournament or golden_boot_tournament or golden_glove_tournament %}
-                <div class="stat-card glass rounded-2xl overflow-hidden h-fit">
-                    <div class="p-4 bg-gradient-to-r from-yellow-500 to-amber-600">
-                        <h3 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-award mr-2"></i> Awards
-                        </h3>
-                    </div>
-                    <div class="p-4 space-y-3">
-                        {% if golden_ball_tournament %}
-                        <div class="award-card bg-gradient-to-r from-yellow-400 to-amber-500 p-3 rounded-xl text-white shadow-sm hover:shadow-md transition-all">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-medal text-lg"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-sm mb-1">Golden Ball</div>
-                                    <a href="{{ url_for('public_player_profile', player_id=golden_ball_tournament.id) }}" 
-                                       class="text-white font-semibold hover:text-yellow-100 transition-colors text-sm block truncate">
-                                        {{ golden_ball_tournament.name }}
-                                    </a>
-                                    <div class="text-xs opacity-90 mt-1">{{ golden_ball_tournament.rating }} Rating</div>
-                                </div>
-                            </div>
+    <!-- Awards and Statistics Section -->
+    {% if golden_ball_tournament or golden_boot_tournament or golden_glove_tournament %}
+    <div class="grid md:grid-cols-2 gap-6">
+        <!-- Tournament Awards -->
+        <div class="stat-card glass rounded-2xl overflow-hidden">
+            <div class="p-4 bg-gradient-to-r from-yellow-500 to-amber-600">
+                <h3 class="text-lg font-bold text-white flex items-center">
+                    <i class="fas fa-award mr-2"></i> Tournament Awards
+                </h3>
+            </div>
+            <div class="p-4 space-y-3">
+                {% if golden_ball_tournament %}
+                <div class="award-card bg-gradient-to-r from-yellow-400 to-amber-500 p-3 rounded-xl text-white shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-medal text-lg"></i>
                         </div>
-                        {% endif %}
-
-                        {% if golden_boot_tournament %}
-                        <div class="award-card bg-gradient-to-r from-orange-500 to-red-500 p-3 rounded-xl text-white shadow-sm hover:shadow-md transition-all">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-futbol text-lg"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-sm mb-1">Golden Boot</div>
-                                    <a href="{{ url_for('public_player_profile', player_id=golden_boot_tournament.id) }}" 
-                                       class="text-white font-semibold hover:text-orange-100 transition-colors text-sm block truncate">
-                                        {{ golden_boot_tournament.name }}
-                                    </a>
-                                    <div class="text-xs opacity-90 mt-1">{{ golden_boot_tournament.goals_scored }} Goals</div>
-                                </div>
-                            </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm mb-1">Golden Ball</div>
+                            <a href="{{ url_for('public_player_profile', player_id=golden_ball_tournament.id) }}" 
+                               class="text-white font-semibold transition-colors text-sm block truncate">
+                                {{ golden_ball_tournament.name }}
+                            </a>
+                            <div class="text-xs opacity-90 mt-1">{{ golden_ball_tournament.rating }} Rating</div>
                         </div>
-                        {% endif %}
-
-                        {% if golden_glove_tournament %}
-                        <div class="award-card bg-gradient-to-r from-teal-500 to-cyan-600 p-3 rounded-xl text-white shadow-sm hover:shadow-md transition-all">
-                            <div class="flex items-center space-x-3">
-                                <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
-                                    <i class="fas fa-hands text-lg"></i>
-                                </div>
-                                <div class="flex-1 min-w-0">
-                                    <div class="font-bold text-sm mb-1">Golden Glove</div>
-                                    <a href="{{ url_for('public_player_profile', player_id=golden_glove_tournament.id) }}" 
-                                       class="text-white font-semibold hover:text-teal-100 transition-colors text-sm block truncate">
-                                        {{ golden_glove_tournament.name }}
-                                    </a>
-                                    <div class="text-xs opacity-90 mt-1">{{ "%.1f"|format(golden_glove_tournament.golden_glove_points) }} Points</div>
-                                </div>
-                            </div>
-                        </div>
-                        {% endif %}
                     </div>
                 </div>
                 {% endif %}
 
-                <!-- Tournament Statistics -->
-                <div class="stat-card glass rounded-2xl overflow-hidden h-fit">
-                    <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600">
-                        <h3 class="text-lg font-bold text-white flex items-center">
-                            <i class="fas fa-chart-bar mr-2"></i> Statistics
-                        </h3>
-                    </div>
-                    <div class="p-4">
-                        <div class="grid grid-cols-1 gap-3">
-                            <div class="text-center p-3 glass rounded-lg hover:bg-white/50 transition-all">
-                                <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <i class="fas fa-futbol text-white text-sm"></i>
-                                </div>
-                                <div class="text-xl font-bold text-gray-800">{{ total_goals or 0 }}</div>
-                                <div class="text-xs text-gray-600">Total Goals</div>
-                            </div>
-                            <div class="text-center p-3 glass rounded-lg hover:bg-white/50 transition-all">
-                                <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <i class="fas fa-chart-line text-white text-sm"></i>
-                                </div>
-                                <div class="text-xl font-bold text-gray-800">{{ "%.1f"|format(avg_goals_per_match or 0) }}</div>
-                                <div class="text-xs text-gray-600">Avg per Match</div>
-                            </div>
-                            <div class="text-center p-3 glass rounded-lg hover:bg-white/50 transition-all">
-                                <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <i class="fas fa-trophy text-white text-sm"></i>
-                                </div>
-                                <div class="text-xl font-bold text-gray-800">{{ decisive_matches or 0 }}</div>
-                                <div class="text-xs text-gray-600">Decisive</div>
-                            </div>
-                            <div class="text-center p-3 glass rounded-lg hover:bg-white/50 transition-all">
-                                <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
-                                    <i class="fas fa-handshake text-white text-sm"></i>
-                                </div>
-                                <div class="text-xl font-bold text-gray-800">{{ draw_matches or 0 }}</div>
-                                <div class="text-xs text-gray-600">Draws</div>
-                            </div>
+                {% if golden_boot_tournament %}
+                <div class="award-card bg-gradient-to-r from-orange-500 to-red-500 p-3 rounded-xl text-white shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-futbol text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm mb-1">Golden Boot</div>
+                            <a href="{{ url_for('public_player_profile', player_id=golden_boot_tournament.id) }}" 
+                               class="text-white font-semibold transition-colors text-sm block truncate">
+                                {{ golden_boot_tournament.name }}
+                            </a>
+                            <div class="text-xs opacity-90 mt-1">{{ golden_boot_tournament.goals_scored }} Goals</div>
                         </div>
                     </div>
                 </div>
+                {% endif %}
+
+                {% if golden_glove_tournament %}
+                <div class="award-card bg-gradient-to-r from-teal-500 to-cyan-600 p-3 rounded-xl text-white shadow-sm">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center flex-shrink-0">
+                            <i class="fas fa-hands text-lg"></i>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="font-bold text-sm mb-1">Golden Glove</div>
+                            <a href="{{ url_for('public_player_profile', player_id=golden_glove_tournament.id) }}" 
+                               class="text-white font-semibold transition-colors text-sm block truncate">
+                                {{ golden_glove_tournament.name }}
+                            </a>
+                            <div class="text-xs opacity-90 mt-1">{{ "%.1f"|format(golden_glove_tournament.golden_glove_points) }} Points</div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
+        </div>
+
+        <!-- Tournament Statistics -->
+        <div class="stat-card glass rounded-2xl overflow-hidden">
+            <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600">
+                <h3 class="text-lg font-bold text-white flex items-center">
+                    <i class="fas fa-chart-bar mr-2"></i> Statistics
+                </h3>
+            </div>
+            <div class="p-4">
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="text-center p-3 glass rounded-lg">
+                        <div class="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-futbol text-white text-sm"></i>
+                        </div>
+                        <div class="text-xl font-bold text-gray-800">{{ total_goals or 0 }}</div>
+                        <div class="text-xs text-gray-600">Total Goals</div>
+                    </div>
+                    <div class="text-center p-3 glass rounded-lg">
+                        <div class="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-chart-line text-white text-sm"></i>
+                        </div>
+                        <div class="text-xl font-bold text-gray-800">{{ "%.1f"|format(avg_goals_per_match or 0) }}</div>
+                        <div class="text-xs text-gray-600">Avg/Match</div>
+                    </div>
+                    <div class="text-center p-3 glass rounded-lg">
+                        <div class="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-trophy text-white text-sm"></i>
+                        </div>
+                        <div class="text-xl font-bold text-gray-800">{{ decisive_matches or 0 }}</div>
+                        <div class="text-xs text-gray-600">Decisive</div>
+                    </div>
+                    <div class="text-center p-3 glass rounded-lg">
+                        <div class="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-handshake text-white text-sm"></i>
+                        </div>
+                        <div class="text-xl font-bold text-gray-800">{{ draw_matches or 0 }}</div>
+                        <div class="text-xs text-gray-600">Draws</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-
+    {% else %}
+    <!-- Just Statistics if no awards -->
+    <div class="stat-card glass rounded-2xl overflow-hidden">
+        <div class="p-4 bg-gradient-to-r from-indigo-600 to-purple-600">
+            <h3 class="text-lg font-bold text-white flex items-center">
+                <i class="fas fa-chart-bar mr-2"></i> Tournament Statistics
+            </h3>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div class="text-center p-3 glass rounded-lg">
+                    <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <i class="fas fa-futbol text-white"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-800">{{ total_goals or 0 }}</div>
+                    <div class="text-sm text-gray-600">Total Goals</div>
+                </div>
+                <div class="text-center p-3 glass rounded-lg">
+                    <div class="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <i class="fas fa-chart-line text-white"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-800">{{ "%.1f"|format(avg_goals_per_match or 0) }}</div>
+                    <div class="text-sm text-gray-600">Avg per Match</div>
+                </div>
+                <div class="text-center p-3 glass rounded-lg">
+                    <div class="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <i class="fas fa-trophy text-white"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-800">{{ decisive_matches or 0 }}</div>
+                    <div class="text-sm text-gray-600">Decisive</div>
+                </div>
+                <div class="text-center p-3 glass rounded-lg">
+                    <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                        <i class="fas fa-handshake text-white"></i>
+                    </div>
+                    <div class="text-2xl font-bold text-gray-800">{{ draw_matches or 0 }}</div>
+                    <div class="text-sm text-gray-600">Draws</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
     <!-- Back Button -->
-    <div class="text-center mt-8 px-4">
+    <div class="text-center mt-2">
         <a href="{{ url_for('public_tournaments') }}" 
-           class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all">
+           class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-xl font-semibold transition-all">
             <i class="fas fa-arrow-left mr-2"></i> Back to Tournaments
         </a>
     </div>
