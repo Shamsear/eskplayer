@@ -174,7 +174,7 @@
                     <div>
                         <h1 class="text-4xl font-display font-bold gradient-text">{{ player.name }}</h1>
                         <div class="flex items-center space-x-4 mt-2">
-                            <span class="rating-badge text-lg">{{ player.rating }}</span>
+                            <span class="rating-badge text-lg">{{ player.rating if player.rating is not none else 'Unrated' }}</span>
                             <div class="text-gray-600">
                                 <i class="fas fa-calendar mr-2"></i>
                                 Joined: {{ player.created_at.strftime('%B %d, %Y') }}
@@ -241,7 +241,7 @@
                 <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4">
                     <i class="fas fa-star text-white text-xl"></i>
                 </div>
-                <div class="text-2xl font-bold text-gray-900">{{ player.rating }}</div>
+                <div class="text-2xl font-bold text-gray-900">{{ player.rating if player.rating is not none else 'Unrated' }}</div>
                 <div class="text-gray-600">Current Rating</div>
             </div>
         </div>
@@ -401,12 +401,12 @@
                             <div class="text-right">
                                 <div class="text-sm text-gray-500">Rating</div>
                                 <div class="flex items-center">
-                                    <span class="text-gray-600">{{ match.rating_before }}</span>
+                                    <span class="text-gray-600">{{ match.rating_before if match.rating_before is not none else 'N/A' }}</span>
                                     <i class="fas fa-arrow-right mx-2 text-gray-400"></i>
-                                    <span class="{% if match.rating_after > match.rating_before %}text-green-600{% elif match.rating_after < match.rating_before %}text-red-600{% else %}text-gray-600{% endif %} font-semibold">
-                                        {{ match.rating_after }}
+                                    <span class="{% if match.rating_after and match.rating_before and match.rating_after > match.rating_before %}text-green-600{% elif match.rating_after and match.rating_before and match.rating_after < match.rating_before %}text-red-600{% else %}text-gray-600{% endif %} font-semibold">
+                                        {{ match.rating_after if match.rating_after is not none else 'N/A' }}
                                     </span>
-                                    {% if match.rating_after != match.rating_before %}
+                                    {% if match.rating_after and match.rating_before and match.rating_after != match.rating_before %}
                                     <span class="ml-2 text-xs {% if match.rating_after > match.rating_before %}text-green-600{% else %}text-red-600{% endif %}">
                                         ({% if match.rating_after > match.rating_before %}+{% endif %}{{ match.rating_after - match.rating_before }})
                                     </span>

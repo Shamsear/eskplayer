@@ -314,7 +314,7 @@
                         {{ player.name[:2].upper() }}
                     </div>
                     <h4 class="font-semibold text-gray-900 text-sm truncate">{{ player.name }}</h4>
-                    <div class="rating-badge mt-2">{{ player.rating }}</div>
+                    <div class="rating-badge mt-2">{{ player.rating if player.rating is not none else 'Unrated' }}</div>
                     <p class="text-xs text-gray-500 mt-1">{{ player.matches_won }}W {{ player.matches_drawn }}D {{ player.matches_lost }}L</p>
                 </div>
                 {% endfor %}
