@@ -198,7 +198,7 @@
                     <div class="space-y-3 max-h-64 overflow-y-auto" id="available-players-list">
                         {% for player in available_players %}
                         <div class="flex items-center p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors available-player-item" 
-                             data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating }}">
+                             data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating if player.rating is not none else 0 }}">
                             <input type="checkbox" name="player_ids" value="{{ player.id }}" 
                                    class="h-4 w-4 text-blue-600 rounded player-checkbox mr-3">
                             <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
@@ -209,7 +209,7 @@
                                 <div class="flex items-center justify-between">
                                     <span class="font-semibold text-gray-900">{{ player.name }}</span>
                                     <span class="rating-badge text-white px-2 py-1 rounded-lg text-xs font-bold">
-                                        {{ player.rating }}
+                                        {{ player.rating if player.rating is not none else 'Unrated' }}
                                     </span>
                                 </div>
                                 <div class="text-sm text-gray-500 mt-1">
@@ -263,7 +263,7 @@
                 <div class="space-y-3 max-h-64 overflow-y-auto mb-6" id="tournament-players-list">
                     {% for player in tournament_players %}
                     <div class="player-card bg-white rounded-xl border border-gray-200 p-4 tournament-player-item" 
-                         data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating }}">
+                         data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating if player.rating is not none else 0 }}">
                         <div class="flex items-center justify-between">
                             <div class="flex items-center">
                                 <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-4 font-bold text-white text-sm player-avatar-med" 
@@ -273,7 +273,7 @@
                                 <div>
                                     <div class="font-semibold text-gray-900">{{ player.name }}</div>
                                     <div class="text-sm text-gray-500">
-                                        Rating: {{ player.rating }} • 
+                                        Rating: {{ player.rating if player.rating is not none else 'Unrated' }} •
                                         {{ player.matches_played }} matches • 
                                         {{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}% win
                                     </div>

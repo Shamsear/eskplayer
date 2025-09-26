@@ -192,7 +192,7 @@
                                 </div>
                             </td>
                             <td class="py-3 px-4 text-center">
-                                <span class="rating-badge">{{ stat.rating }}</span>
+                                <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
                             </td>
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
                             <td class="py-3 px-4 text-center">
@@ -254,7 +254,7 @@
                                 </div>
                             </td>
                             <td class="py-3 px-4 text-center">
-                                <span class="rating-badge">{{ stat.rating }}</span>
+                                <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
                             </td>
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
                             <td class="py-3 px-4 text-center">

@@ -186,7 +186,7 @@
                     <input type="number" 
                            id="rating" 
                            name="rating" 
-                           value="{{ player.rating }}"
+                           value="{{ player.rating if player.rating is not none else '' }}"
                            min="0" 
                            max="1000"
                            required
