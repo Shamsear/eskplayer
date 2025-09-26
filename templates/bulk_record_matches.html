@@ -650,6 +650,50 @@
             }
         }
         
+        function toggleMatchGuestMode(matchIndex) {
+            const isGuestMatch = document.getElementById(`match_${matchIndex}_is_guest_match`).checked;
+            const player2Dropdown = document.getElementById(`match_${matchIndex}_player2_dropdown`);
+            const player2Id = document.getElementById(`match_${matchIndex}_player2_id`);
+            const guestInput = document.getElementById(`match_${matchIndex}_guest_input_container`);
+            const guestInfo = document.getElementById(`match_${matchIndex}_guest_info`);
+            const player1Label = document.getElementById(`match_${matchIndex}_player1_label`);
+            const player2Label = document.getElementById(`match_${matchIndex}_player2_label`);
+            const player2Search = document.getElementById(`match_${matchIndex}_player2_search`);
+            
+            if (isGuestMatch) {
+                player2Dropdown.classList.add('hidden');
+                player2Id.removeAttribute('required');
+                player2Id.value = '';
+                guestInput.classList.remove('hidden');
+                guestInfo.classList.remove('hidden');
+                player2Search.value = '';
+                player1Label.textContent = 'Tournament Player';
+                player2Label.textContent = 'Guest Player';
+                
+                // Reset player 2 dropdown selection
+                const player2DropdownId = `match_${matchIndex}_player2`;
+                if (matchDropdowns[player2DropdownId]) {
+                    matchDropdowns[player2DropdownId].reset();
+                }
+            } else {
+                player2Dropdown.classList.remove('hidden');
+                player2Id.setAttribute('required', 'required');
+                guestInput.classList.add('hidden');
+                guestInfo.classList.add('hidden');
+                player1Label.textContent = 'Player 1';
+                player2Label.textContent = 'Player 2';
+                
+                // Clear guest input
+                const guestNameInput = document.getElementById(`match_${matchIndex}_guest_name`);
+                if (guestNameInput) {
+                    guestNameInput.value = '';
+                }
+            }
+            
+            // Revalidate the match
+            validateMatch(matchIndex);
+        }
+        
         function addMatch() {
             if (tournamentPlayers.length < 2) return;
             
@@ -675,11 +719,30 @@
                     </button>
                 </div>
                 
+                <!-- Guest Match Toggle -->
+                <div class="col-span-2 mb-4">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="match_${matchCount}_is_guest_match" 
+                                   name="match_${matchCount}_is_guest_match" 
+                                   class="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                   onchange="toggleMatchGuestMode(${matchCount})">
+                            <label for="match_${matchCount}_is_guest_match" class="text-sm font-medium text-blue-800">
+                                <i class="fas fa-user-plus mr-2"></i>Guest Match (Tournament Player vs External Player)
+                            </label>
+                        </div>
+                        <p class="text-xs text-blue-700 mt-2">
+                            Check this for a match between a tournament participant and an external guest player. Only the tournament participant's rating will be updated.
+                        </p>
+                    </div>
+                </div>
+                
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Player 1 -->
+                    <!-- Player 1 / Tournament Player -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-2"></i>Player 1
+                            <i class="fas fa-user mr-2"></i><span id="match_${matchCount}_player1_label">Player 1</span>
                         </label>
                         <div class="searchable-dropdown" id="match_${matchCount}_player1_dropdown">
                             <input type="text" 
@@ -695,11 +758,12 @@
                         <input type="hidden" id="match_${matchCount}_player1_id" name="match_${matchCount}_player1_id" required>
                     </div>
                     
-                    <!-- Player 2 -->
+                    <!-- Player 2 / Guest Player -->
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-2"></i>Player 2
+                            <i class="fas fa-user mr-2"></i><span id="match_${matchCount}_player2_label">Player 2</span>
                         </label>
+                        <!-- Tournament Player Dropdown (shown by default) -->
                         <div class="searchable-dropdown" id="match_${matchCount}_player2_dropdown">
                             <input type="text" 
                                    id="match_${matchCount}_player2_search" 
@@ -712,6 +776,19 @@
                             </div>
                         </div>
                         <input type="hidden" id="match_${matchCount}_player2_id" name="match_${matchCount}_player2_id" required>
+                        
+                        <!-- Guest Player Input (hidden by default) -->
+                        <div id="match_${matchCount}_guest_input_container" class="hidden">
+                            <input type="text" 
+                                   id="match_${matchCount}_guest_name" 
+                                   name="match_${matchCount}_guest_name" 
+                                   class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                   placeholder="Enter guest player name...">
+                        </div>
+                        
+                        <div id="match_${matchCount}_guest_info" class="mt-2 p-3 bg-orange-50 rounded-lg hidden">
+                            <p class="text-sm text-orange-700"><i class="fas fa-info-circle mr-1"></i>Guest player stats will not be tracked</p>
+                        </div>
                     </div>
                     
                     <!-- Absence Options -->
@@ -823,6 +900,8 @@
         function validateMatch(index) {
             const player1Input = document.getElementById(`match_${index}_player1_id`);
             const player2Input = document.getElementById(`match_${index}_player2_id`);
+            const isGuestMatch = document.getElementById(`match_${index}_is_guest_match`).checked;
+            const guestNameInput = document.getElementById(`match_${index}_guest_name`);
             const player1Goals = document.querySelector(`[name="match_${index}_player1_goals"]`);
             const player2Goals = document.querySelector(`[name="match_${index}_player2_goals"]`);
             const player1Absent = document.getElementById(`match_${index}_player1_absent`);
@@ -830,19 +909,41 @@
             const preview = document.getElementById(`match_${index}_preview`);
             const result = document.getElementById(`match_${index}_result`);
             
-            if (player1Input.value && player2Input.value) {
-                if (player1Input.value === player2Input.value) {
-                    alert('Please select different players for the match.');
-                    // Reset the second player dropdown
-                    const player2DropdownId = `match_${index}_player2`;
-                    if (matchDropdowns[player2DropdownId]) {
-                        matchDropdowns[player2DropdownId].reset();
-                    }
-                    return;
+            // Check if match has required players
+            let hasValidPlayers = false;
+            let player1Name = '';
+            let player2Name = '';
+            
+            if (isGuestMatch) {
+                // For guest match: need player1 (tournament player) and guest name
+                hasValidPlayers = player1Input.value && guestNameInput.value.trim();
+                if (hasValidPlayers) {
+                    const player1 = tournamentPlayers.find(p => p.id == player1Input.value);
+                    player1Name = player1.name;
+                    player2Name = guestNameInput.value.trim();
                 }
-                
-                const player1 = tournamentPlayers.find(p => p.id == player1Input.value);
-                const player2 = tournamentPlayers.find(p => p.id == player2Input.value);
+            } else {
+                // For normal match: need both tournament players
+                hasValidPlayers = player1Input.value && player2Input.value;
+                if (hasValidPlayers) {
+                    if (player1Input.value === player2Input.value) {
+                        alert('Please select different players for the match.');
+                        // Reset the second player dropdown
+                        const player2DropdownId = `match_${index}_player2`;
+                        if (matchDropdowns[player2DropdownId]) {
+                            matchDropdowns[player2DropdownId].reset();
+                        }
+                        return;
+                    }
+                    
+                    const player1 = tournamentPlayers.find(p => p.id == player1Input.value);
+                    const player2 = tournamentPlayers.find(p => p.id == player2Input.value);
+                    player1Name = player1.name;
+                    player2Name = player2.name;
+                }
+            }
+            
+            if (hasValidPlayers) {
                 const goals1 = parseInt(player1Goals.value) || 0;
                 const goals2 = parseInt(player2Goals.value) || 0;
                 const player1IsAbsent = player1Absent.checked;
@@ -851,24 +952,27 @@
                 let resultText = '';
                 let resultClass = 'text-sm font-semibold text-gray-600';
                 
+                // Add guest match indicator
+                const guestIndicator = isGuestMatch ? ' (Guest Match)' : '';
+                
                 // Determine result based on absence and scores
                 if (player1IsAbsent && player2IsAbsent) {
-                    resultText = 'Match Nullified (Both Absent)';
+                    resultText = `Match Nullified (Both Absent)${guestIndicator}`;
                     resultClass = 'text-sm font-semibold text-red-600';
                 } else if (player1IsAbsent) {
-                    resultText = `${player2.name} Wins by Walkover (${goals1}-${goals2})`;
+                    resultText = `${player2Name} Wins by Walkover (${goals1}-${goals2})${guestIndicator}`;
                     resultClass = 'text-sm font-semibold text-blue-600';
                 } else if (player2IsAbsent) {
-                    resultText = `${player1.name} Wins by Walkover (${goals1}-${goals2})`;
+                    resultText = `${player1Name} Wins by Walkover (${goals1}-${goals2})${guestIndicator}`;
                     resultClass = 'text-sm font-semibold text-green-600';
                 } else {
                     // Normal match result
-                    resultText = `${player1.name} ${goals1} - ${goals2} ${player2.name}`;
+                    resultText = `${player1Name} ${goals1} - ${goals2} ${player2Name}${guestIndicator}`;
                     if (goals1 > goals2) {
-                        resultText += ` (${player1.name} wins!)`;
+                        resultText += ` (${player1Name} wins!)`;
                         resultClass = 'text-sm font-semibold text-green-600';
                     } else if (goals2 > goals1) {
-                        resultText += ` (${player2.name} wins!)`;
+                        resultText += ` (${player2Name} wins!)`;
                         resultClass = 'text-sm font-semibold text-blue-600';
                     } else {
                         resultText += ' (Draw)';
@@ -881,7 +985,7 @@
                 preview.classList.remove('hidden');
                 
                 // Update player labels for absence checkboxes and goal labels
-                updateMatchPlayerLabels(index, player1.name, player2.name);
+                updateMatchPlayerLabels(index, player1Name, player2Name);
             } else {
                 preview.classList.add('hidden');
             }

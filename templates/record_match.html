@@ -303,12 +303,31 @@
                     </select>
                 </div>
                 
+                <!-- Guest Match Toggle -->
+                <div class="mb-6">
+                    <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                        <div class="flex items-center">
+                            <input type="checkbox" 
+                                   id="is_guest_match" 
+                                   name="is_guest_match" 
+                                   class="mr-3 h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                                   onchange="toggleGuestMode()">
+                            <label for="is_guest_match" class="text-sm font-medium text-blue-800">
+                                <i class="fas fa-user-plus mr-2"></i>Guest Match (Clan vs External Player)
+                            </label>
+                        </div>
+                        <p class="text-xs text-blue-700 mt-2">
+                            Check this to record a match between a tournament participant (clan member) and an external guest player. Only the clan member's rating will be updated.
+                        </p>
+                    </div>
+                </div>
+                
                 <!-- Player Selection -->
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- Player 1 -->
+                    <!-- Player 1 / Clan Player -->
                     <div>
                         <label for="player1_search" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-2"></i>Player 1
+                            <i class="fas fa-user mr-2"></i><span id="player1_label">Player 1</span>
                         </label>
                         <div class="searchable-dropdown" id="player1_dropdown">
                             <input type="text" 
@@ -327,11 +346,12 @@
                         </div>
                     </div>
                     
-                    <!-- Player 2 -->
+                    <!-- Player 2 / Guest Player -->
                     <div>
                         <label for="player2_search" class="block text-sm font-medium text-gray-700 mb-2">
-                            <i class="fas fa-user mr-2"></i>Player 2
+                            <i class="fas fa-user mr-2"></i><span id="player2_label">Player 2</span>
                         </label>
+                        <!-- Clan Player Dropdown (shown by default) -->
                         <div class="searchable-dropdown" id="player2_dropdown">
                             <input type="text" 
                                    id="player2_search" 
@@ -344,8 +364,21 @@
                             </div>
                         </div>
                         <input type="hidden" id="player2_id" name="player2_id" required>
+                        
+                        <!-- Guest Player Input (hidden by default) -->
+                        <div id="guest_input_container" class="hidden">
+                            <input type="text" 
+                                   id="guest_name" 
+                                   name="guest_name" 
+                                   class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                                   placeholder="Enter guest player name...">
+                        </div>
+                        
                         <div id="player2_info" class="mt-2 p-3 bg-green-50 rounded-lg hidden">
                             <p class="text-sm text-gray-600">Current Rating: <span id="player2_rating" class="rating-badge">-</span></p>
+                        </div>
+                        <div id="guest_info" class="mt-2 p-3 bg-orange-50 rounded-lg hidden">
+                            <p class="text-sm text-orange-700"><i class="fas fa-info-circle mr-1"></i>Guest player stats will not be tracked</p>
                         </div>
                     </div>
                 </div>
@@ -446,8 +479,11 @@
                         <i class="fas fa-info-circle text-blue-500 mr-3"></i>
                         <div>
                             <h4 class="text-blue-800 font-semibold">Rating System</h4>
-                            <p class="text-blue-700 text-sm mt-1">
+                            <p class="text-blue-700 text-sm mt-1" id="rating-info">
                                 Player ratings will be automatically adjusted based on the match result. Win against higher-rated players = more rating gained!
+                            </p>
+                            <p class="text-blue-700 text-sm mt-1 hidden" id="guest-rating-info">
+                                <strong>Guest Match:</strong> Only the clan member's rating will be updated. Guest player ratings are not tracked.
                             </p>
                         </div>
                     </div>
@@ -473,7 +509,80 @@
     <!-- JavaScript -->
     <script>
         let tournamentPlayers = [];
+        let guestMode = false;
         let searchableDropdowns = {};
+        
+        function toggleGuestMode() {
+            guestMode = document.getElementById('is_guest_match').checked;
+            const player2DropdownEl = document.getElementById('player2_dropdown');
+            const player2Id = document.getElementById('player2_id');
+            const guestInput = document.getElementById('guest_input_container');
+            const guestInfo = document.getElementById('guest_info');
+            const player2Info = document.getElementById('player2_info');
+            const player1Label = document.getElementById('player1_label');
+            const player2Label = document.getElementById('player2_label');
+            const player2Search = document.getElementById('player2_search');
+            const ratingInfo = document.getElementById('rating-info');
+            const guestRatingInfo = document.getElementById('guest-rating-info');
+            
+            if (guestMode) {
+                player2DropdownEl.classList.add('hidden');
+                player2Id.removeAttribute('required');
+                player2Id.value = '';
+                guestInput.classList.remove('hidden');
+                guestInfo.classList.remove('hidden');
+                player2Info.classList.add('hidden');
+                player2Search.value = '';
+                player2Label.textContent = 'Guest Player';
+                player1Label.textContent = 'Clan Player';
+                
+                // Show guest-specific rating info
+                ratingInfo.classList.add('hidden');
+                guestRatingInfo.classList.remove('hidden');
+                
+                // Load tournament players for clan member selection (Player 1)
+                loadAllPlayersForGuestMode();
+            } else {
+                player2DropdownEl.classList.remove('hidden');
+                player2Id.setAttribute('required', 'required');
+                guestInput.classList.add('hidden');
+                guestInfo.classList.add('hidden');
+                player2Label.textContent = 'Player 2';
+                player1Label.textContent = 'Player 1';
+                
+                // Show normal rating info
+                ratingInfo.classList.remove('hidden');
+                guestRatingInfo.classList.add('hidden');
+                
+                // Reload tournament players for normal mode
+                const tournamentId = document.getElementById('tournament_id').value;
+                if (tournamentId) {
+                    loadTournamentPlayers();
+                }
+            }
+        }
+        
+        function loadAllPlayersForGuestMode() {
+            // For guest mode, use tournament players (clan members) for player 1 dropdown
+            const tournamentId = document.getElementById('tournament_id').value;
+            
+            if (tournamentId) {
+                fetch(`/api/tournament/${tournamentId}/players`)
+                    .then(response => response.json())
+                    .then(players => {
+                        tournamentPlayers = players;
+                        
+                        // Update player 1 dropdown with tournament players (clan members)
+                        if (searchableDropdowns.player1) {
+                            searchableDropdowns.player1.loadPlayers(players);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error loading tournament players:', error);
+                        alert('Error loading player list');
+                    });
+            }
+        }
         
         // SearchableDropdown class
         class SearchableDropdown {
@@ -550,6 +659,13 @@
             loadPlayers(players) {
                 this.players = players;
                 this.updateMenu(players);
+            }
+            
+            populateMenu() {
+                if (!this.players) {
+                    this.players = tournamentPlayers || [];
+                }
+                this.updateMenu(this.players);
             }
             
             updateMenu(players) {

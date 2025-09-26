@@ -566,15 +566,61 @@ def edit_tournament(tournament_id):
 @admin_required
 @no_cache
 def record_match():
-    """Record a 1v1 match"""
+    """Record a 1v1 match or guest match"""
     if request.method == 'POST':
         tournament_id = int(request.form['tournament_id'])
-        player1_id = int(request.form['player1_id'])
-        player2_id = int(request.form['player2_id'])
-        player1_goals = int(request.form.get('player1_goals', 0))
-        player2_goals = int(request.form.get('player2_goals', 0))
-        player1_absent = 'player1_absent' in request.form
-        player2_absent = 'player2_absent' in request.form
+        is_guest_match = 'is_guest_match' in request.form
+        
+        if is_guest_match:
+            # Guest match: clan member vs external player
+            clan_player_id = int(request.form['player1_id'])
+            guest_name = request.form.get('guest_name', '').strip()
+            clan_goals = int(request.form.get('player1_goals', 0))
+            guest_goals = int(request.form.get('player2_goals', 0))
+            clan_absent = 'player1_absent' in request.form
+            guest_absent = 'player2_absent' in request.form
+            
+            if not guest_name:
+                flash('Guest player name is required for guest matches', 'error')
+            else:
+                try:
+                    # Get clan player name for messages
+                    clan_player = TournamentDB.get_player_by_id(clan_player_id)
+                    clan_player_name = clan_player['name'] if clan_player else 'Clan Player'
+                    
+                    match_id = TournamentDB.record_guest_match(
+                        tournament_id, clan_player_id, guest_name, 
+                        clan_goals, guest_goals, clan_absent, guest_absent
+                    )
+                    
+                    # Generate appropriate success message
+                    if clan_absent and guest_absent:
+                        result_msg = "Match nullified - both players absent"
+                    elif clan_absent:
+                        result_msg = f"Guest {guest_name} wins by walkover - {clan_player_name} absent"
+                    elif guest_absent:
+                        result_msg = f"{clan_player_name} wins by walkover - {guest_name} absent"
+                    else:
+                        if clan_goals > guest_goals:
+                            result_msg = f"{clan_player_name} beats {guest_name} {clan_goals}-{guest_goals}!"
+                        elif guest_goals > clan_goals:
+                            result_msg = f"{guest_name} beats {clan_player_name} {guest_goals}-{clan_goals}!"
+                        else:
+                            result_msg = f"{clan_player_name} draws with {guest_name} {clan_goals}-{guest_goals}!"
+                    
+                    rating_update_msg = "" if (clan_absent and guest_absent) else f" {clan_player_name}'s rating updated."
+                    flash(f'Guest match recorded successfully! {result_msg}{rating_update_msg}', 'success')
+                    return redirect(url_for('record_match'))
+                except Exception as e:
+                    flash(f'Error recording guest match: {str(e)}', 'error')
+        else:
+            # Regular match between two clan members
+            player1_id = int(request.form['player1_id'])
+            player2_id = int(request.form['player2_id'])
+            player1_goals = int(request.form.get('player1_goals', 0))
+            player2_goals = int(request.form.get('player2_goals', 0))
+            player1_absent = 'player1_absent' in request.form
+            player2_absent = 'player2_absent' in request.form
         
         if player1_id == player2_id:
             flash('Cannot record match between same player', 'error')
@@ -712,24 +758,70 @@ def bulk_record_matches():
                 player2_goals = request.form.get(f'match_{i}_player2_goals')
                 player1_absent = f'match_{i}_player1_absent' in request.form
                 player2_absent = f'match_{i}_player2_absent' in request.form
+                is_guest_match = f'match_{i}_is_guest_match' in request.form
+                guest_name = request.form.get(f'match_{i}_guest_name', '').strip()
                 
-                # Skip incomplete matches
-                if not all([player1_id, player2_id, player1_goals is not None, player2_goals is not None]):
-                    continue
+                # Validate match data based on type
+                if is_guest_match:
+                    # For guest matches: need player1_id, guest_name, and goals
+                    if not all([player1_id, guest_name, player1_goals is not None, player2_goals is not None]):
+                        continue
+                else:
+                    # For normal matches: need both player IDs and goals
+                    if not all([player1_id, player2_id, player1_goals is not None, player2_goals is not None]):
+                        continue
                 
                 matches_data.append({
                     'tournament_id': tournament_id,
                     'player1_id': int(player1_id),
-                    'player2_id': int(player2_id),
+                    'player2_id': int(player2_id) if player2_id else None,
                     'player1_goals': int(player1_goals),
                     'player2_goals': int(player2_goals),
                     'player1_absent': player1_absent,
-                    'player2_absent': player2_absent
+                    'player2_absent': player2_absent,
+                    'is_guest_match': is_guest_match,
+                    'guest_name': guest_name if is_guest_match else None
                 })
             
             if matches_data:
-                match_ids = TournamentDB.record_bulk_matches(matches_data)
-                flash(f'Successfully recorded {len(match_ids)} matches! Ratings updated.', 'success')
+                # Process matches individually to handle guest matches
+                match_ids = []
+                regular_matches = []
+                
+                for match_data in matches_data:
+                    if match_data.get('is_guest_match', False):
+                        # Process guest match
+                        guest_match_id = TournamentDB.record_guest_match(
+                            match_data['tournament_id'],
+                            match_data['player1_id'], 
+                            match_data['guest_name'],
+                            match_data['player1_goals'],
+                            match_data['player2_goals'],
+                            match_data['player1_absent'],
+                            match_data['player2_absent']
+                        )
+                        match_ids.append(guest_match_id)
+                    else:
+                        # Collect regular matches for bulk processing
+                        regular_matches.append(match_data)
+                
+                # Process regular matches in bulk if any
+                if regular_matches:
+                    regular_match_ids = TournamentDB.record_bulk_matches(regular_matches)
+                    match_ids.extend(regular_match_ids)
+                
+                total_matches = len(match_ids)
+                guest_count = sum(1 for match in matches_data if match.get('is_guest_match', False))
+                regular_count = total_matches - guest_count
+                
+                success_msg = f'Successfully recorded {total_matches} matches!'
+                if guest_count > 0 and regular_count > 0:
+                    success_msg += f' ({regular_count} regular, {guest_count} guest)'
+                elif guest_count > 0:
+                    success_msg += f' (all guest matches)'
+                success_msg += ' Ratings updated.'
+                
+                flash(success_msg, 'success')
             else:
                 flash('No valid matches to record', 'error')
                 

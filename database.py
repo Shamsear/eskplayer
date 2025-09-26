@@ -380,6 +380,44 @@ def migrate_database(conn):
                     print(f"{column_name} column added successfully!")
                 else:
                     print(f"{column_name} column already exists in tournaments table")
+            
+            # Migration 7: Add guest_matches table
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_name='guest_matches'
+            """)
+            guest_table_exists = cursor.fetchone()
+            
+            if not guest_table_exists:
+                print("Creating guest_matches table...")
+                cursor.execute('''
+                    CREATE TABLE guest_matches (
+                        id SERIAL PRIMARY KEY,
+                        match_id INTEGER NOT NULL,
+                        tournament_id INTEGER REFERENCES tournaments(id),
+                        clan_player_id INTEGER REFERENCES players(id),
+                        guest_name VARCHAR(100) NOT NULL,
+                        clan_goals INTEGER DEFAULT 0,
+                        guest_goals INTEGER DEFAULT 0,
+                        clan_absent BOOLEAN DEFAULT false,
+                        guest_absent BOOLEAN DEFAULT false,
+                        is_null_match BOOLEAN DEFAULT false,
+                        is_walkover BOOLEAN DEFAULT false,
+                        clan_rating_before INTEGER,
+                        clan_rating_after INTEGER,
+                        played_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )
+                ''');
+                
+                # Add indexes for guest matches
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_clan_player ON guest_matches(clan_player_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_tournament ON guest_matches(tournament_id);')
+                
+                conn.commit()
+                print("guest_matches table created successfully!")
+            else:
+                print("guest_matches table already exists")
                 
     except Exception as e:
         print(f"Migration error (non-critical): {e}")
@@ -1334,6 +1372,136 @@ class TournamentDB:
                 cursor.execute(
                     "DELETE FROM tournament_players WHERE tournament_id = %s",
                     (tournament_id,)
+                )
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def record_guest_match(tournament_id, clan_player_id, guest_name, clan_goals, guest_goals, clan_absent=False, guest_absent=False):
+        """Record a match between a clan member and guest player. Only updates clan member stats."""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get clan player details
+                clan_player = TournamentDB.get_player_by_id(clan_player_id)
+                if not clan_player:
+                    raise ValueError("Clan player not found")
+                
+                # Get next match ID
+                cursor.execute("SELECT COALESCE(MAX(match_id), 0) + 1 FROM guest_matches")
+                next_match_id = cursor.fetchone()[0]
+                
+                # Record pre-match rating
+                clan_rating_before = clan_player['rating'] or 300
+                
+                # Determine match result
+                is_null_match = clan_absent and guest_absent
+                is_walkover = clan_absent or guest_absent
+                clan_rating_after = clan_rating_before
+                
+                # Only update ratings if it's not a null match
+                if not is_null_match:
+                    # For guest matches, assume guest has a rating of 300 for calculation purposes
+                    guest_rating = 300
+                    
+                    if clan_absent:
+                        # Clan member absent - guest wins, clan loses rating
+                        rating_change = TournamentDB.calculate_rating_change(guest_rating, clan_rating_before, is_draw=False)[1]
+                        clan_rating_after = clan_rating_before + rating_change
+                    elif guest_absent:
+                        # Guest absent - clan wins
+                        rating_change = TournamentDB.calculate_rating_change(clan_rating_before, guest_rating, is_draw=False)[0]
+                        clan_rating_after = clan_rating_before + rating_change
+                    else:
+                        # Normal match - calculate based on goals
+                        if clan_goals > guest_goals:
+                            rating_change = TournamentDB.calculate_rating_change(clan_rating_before, guest_rating, is_draw=False)[0]
+                        elif guest_goals > clan_goals:
+                            rating_change = TournamentDB.calculate_rating_change(guest_rating, clan_rating_before, is_draw=False)[1]
+                        else:
+                            rating_change = TournamentDB.calculate_rating_change(clan_rating_before, guest_rating, is_draw=True)[0]
+                        clan_rating_after = clan_rating_before + rating_change
+                    
+                    # Ensure rating doesn't go below 0
+                    clan_rating_after = max(0, clan_rating_after)
+                    
+                    # Update clan player stats
+                    TournamentDB._update_player_stats_for_guest_match(clan_player_id, clan_goals, guest_goals, clan_absent, guest_absent, clan_rating_after)
+                
+                # Insert guest match record
+                cursor.execute(
+                    """
+                    INSERT INTO guest_matches 
+                    (match_id, tournament_id, clan_player_id, guest_name, clan_goals, guest_goals, 
+                     clan_absent, guest_absent, is_null_match, is_walkover, clan_rating_before, clan_rating_after)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                    RETURNING id
+                    """,
+                    (next_match_id, tournament_id, clan_player_id, guest_name, clan_goals, guest_goals,
+                     clan_absent, guest_absent, is_null_match, is_walkover, clan_rating_before, clan_rating_after)
+                )
+                guest_match_id = cursor.fetchone()['id']
+                conn.commit()
+                return guest_match_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def _update_player_stats_for_guest_match(player_id, player_goals, opponent_goals, player_absent, opponent_absent, new_rating):
+        """Update player stats after a guest match"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Determine match outcome
+                if player_absent and opponent_absent:
+                    # Null match - no stats update
+                    return
+                elif player_absent:
+                    # Player absent - loss
+                    matches_won = 0
+                    matches_drawn = 0
+                    matches_lost = 1
+                elif opponent_absent:
+                    # Opponent absent - win
+                    matches_won = 1
+                    matches_drawn = 0
+                    matches_lost = 0
+                else:
+                    # Normal match
+                    if player_goals > opponent_goals:
+                        matches_won = 1
+                        matches_drawn = 0
+                        matches_lost = 0
+                    elif opponent_goals > player_goals:
+                        matches_won = 0
+                        matches_drawn = 0
+                        matches_lost = 1
+                    else:
+                        matches_won = 0
+                        matches_drawn = 1
+                        matches_lost = 0
+                
+                # Update player stats
+                cursor.execute(
+                    """
+                    UPDATE players 
+                    SET matches_played = matches_played + 1,
+                        matches_won = matches_won + %s,
+                        matches_drawn = matches_drawn + %s,
+                        matches_lost = matches_lost + %s,
+                        goals_scored = goals_scored + %s,
+                        goals_conceded = goals_conceded + %s,
+                        rating = %s
+                    WHERE id = %s
+                    """,
+                    (matches_won, matches_drawn, matches_lost, player_goals, opponent_goals, new_rating, player_id)
                 )
                 conn.commit()
         except Exception as e:
