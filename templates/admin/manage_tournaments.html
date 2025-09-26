@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Manage Tournaments - Player Tournament System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        * { 
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        /* Enhanced Glassmorphism */
+        .glass {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 
+                0 0.5px 0 1px rgba(255, 255, 255, 0.23) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.66) inset,
+                0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Premium Gradient */
+        .animated-gradient {
+            background: linear-gradient(135deg, 
+                #e0c3fc 0%, 
+                #8ec5fc 20%, 
+                #e0aaff 40%, 
+                #c77dff 60%, 
+                #9381ff 80%, 
+                #b8b8ff 100%);
+            background-size: 400% 400%;
+            animation: gradient-shift 20s ease infinite;
+            opacity: 0.15;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Tournament card hover effects */
+        .tournament-card {
+            transition: all 0.3s ease;
+        }
+        
+        .tournament-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 relative">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 animated-gradient"></div>
+    
+    <!-- Navigation -->
+    <nav class="relative bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Back Button -->
+                <div class="flex items-center">
+                    <a href="{{ url_for('admin_dashboard') }}" class="mr-4 text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-cog text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-display font-bold gradient-text">Manage Tournaments</h1>
+                </div>
+                
+                <!-- User menu -->
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Welcome, {{ session.admin_username }}</span>
+                    <a href="{{ url_for('admin_logout') }}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="relative max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <!-- Header -->
+        <div class="flex items-center justify-between mb-8">
+            <div>
+                <h2 class="text-4xl font-display font-bold gradient-text">Tournament Management</h2>
+                <p class="text-xl text-gray-600 mt-2">Organize and manage your tournaments</p>
+            </div>
+            <a href="{{ url_for('create_tournament') }}" 
+               class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <i class="fas fa-plus mr-2"></i>Create Tournament
+            </a>
+        </div>
+        
+        <!-- Tournament Grid -->
+        {% if tournaments %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {% for tournament in tournaments %}
+            <div class="glass tournament-card rounded-3xl p-6">
+                <!-- Tournament Header -->
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center">
+                        {% if tournament.tournament_photo_url %}
+                            <img src="{{ tournament.tournament_photo_url }}?tr=w-48,h-48,c-face,q-80,f-webp" 
+                                 alt="{{ tournament.name }}" 
+                                 class="w-12 h-12 rounded-xl object-cover border border-white shadow mr-4">
+                        {% else %}
+                            <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-trophy text-white text-xl"></i>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="text-lg font-bold text-gray-900">{{ tournament.name }}</h3>
+                            <p class="text-sm text-gray-600">{{ tournament.created_at.strftime('%B %d, %Y') }}</p>
+                        </div>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
+                                 {% if tournament.status == 'active' %}bg-green-100 text-green-800{% elif tournament.status == 'completed' %}bg-gray-100 text-gray-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                        {% if tournament.status == 'active' %}
+                        <i class="fas fa-play mr-1"></i>Active
+                        {% elif tournament.status == 'completed' %}
+                        <i class="fas fa-check mr-1"></i>Completed
+                        {% else %}
+                        <i class="fas fa-archive mr-1"></i>Archived
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <!-- Tournament Info -->
+                <div class="space-y-3 mb-6">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Tournament ID:</span>
+                        <span class="text-sm font-semibold text-gray-900">#{{ tournament.id }}</span>
+                    </div>
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm text-gray-600">Status:</span>
+                        <span class="text-sm font-semibold text-gray-900 capitalize">{{ tournament.status }}</span>
+                    </div>
+                </div>
+                
+                <!-- Actions -->
+                <div class="space-y-3">
+                    <a href="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" 
+                       class="block w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-center py-2 px-4 rounded-lg font-medium hover:shadow-lg transition-all">
+                        <i class="fas fa-cog mr-2"></i>Manage Players
+                    </a>
+                    <div class="grid grid-cols-3 gap-3">
+                        <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
+                           class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                            <i class="fas fa-chart-bar mr-1"></i>Stats
+                        </a>
+                        <a href="{{ url_for('record_match') }}?tournament_id={{ tournament.id }}" 
+                           class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                            <i class="fas fa-gamepad mr-1"></i>Match
+                        </a>
+                        <a href="{{ url_for('edit_tournament', tournament_id=tournament.id) }}" 
+                           class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
+                            <i class="fas fa-pen mr-1"></i>Edit
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <!-- Empty State -->
+        <div class="glass rounded-3xl p-12 text-center">
+            <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <i class="fas fa-trophy text-white text-2xl"></i>
+            </div>
+            <h3 class="text-2xl font-display font-bold text-gray-900 mb-4">No Tournaments Yet</h3>
+            <p class="text-gray-600 text-lg mb-8">Create your first tournament to start organizing competitive matches between players.</p>
+            <div class="space-y-4">
+                <a href="{{ url_for('create_tournament') }}" 
+                   class="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-white px-8 py-4 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:-translate-y-1">
+                    <i class="fas fa-plus mr-2"></i>Create Your First Tournament
+                </a>
+                <div class="flex items-center justify-center space-x-4 text-sm text-gray-500">
+                    <div class="flex items-center">
+                        <i class="fas fa-users mr-2"></i>Add players to tournaments
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-gamepad mr-2"></i>Record 1v1 matches
+                    </div>
+                    <div class="flex items-center">
+                        <i class="fas fa-chart-line mr-2"></i>Track ratings & stats
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Quick Actions -->
+        <div class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <a href="{{ url_for('view_player_stats') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-chart-bar text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Player Statistics</h4>
+                <p class="text-gray-600 text-sm">View overall player performance</p>
+            </a>
+            <a href="{{ url_for('record_match') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-gamepad text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Record Match</h4>
+                <p class="text-gray-600 text-sm">Add new match results</p>
+            </a>
+            <a href="{{ url_for('view_all_players') }}" 
+               class="glass rounded-2xl p-6 text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
+                <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-users text-white text-xl"></i>
+                </div>
+                <h4 class="font-semibold text-gray-900 mb-2">Manage Players</h4>
+                <p class="text-gray-600 text-sm">Add and view all players</p>
+            </a>
+        </div>
+    </main>
+</body>
+</html>

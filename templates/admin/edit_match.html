@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Match - Player Tournament System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        * { 
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        /* Enhanced Glassmorphism */
+        .glass {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 
+                0 0.5px 0 1px rgba(255, 255, 255, 0.23) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.66) inset,
+                0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Premium Gradient */
+        .animated-gradient {
+            background: linear-gradient(135deg, 
+                #e0c3fc 0%, 
+                #8ec5fc 20%, 
+                #e0aaff 40%, 
+                #c77dff 60%, 
+                #9381ff 80%, 
+                #b8b8ff 100%);
+            background-size: 400% 400%;
+            animation: gradient-shift 20s ease infinite;
+            opacity: 0.15;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Input Focus Effects */
+        .input-focus {
+            transition: all 0.3s ease;
+        }
+        
+        .input-focus:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.15);
+        }
+        
+        /* Player Avatar */
+        .player-avatar {
+            background: var(--avatar-color-1, #667eea);
+            background: linear-gradient(135deg, var(--avatar-color-1, #667eea), var(--avatar-color-2, #764ba2));
+            color: white;
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 relative">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 animated-gradient"></div>
+    
+    <!-- Navigation -->
+    <nav class="relative bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Back Button -->
+                <div class="flex items-center">
+                    <a href="{{ url_for('manage_matches') }}" class="mr-4 text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-edit text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-display font-bold gradient-text">Edit Match</h1>
+                </div>
+                
+                <!-- User menu -->
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Welcome, {{ session.admin_username }}</span>
+                    <a href="{{ url_for('admin_logout') }}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="relative max-w-4xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-lg {% if category == 'success' %}bg-green-50 border border-green-200 text-green-700{% elif category == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-blue-50 border border-blue-200 text-blue-700{% endif %}">
+                    <i class="fas {% if category == 'success' %}fa-check-circle{% elif category == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Form Card -->
+        <div class="glass rounded-3xl p-8 transform transition-all duration-500 hover:shadow-2xl">
+            <!-- Header -->
+            <div class="text-center mb-10">
+                <div class="w-20 h-20 bg-gradient-to-br from-orange-500 via-red-500 to-pink-600 rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg animate-pulse">
+                    <i class="fas fa-edit text-white text-3xl"></i>
+                </div>
+                <h2 class="text-4xl font-display font-bold gradient-text mb-3">Edit Match</h2>
+                <p class="text-lg text-gray-600">Modify match details and automatically recalculate player ratings</p>
+                <div class="w-24 h-1 bg-gradient-to-r from-orange-500 to-red-600 mx-auto mt-4 rounded-full"></div>
+            </div>
+            
+            <!-- Match Info Card -->
+            <div class="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl p-8 mb-10 border border-blue-100 shadow-sm">
+                <div class="flex items-center mb-6">
+                    <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mr-4">
+                        <i class="fas fa-info-circle text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold text-gray-900">Match Details</h3>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-2xl p-6 border border-blue-100">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="text-center">
+                                <div class="text-sm font-medium text-gray-500 mb-1">Match ID</div>
+                                <div class="text-xl font-bold text-blue-600">#{{ match.match_id }}</div>
+                            </div>
+                            <div class="text-center">
+                                <div class="text-sm font-medium text-gray-500 mb-1">Tournament</div>
+                                <div class="text-lg font-semibold text-gray-900 truncate">{{ match.tournament_name }}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-2xl p-6 border border-blue-100">
+                        <div class="text-center">
+                            <div class="text-sm font-medium text-gray-500 mb-1">Match Date</div>
+                            <div class="text-lg font-semibold text-gray-900">{{ match.played_at.strftime('%B %d, %Y') }}</div>
+                            <div class="text-sm text-gray-600">{{ match.played_at.strftime('%H:%M') }}</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Current Result Highlight -->
+                <div class="mt-6 bg-white rounded-2xl p-6 border-2 {% if match.is_draw %}border-yellow-200 bg-yellow-50{% elif match.winner_id == match.player1_id %}border-green-200 bg-green-50{% else %}border-blue-200 bg-blue-50{% endif %}">
+                    <div class="text-center">
+                        <div class="text-sm font-medium text-gray-600 mb-2">Current Result</div>
+                        <div class="flex items-center justify-center space-x-4">
+                            <span class="text-xl font-bold text-gray-900">{{ match.player1_name }}</span>
+                            <div class="flex items-center space-x-2">
+                                <span class="text-3xl font-black {% if match.is_draw %}text-yellow-600{% elif match.winner_id == match.player1_id %}text-green-600{% else %}text-blue-600{% endif %}">{{ match.player1_goals }}</span>
+                                <span class="text-2xl font-bold text-gray-400">-</span>
+                                <span class="text-3xl font-black {% if match.is_draw %}text-yellow-600{% elif match.winner_id == match.player2_id %}text-blue-600{% else %}text-green-600{% endif %}">{{ match.player2_goals }}</span>
+                            </div>
+                            <span class="text-xl font-bold text-gray-900">{{ match.player2_name }}</span>
+                        </div>
+                        <div class="mt-2">
+                            {% if match.is_draw %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-yellow-100 text-yellow-800">
+                                    <i class="fas fa-handshake mr-1"></i>Draw
+                                </span>
+                            {% elif match.winner_id == match.player1_id %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-800">
+                                    <i class="fas fa-trophy mr-1"></i>{{ match.player1_name }} wins
+                                </span>
+                            {% else %}
+                                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-800">
+                                    <i class="fas fa-trophy mr-1"></i>{{ match.player2_name }} wins
+                                </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Edit Form -->
+            <form method="POST" id="editMatchForm">
+                <!-- Absence Options -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-3xl p-8 mb-10">
+                    <div class="flex items-center mb-6">
+                        <div class="w-12 h-12 bg-gradient-to-r from-yellow-500 to-orange-600 rounded-2xl flex items-center justify-center mr-4">
+                            <i class="fas fa-user-times text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-display font-bold text-yellow-900">Player Absence (Optional)</h3>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="bg-white rounded-2xl p-6 border border-yellow-200">
+                            <div class="flex items-center">
+                                <input type="checkbox" 
+                                       id="player1_absent" 
+                                       name="player1_absent" 
+                                       {% if match.player1_absent %}checked{% endif %}
+                                       class="mr-4 h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                                       onchange="handleAbsenceChange()">
+                                <label for="player1_absent" class="text-lg font-medium text-gray-900">
+                                    {{ match.player1_name }} is absent
+                                </label>
+                            </div>
+                        </div>
+                        <div class="bg-white rounded-2xl p-6 border border-yellow-200">
+                            <div class="flex items-center">
+                                <input type="checkbox" 
+                                       id="player2_absent" 
+                                       name="player2_absent" 
+                                       {% if match.player2_absent %}checked{% endif %}
+                                       class="mr-4 h-5 w-5 text-yellow-600 focus:ring-yellow-500 border-yellow-300 rounded"
+                                       onchange="handleAbsenceChange()">
+                                <label for="player2_absent" class="text-lg font-medium text-gray-900">
+                                    {{ match.player2_name }} is absent
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mt-6 bg-white rounded-2xl p-4 border border-yellow-200">
+                        <div class="text-yellow-800 text-sm">
+                            <p class="font-semibold">Note:</p>
+                            <p>• If both players are absent, match will be nullified (no rating changes)</p>
+                            <p>• If one player is absent, the other wins by walkover (3-0, reduced rating change)</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Players Edit Section -->
+                <div class="bg-gradient-to-br from-gray-50 to-white rounded-3xl p-8 mb-10 border border-gray-100 shadow-sm">
+                    <div class="flex items-center mb-8">
+                        <div class="w-12 h-12 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-4">
+                            <i class="fas fa-gamepad text-white text-xl"></i>
+                        </div>
+                        <h3 class="text-2xl font-display font-bold text-gray-900">Update Match Score</h3>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-center">
+                        <!-- Player 1 -->
+                        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 transform transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                            <div class="text-center">
+                                <div class="w-20 h-20 player-avatar rounded-3xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-lg" 
+                                     data-name="{{ match.player1_name }}">
+                                    {{ match.player1_name[:2].upper() }}
+                                </div>
+                                <h4 class="text-2xl font-bold text-gray-900 mb-3">{{ match.player1_name }}</h4>
+                                
+                                <!-- Rating Display -->
+                                <div class="bg-gray-50 rounded-2xl p-4 mb-6">
+                                    <div class="text-xs font-medium text-gray-500 mb-1">Rating Change</div>
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <span class="text-lg font-bold text-gray-700">{{ match.player1_rating_before }}</span>
+                                        <i class="fas fa-arrow-right text-gray-400"></i>
+                                        <span class="text-lg font-bold {% if match.player1_rating_after > match.player1_rating_before %}text-green-600{% elif match.player1_rating_after < match.player1_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">{{ match.player1_rating_after }}</span>
+                                    </div>
+                                    {% if match.player1_rating_after != match.player1_rating_before %}
+                                        <div class="mt-1">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if match.player1_rating_after > match.player1_rating_before %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                                {% if match.player1_rating_after > match.player1_rating_before %}+{% endif %}{{ match.player1_rating_after - match.player1_rating_before }}
+                                            </span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Goals Input -->
+                                <div class="relative">
+                                    <label for="player1_goals" class="block text-sm font-bold text-gray-700 mb-3">Goals Scored</label>
+                                    <div class="relative">
+                                        <input type="number" 
+                                               id="player1_goals" 
+                                               name="player1_goals" 
+                                               min="0" 
+                                               max="50" 
+                                               value="{{ match.player1_goals }}"
+                                               required
+                                               class="w-full px-6 py-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 rounded-2xl focus:ring-4 focus:ring-blue-300 focus:border-blue-500 outline-none text-3xl text-center font-black text-gray-800 transition-all duration-300 transform focus:scale-105"
+                                               onchange="updatePreview()" 
+                                               oninput="animateInput(this)">
+                                        <div class="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-2xl opacity-0 transition-opacity duration-300" id="player1_glow"></div>
+                                    </div>
+                                    <!-- Quick increment buttons -->
+                                    <div class="flex space-x-2 mt-3">
+                                        <button type="button" onclick="adjustGoals('player1_goals', -1)" class="flex-1 py-2 px-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-colors">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <button type="button" onclick="adjustGoals('player1_goals', 1)" class="flex-1 py-2 px-3 bg-green-100 hover:bg-green-200 text-green-700 rounded-xl font-semibold transition-colors">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- VS Divider -->
+                        <div class="flex flex-col items-center justify-center">
+                            <div class="w-16 h-16 bg-gradient-to-r from-purple-500 to-pink-600 rounded-full flex items-center justify-center mb-3 shadow-lg animate-bounce">
+                                <span class="text-white font-black text-xl">VS</span>
+                            </div>
+                            <div class="text-sm font-medium text-gray-500">Match Editor</div>
+                        </div>
+                        
+                        <!-- Player 2 -->
+                        <div class="bg-white rounded-3xl p-6 shadow-sm border border-gray-100 transform transition-all duration-300 hover:scale-105 hover:shadow-lg">
+                            <div class="text-center">
+                                <div class="w-20 h-20 player-avatar rounded-3xl flex items-center justify-center mx-auto mb-4 text-2xl font-bold shadow-lg" 
+                                     data-name="{{ match.player2_name }}">
+                                    {{ match.player2_name[:2].upper() }}
+                                </div>
+                                <h4 class="text-2xl font-bold text-gray-900 mb-3">{{ match.player2_name }}</h4>
+                                
+                                <!-- Rating Display -->
+                                <div class="bg-gray-50 rounded-2xl p-4 mb-6">
+                                    <div class="text-xs font-medium text-gray-500 mb-1">Rating Change</div>
+                                    <div class="flex items-center justify-center space-x-2">
+                                        <span class="text-lg font-bold text-gray-700">{{ match.player2_rating_before }}</span>
+                                        <i class="fas fa-arrow-right text-gray-400"></i>
+                                        <span class="text-lg font-bold {% if match.player2_rating_after > match.player2_rating_before %}text-green-600{% elif match.player2_rating_after < match.player2_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">{{ match.player2_rating_after }}</span>
+                                    </div>
+                                    {% if match.player2_rating_after != match.player2_rating_before %}
+                                        <div class="mt-1">
+                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if match.player2_rating_after > match.player2_rating_before %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                                {% if match.player2_rating_after > match.player2_rating_before %}+{% endif %}{{ match.player2_rating_after - match.player2_rating_before }}
+                                            </span>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                
+                                <!-- Goals Input -->
+                                <div class="relative">
+                                    <label for="player2_goals" class="block text-sm font-bold text-gray-700 mb-3">Goals Scored</label>
+                                    <div class="relative">
+                                        <input type="number" 
+                                               id="player2_goals" 
+                                               name="player2_goals" 
+                                               min="0" 
+                                               max="50" 
+                                               value="{{ match.player2_goals }}"
+                                               required
+                                               class="w-full px-6 py-4 bg-gradient-to-r from-red-50 to-pink-50 border-2 border-red-200 rounded-2xl focus:ring-4 focus:ring-red-300 focus:border-red-500 outline-none text-3xl text-center font-black text-gray-800 transition-all duration-300 transform focus:scale-105"
+                                               onchange="updatePreview()" 
+                                               oninput="animateInput(this)">
+                                        <div class="absolute inset-0 bg-gradient-to-r from-red-400 to-pink-500 rounded-2xl opacity-0 transition-opacity duration-300" id="player2_glow"></div>
+                                    </div>
+                                    <!-- Quick increment buttons -->
+                                    <div class="flex space-x-2 mt-3">
+                                        <button type="button" onclick="adjustGoals('player2_goals', -1)" class="flex-1 py-2 px-3 bg-red-100 hover:bg-red-200 text-red-700 rounded-xl font-semibold transition-colors">
+                                            <i class="fas fa-minus"></i>
+                                        </button>
+                                        <button type="button" onclick="adjustGoals('player2_goals', 1)" class="flex-1 py-2 px-3 bg-green-100 hover:bg-green-200 text-green-700 rounded-xl font-semibold transition-colors">
+                                            <i class="fas fa-plus"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Live Match Preview -->
+                <div id="matchPreview" class="bg-gradient-to-br from-indigo-50 via-blue-50 to-cyan-50 border-2 border-blue-200 rounded-3xl p-8 mb-10 shadow-lg transform transition-all duration-500">
+                    <div class="text-center mb-6">
+                        <div class="inline-flex items-center px-4 py-2 bg-white rounded-full shadow-sm border border-blue-200">
+                            <div class="w-3 h-3 bg-green-400 rounded-full mr-2 animate-pulse"></div>
+                            <span class="font-bold text-blue-900">Live Preview</span>
+                        </div>
+                    </div>
+                    
+                    <div class="bg-white rounded-3xl p-8 shadow-sm border border-blue-100">
+                        <!-- Match Header -->
+                        <div class="text-center mb-8">
+                            <h4 class="text-2xl font-display font-bold text-gray-900 mb-2">Updated Match Result</h4>
+                            <div class="w-16 h-1 bg-gradient-to-r from-blue-500 to-indigo-600 mx-auto rounded-full"></div>
+                        </div>
+                        
+                        <!-- Score Display -->
+                        <div class="grid grid-cols-5 gap-4 items-center mb-6">
+                            <!-- Player 1 Side -->
+                            <div class="col-span-2 text-center">
+                                <div class="bg-gradient-to-br from-blue-50 to-indigo-100 rounded-2xl p-6">
+                                    <p class="font-black text-xl text-gray-900 mb-2">{{ match.player1_name }}</p>
+                                    <div class="text-6xl font-black text-blue-600 mb-2 transition-all duration-300" id="preview_goals1_display">{{ match.player1_goals }}</div>
+                                    <div class="text-sm font-medium text-gray-600">Goals</div>
+                                </div>
+                            </div>
+                            
+                            <!-- VS Separator -->
+                            <div class="text-center">
+                                <div class="w-12 h-12 bg-gradient-to-r from-gray-400 to-gray-600 rounded-full flex items-center justify-center mx-auto">
+                                    <span class="text-white font-black text-lg">VS</span>
+                                </div>
+                            </div>
+                            
+                            <!-- Player 2 Side -->
+                            <div class="col-span-2 text-center">
+                                <div class="bg-gradient-to-br from-red-50 to-pink-100 rounded-2xl p-6">
+                                    <p class="font-black text-xl text-gray-900 mb-2">{{ match.player2_name }}</p>
+                                    <div class="text-6xl font-black text-red-600 mb-2 transition-all duration-300" id="preview_goals2_display">{{ match.player2_goals }}</div>
+                                    <div class="text-sm font-medium text-gray-600">Goals</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Match Result Badge -->
+                        <div class="text-center">
+                            <div id="match_result_badge" class="inline-flex items-center px-6 py-3 rounded-full text-lg font-black shadow-lg transition-all duration-500 {% if match.is_draw %}bg-gradient-to-r from-yellow-400 to-orange-500 text-white{% elif match.winner_id == match.player1_id %}bg-gradient-to-r from-green-400 to-emerald-500 text-white{% else %}bg-gradient-to-r from-blue-400 to-indigo-500 text-white{% endif %}">
+                                <i class="fas {% if match.is_draw %}fa-handshake{% else %}fa-trophy{% endif %} mr-2"></i>
+                                <span id="match_result_text">
+                                    {% if match.is_draw %}
+                                        It's a Draw!
+                                    {% elif match.winner_id == match.player1_id %}
+                                        {{ match.player1_name }} Wins!
+                                    {% else %}
+                                        {{ match.player2_name }} Wins!
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Change Indicator -->
+                    <div id="change_indicator" class="mt-6 text-center opacity-0 transition-all duration-300">
+                        <div class="inline-flex items-center px-4 py-2 bg-orange-100 border border-orange-200 rounded-full">
+                            <i class="fas fa-sync-alt text-orange-600 mr-2 animate-spin"></i>
+                            <span class="text-orange-800 font-semibold">Updating preview...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Warning Box -->
+                <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-8">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>
+                        <div>
+                            <h4 class="text-yellow-800 font-semibold">Important Notice</h4>
+                            <p class="text-yellow-700 text-sm mt-1">
+                                Editing this match will recalculate player ratings. The old rating changes will be reversed and new ratings will be calculated based on the updated score.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex space-x-4">
+                    <button type="submit" 
+                            class="flex-1 py-3 px-6 bg-gradient-to-r from-orange-500 to-red-600 text-white font-semibold rounded-xl hover:shadow-lg transform transition-all duration-200">
+                        <i class="fas fa-save mr-2"></i>Update Match
+                    </button>
+                    <a href="{{ url_for('manage_matches') }}" 
+                       class="flex-1 py-3 px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl text-center transition-colors">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </a>
+                </div>
+            </form>
+        </div>
+    </main>
+    
+    <!-- JavaScript -->
+    <script>
+        // Generate unique colors for player avatars
+        function generatePlayerColors(name) {
+            const colorPalettes = [
+                ['#667eea', '#764ba2'], // Blue to Purple
+                ['#f093fb', '#f5576c'], // Pink to Red
+                ['#4facfe', '#00f2fe'], // Blue to Cyan
+                ['#43e97b', '#38f9d7'], // Green to Teal
+                ['#fa709a', '#fee140'], // Pink to Yellow
+                ['#a8edea', '#fed6e3'], // Teal to Pink
+                ['#ff9a9e', '#fecfef'], // Pink to Light Pink
+                ['#a18cd1', '#fbc2eb'], // Purple to Pink
+                ['#ffecd2', '#fcb69f'], // Orange to Peach
+                ['#ff8a80', '#ff5722'], // Red variants
+                ['#81c784', '#4caf50'], // Green variants
+                ['#64b5f6', '#2196f3'], // Blue variants
+                ['#ffb74d', '#ff9800'], // Orange variants
+                ['#ba68c8', '#9c27b0'], // Purple variants
+                ['#4db6ac', '#009688']  // Teal variants
+            ];
+            
+            let hash = 0;
+            for (let i = 0; i < name.length; i++) {
+                const char = name.charCodeAt(i);
+                hash = ((hash << 5) - hash) + char;
+                hash = hash & hash;
+            }
+            
+            const paletteIndex = Math.abs(hash) % colorPalettes.length;
+            return colorPalettes[paletteIndex];
+        }
+        
+        // Handle absence changes
+        function handleAbsenceChange() {
+            const player1Absent = document.getElementById('player1_absent').checked;
+            const player2Absent = document.getElementById('player2_absent').checked;
+            const player1Goals = document.getElementById('player1_goals');
+            const player2Goals = document.getElementById('player2_goals');
+            
+            if (player1Absent || player2Absent) {
+                // Disable and set goals based on absence
+                player1Goals.disabled = true;
+                player2Goals.disabled = true;
+                player1Goals.style.opacity = '0.5';
+                player2Goals.style.opacity = '0.5';
+                
+                if (player1Absent && !player2Absent) {
+                    // Player 1 absent - Player 2 wins walkover
+                    player1Goals.value = 0;
+                    player2Goals.value = 3;
+                } else if (!player1Absent && player2Absent) {
+                    // Player 2 absent - Player 1 wins walkover
+                    player1Goals.value = 3;
+                    player2Goals.value = 0;
+                } else if (player1Absent && player2Absent) {
+                    // Both absent - null match
+                    player1Goals.value = 0;
+                    player2Goals.value = 0;
+                }
+            } else {
+                // Enable goals inputs when no one is absent
+                player1Goals.disabled = false;
+                player2Goals.disabled = false;
+                player1Goals.style.opacity = '1';
+                player2Goals.style.opacity = '1';
+            }
+            
+            updatePreview();
+        }
+        
+        // Enhanced preview update with animations
+        function updatePreview() {
+            const player1Absent = document.getElementById('player1_absent').checked;
+            const player2Absent = document.getElementById('player2_absent').checked;
+            const goals1 = parseInt(document.getElementById('player1_goals').value) || 0;
+            const goals2 = parseInt(document.getElementById('player2_goals').value) || 0;
+            
+            // Show change indicator
+            const changeIndicator = document.getElementById('change_indicator');
+            changeIndicator.style.opacity = '1';
+            
+            // Update preview displays with animation
+            const preview1 = document.getElementById('preview_goals1_display');
+            const preview2 = document.getElementById('preview_goals2_display');
+            
+            // Add pulse animation
+            preview1.classList.add('animate-pulse');
+            preview2.classList.add('animate-pulse');
+            
+            setTimeout(() => {
+                preview1.textContent = goals1;
+                preview2.textContent = goals2;
+                
+                // Update result badge
+                const resultBadge = document.getElementById('match_result_badge');
+                const resultText = document.getElementById('match_result_text');
+                const resultIcon = resultBadge.querySelector('i');
+                
+                let result, badgeClass, iconClass;
+                
+                if (player1Absent && player2Absent) {
+                    result = "Match Nullified (Both Absent)";
+                    badgeClass = 'bg-gradient-to-r from-red-400 to-red-600 text-white';
+                    iconClass = 'fas fa-ban';
+                } else if (player1Absent) {
+                    result = '{{ match.player2_name }} Wins by Walkover!';
+                    badgeClass = 'bg-gradient-to-r from-blue-400 to-indigo-500 text-white';
+                    iconClass = 'fas fa-trophy';
+                } else if (player2Absent) {
+                    result = '{{ match.player1_name }} Wins by Walkover!';
+                    badgeClass = 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
+                    iconClass = 'fas fa-trophy';
+                } else if (goals1 === goals2) {
+                    result = "It's a Draw!";
+                    badgeClass = 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white';
+                    iconClass = 'fas fa-handshake';
+                } else if (goals1 > goals2) {
+                    result = '{{ match.player1_name }} Wins!';
+                    badgeClass = 'bg-gradient-to-r from-green-400 to-emerald-500 text-white';
+                    iconClass = 'fas fa-trophy';
+                } else {
+                    result = '{{ match.player2_name }} Wins!';
+                    badgeClass = 'bg-gradient-to-r from-blue-400 to-indigo-500 text-white';
+                    iconClass = 'fas fa-trophy';
+                }
+                
+                // Animate result change
+                resultBadge.style.transform = 'scale(0.95)';
+                setTimeout(() => {
+                    resultText.textContent = result;
+                    resultBadge.className = `inline-flex items-center px-6 py-3 rounded-full text-lg font-black shadow-lg transition-all duration-500 ${badgeClass}`;
+                    resultIcon.className = `${iconClass} mr-2`;
+                    resultBadge.style.transform = 'scale(1)';
+                }, 150);
+                
+                // Remove animations
+                preview1.classList.remove('animate-pulse');
+                preview2.classList.remove('animate-pulse');
+                
+                // Hide change indicator
+                setTimeout(() => {
+                    changeIndicator.style.opacity = '0';
+                }, 500);
+            }, 300);
+        }
+        
+        // Goal adjustment function
+        function adjustGoals(inputId, change) {
+            const input = document.getElementById(inputId);
+            const currentValue = parseInt(input.value) || 0;
+            const newValue = Math.max(0, Math.min(50, currentValue + change));
+            
+            input.value = newValue;
+            
+            // Add visual feedback
+            input.style.transform = 'scale(1.1)';
+            setTimeout(() => {
+                input.style.transform = 'scale(1)';
+            }, 150);
+            
+            updatePreview();
+        }
+        
+        // Input animation function
+        function animateInput(element) {
+            const glowElement = element.nextElementSibling;
+            if (glowElement) {
+                glowElement.style.opacity = '0.1';
+                setTimeout(() => {
+                    glowElement.style.opacity = '0';
+                }, 200);
+            }
+        }
+        
+        // Initialize page functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Apply colors to player avatars
+            const avatars = document.querySelectorAll('.player-avatar');
+            avatars.forEach(avatar => {
+                const playerName = avatar.getAttribute('data-name');
+                const [color1, color2] = generatePlayerColors(playerName);
+                avatar.style.setProperty('--avatar-color-1', color1);
+                avatar.style.setProperty('--avatar-color-2', color2);
+            });
+            
+            // Initialize absence handling based on current state
+            handleAbsenceChange();
+        });
+    </script>
+</body>
+</html>

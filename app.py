@@ -71,9 +71,9 @@ def admin_login():
             flash('Successfully logged in!', 'success')
             return redirect(url_for('admin_dashboard'))
         else:
-            return render_template('admin_login.html', error='Invalid username or password')
+            return render_template('admin/admin_login.html', error='Invalid username or password')
     
-    return render_template('admin_login.html')
+    return render_template('admin/admin_login.html')
 
 @app.route('/admin/logout')
 @no_cache
@@ -83,7 +83,6 @@ def admin_logout():
     flash('You have been logged out.', 'info')
     return redirect(url_for('admin_login'))
 
-@app.route('/')
 @app.route('/admin')
 @admin_required
 @no_cache
@@ -149,7 +148,7 @@ def admin_dashboard():
         'average_rating': average_rating
     }
     
-    return render_template('admin_dashboard.html', 
+    return render_template('admin/admin_dashboard.html', 
                          players=players,
                          tournaments=tournaments,
                          stats=stats,
@@ -184,10 +183,10 @@ def add_player():
                             photo_file_id = upload_result['file_id']
                         else:
                             flash(f'Cropped photo upload failed: {upload_result["error"]}', 'error')
-                            return render_template('add_player.html')
+                            return render_template('admin/add_player.html')
                     except Exception as e:
                         flash(f'Photo processing failed: {str(e)}', 'error')
-                        return render_template('add_player.html')
+                        return render_template('admin/add_player.html')
                 # Handle regular photo upload if provided (fallback)
                 elif photo_file and photo_file.filename:
                     upload_result = upload_player_photo(photo_file, player_name, 0)  # Temp ID, will update
@@ -196,7 +195,7 @@ def add_player():
                         photo_file_id = upload_result['file_id']
                     else:
                         flash(f'Photo upload failed: {upload_result["error"]}', 'error')
-                        return render_template('add_player.html')
+                        return render_template('admin/add_player.html')
                 
                 # Add player to database
                 player_id = TournamentDB.add_player(player_name, photo_url, photo_file_id)
@@ -232,7 +231,7 @@ def add_player():
         else:
             flash('Player name cannot be empty', 'error')
     
-    return render_template('add_player.html')
+    return render_template('admin/add_player.html')
 
 @app.route('/admin/players/bulk', methods=['GET', 'POST'])
 @admin_required
@@ -256,7 +255,7 @@ def bulk_add_players():
         else:
             flash('Please enter player names', 'error')
     
-    return render_template('bulk_add_players.html')
+    return render_template('admin/bulk_add_players.html')
 
 @app.route('/admin/players')
 @admin_required
@@ -265,7 +264,7 @@ def view_all_players():
     """View all players with search"""
     search = request.args.get('search', '')
     players = TournamentDB.get_all_players(search=search if search else None)
-    return render_template('view_players.html', players=players, search=search)
+    return render_template('admin/view_players.html', players=players, search=search)
 
 @app.route('/admin/players/<int:player_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -350,7 +349,7 @@ def edit_player(player_id):
         except Exception as e:
             flash(f'Error updating player: {str(e)}', 'error')
     
-    return render_template('edit_player.html', player=player)
+    return render_template('admin/edit_player.html', player=player)
 
 @app.route('/admin/players/<int:player_id>/delete', methods=['POST'])
 @admin_required
@@ -399,7 +398,7 @@ def create_tournament():
         else:
             flash('Tournament name cannot be empty', 'error')
     
-    return render_template('create_tournament.html')
+    return render_template('admin/create_tournament.html')
 
 @app.route('/admin/tournaments')
 @admin_required
@@ -407,7 +406,7 @@ def create_tournament():
 def manage_tournaments():
     """Manage all tournaments"""
     tournaments = TournamentDB.get_all_tournaments()
-    return render_template('manage_tournaments.html', tournaments=tournaments)
+    return render_template('admin/manage_tournaments.html', tournaments=tournaments)
 
 @app.route('/admin/tournaments/<int:tournament_id>', methods=['GET', 'POST'])
 @admin_required
@@ -455,7 +454,7 @@ def manage_tournament(tournament_id):
     tournament_player_ids = {p['id'] for p in tournament_players}
     available_players = [p for p in all_players if p['id'] not in tournament_player_ids]
     
-    return render_template('manage_tournament.html', 
+    return render_template('admin/manage_tournament.html', 
                          tournament=tournament, 
                          tournament_players=tournament_players,
                          available_players=available_players)
@@ -565,7 +564,7 @@ def edit_tournament(tournament_id):
         except Exception as e:
             flash(f'Error updating tournament: {str(e)}', 'error')
     
-    return render_template('edit_tournament.html', tournament=tournament)
+    return render_template('admin/edit_tournament.html', tournament=tournament)
 
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])
@@ -667,7 +666,7 @@ def record_match():
     tournaments = TournamentDB.get_all_tournaments()
     # Get tournament_id from URL parameter if provided
     selected_tournament_id = request.args.get('tournament_id')
-    return render_template('record_match.html', tournaments=tournaments, selected_tournament_id=selected_tournament_id)
+    return render_template('admin/record_match.html', tournaments=tournaments, selected_tournament_id=selected_tournament_id)
 
 @app.route('/admin/players/<int:player_id>')
 @admin_required
@@ -706,7 +705,7 @@ def player_details(player_id):
                 'rating': recent_ratings[i]['rating']
             })
     
-    return render_template('player_details.html',
+    return render_template('admin/player_details.html',
                          player=player,
                          match_history=match_history,
                          tournament_participation=tournament_participation,
@@ -798,7 +797,7 @@ def view_player_stats():
         except ValueError:
             pass
     
-    return render_template('player_stats.html', 
+    return render_template('admin/player_stats.html', 
                          overall_stats=overall_stats,
                          tournaments=tournaments,
                          tournament_stats=tournament_stats,
@@ -911,7 +910,7 @@ def bulk_record_matches():
         return redirect(url_for('bulk_record_matches'))
     
     tournaments = TournamentDB.get_all_tournaments()
-    return render_template('bulk_record_matches.html', tournaments=tournaments)
+    return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
 
 @app.route('/admin/matches')
 @admin_required
@@ -930,7 +929,7 @@ def manage_matches():
         except ValueError:
             pass
     
-    return render_template('manage_matches.html', 
+    return render_template('admin/manage_matches.html', 
                          matches=matches, 
                          tournaments=tournaments,
                          selected_tournament=selected_tournament)
@@ -969,7 +968,7 @@ def edit_match(match_id):
         except Exception as e:
             flash(f'Error updating match: {str(e)}', 'error')
     
-    return render_template('edit_match.html', match=match)
+    return render_template('admin/edit_match.html', match=match)
 
 @app.route('/admin/matches/<int:match_id>/delete', methods=['POST'])
 @admin_required
@@ -991,6 +990,330 @@ def get_tournament_players_api(tournament_id):
     """Get players in tournament (for dropdowns)"""
     players = TournamentDB.get_tournament_players(tournament_id)
     return jsonify([{'id': p['id'], 'name': p['name'], 'rating': p['rating']} for p in players])
+
+# Public Routes (No Authentication Required)
+@app.route('/')  # Root URL now shows public homepage
+@app.route('/public')
+@no_cache
+def public_home():
+    """Public homepage with tournament overview"""
+    try:
+        # Get basic statistics
+        players = TournamentDB.get_all_players(limit=5)
+        tournaments = TournamentDB.get_all_tournaments()
+        
+        # Get awards data
+        golden_boot_overall = TournamentDB.get_golden_boot_overall()
+        golden_glove_overall = TournamentDB.get_golden_glove_overall()
+        golden_ball_overall = TournamentDB.get_golden_ball_overall() if hasattr(TournamentDB, 'get_golden_ball_overall') else None
+        
+        # Get comprehensive statistics
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Total players
+                cursor.execute("SELECT COUNT(*) as count FROM players")
+                total_players = cursor.fetchone()['count']
+                
+                # Total tournaments
+                total_tournaments = len(tournaments)
+                
+                # Active tournaments
+                active_tournaments = [t for t in tournaments if t['status'] == 'active']
+                
+                # Total matches
+                cursor.execute("SELECT COUNT(*) as count FROM player_matches")
+                total_matches = cursor.fetchone()['count']
+                
+                # Average rating
+                cursor.execute("SELECT AVG(rating) as avg_rating FROM players")
+                avg_rating_result = cursor.fetchone()
+                average_rating = int(avg_rating_result['avg_rating']) if avg_rating_result['avg_rating'] else 300
+                
+                # Recent matches for activity feed
+                cursor.execute("""
+                    SELECT pm.*, p1.name as player1_name, p2.name as player2_name, t.name as tournament_name
+                    FROM player_matches pm
+                    JOIN players p1 ON pm.player1_id = p1.id
+                    LEFT JOIN players p2 ON pm.player2_id = p2.id
+                    JOIN tournaments t ON pm.tournament_id = t.id
+                    ORDER BY pm.played_at DESC
+                    LIMIT 10
+                """)
+                recent_matches = cursor.fetchall()
+        except Exception as e:
+            total_players = len(players)
+            total_tournaments = len(tournaments)
+            active_tournaments = [t for t in tournaments if t['status'] == 'active']
+            total_matches = 0
+            average_rating = 300
+            recent_matches = []
+        finally:
+            conn.close()
+        
+        # Create stats object
+        stats = {
+            'total_players': total_players,
+            'total_tournaments': total_tournaments,
+            'active_tournaments': len(active_tournaments),
+            'total_matches': total_matches,
+            'average_rating': average_rating
+        }
+        
+        return render_template('public_home.html',
+                             top_players=players,
+                             tournaments=tournaments,
+                             stats=stats,
+                             recent_matches=recent_matches,
+                             active_tournaments=active_tournaments,
+                             golden_boot_overall=golden_boot_overall,
+                             golden_glove_overall=golden_glove_overall,
+                             golden_ball_overall=golden_ball_overall)
+    except Exception as e:
+        return f"Error loading public homepage: {str(e)}", 500
+
+@app.route('/public/rankings')
+@no_cache
+def public_rankings():
+    """Public player rankings page"""
+    try:
+        search = request.args.get('search', '')
+        award_filter = request.args.get('award')
+        
+        # Get player statistics
+        overall_stats = TournamentDB.get_overall_player_stats()
+        
+        # Apply search filter
+        if search:
+            overall_stats = [s for s in overall_stats if search.lower() in s['name'].lower()]
+        
+        # Sort based on award filter
+        if award_filter == 'golden_boot':
+            overall_stats = sorted(overall_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
+        elif award_filter == 'golden_glove':
+            qualified_stats = [s for s in overall_stats if s['matches_played'] >= 4]
+            unqualified_stats = [s for s in overall_stats if s['matches_played'] < 4]
+            qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+            overall_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+        
+        return render_template('public_rankings.html',
+                             players=overall_stats,
+                             search=search,
+                             award_filter=award_filter)
+    except Exception as e:
+        return f"Error loading rankings: {str(e)}", 500
+
+@app.route('/public/matches')
+@no_cache
+def public_matches():
+    """Public match results page"""
+    try:
+        tournament_id = request.args.get('tournament_id')
+        selected_tournament_id = int(tournament_id) if tournament_id else None
+        
+        # Get matches
+        matches = TournamentDB.get_all_matches(tournament_id=selected_tournament_id, limit=50)
+        tournaments = TournamentDB.get_all_tournaments()
+        
+        # Find selected tournament
+        selected_tournament = None
+        if selected_tournament_id:
+            selected_tournament = next((t for t in tournaments if t['id'] == selected_tournament_id), None)
+        
+        # Calculate match statistics
+        total_goals = sum(match.get('player1_goals', 0) + match.get('player2_goals', 0) for match in matches)
+        avg_goals_per_match = total_goals / len(matches) if matches else 0
+        
+        # Today's matches
+        from datetime import date
+        today = date.today()
+        today_matches = len([m for m in matches if m.get('played_at') and m['played_at'].date() == today])
+        
+        # Match outcome statistics
+        decisive_matches = len([m for m in matches if m.get('player1_goals', 0) != m.get('player2_goals', 0)])
+        draw_matches = len([m for m in matches if m.get('player1_goals', 0) == m.get('player2_goals', 0)])
+        walkover_matches = len([m for m in matches if m.get('player1_absent') or m.get('player2_absent')])
+        
+        # Top scorers from recent matches
+        top_scorers = []
+        high_scoring_matches = sorted([m for m in matches], key=lambda x: x.get('player1_goals', 0) + x.get('player2_goals', 0), reverse=True)
+        
+        return render_template('public_matches.html',
+                             matches=matches,
+                             tournaments=tournaments,
+                             selected_tournament=selected_tournament,
+                             selected_tournament_id=selected_tournament_id,
+                             total_goals=total_goals,
+                             avg_goals_per_match=avg_goals_per_match,
+                             today_matches=today_matches,
+                             decisive_matches=decisive_matches,
+                             draw_matches=draw_matches,
+                             walkover_matches=walkover_matches,
+                             top_scorers=top_scorers,
+                             high_scoring_matches=high_scoring_matches[:6])
+    except Exception as e:
+        return f"Error loading matches: {str(e)}", 500
+
+@app.route('/public/player/<int:player_id>')
+@no_cache
+def public_player_profile(player_id):
+    """Public player profile page"""
+    try:
+        player = TournamentDB.get_player_details(player_id)
+        if not player:
+            return "Player not found", 404
+        
+        # Get comprehensive player data
+        match_history = TournamentDB.get_player_match_history(player_id)
+        tournament_participation = TournamentDB.get_player_tournament_participation(player_id)
+        rating_history = TournamentDB.get_player_rating_history(player_id)
+        vs_opponents = TournamentDB.get_player_vs_opponents(player_id)
+        player_awards = TournamentDB.get_player_awards(player_id)
+        
+        # Calculate additional statistics
+        total_goals_for = sum([match['player_goals'] for match in match_history])
+        total_goals_against = sum([match['opponent_goals'] for match in match_history])
+        
+        # Calculate recent form (last 5 matches)
+        recent_matches = match_history[:5] if match_history else []
+        recent_form = [match['result'] for match in recent_matches]
+        
+        # Calculate rating trend (last 10 matches)
+        rating_trend = []
+        if len(rating_history) > 1:
+            recent_ratings = rating_history[-11:] if len(rating_history) >= 11 else rating_history
+            for i in range(1, len(recent_ratings)):
+                rating_change = recent_ratings[i]['rating'] - recent_ratings[i-1]['rating']
+                rating_trend.append({
+                    'match': recent_ratings[i]['event'],
+                    'change': rating_change,
+                    'rating': recent_ratings[i]['rating']
+                })
+        
+        # Get player's rank
+        all_players = TournamentDB.get_overall_player_stats()
+        player_rank = None
+        for idx, p in enumerate(all_players):
+            if p['id'] == player_id:
+                player_rank = idx + 1
+                break
+        
+        return render_template('public_player_profile.html',
+                             player=player,
+                             match_history=match_history,
+                             tournament_participation=tournament_participation,
+                             rating_history=rating_history,
+                             vs_opponents=vs_opponents,
+                             total_goals_for=total_goals_for,
+                             total_goals_against=total_goals_against,
+                             recent_form=recent_form,
+                             rating_trend=rating_trend,
+                             player_awards=player_awards,
+                             player_rank=player_rank)
+    except Exception as e:
+        return f"Error loading player profile: {str(e)}", 500
+
+@app.route('/public/tournaments')
+@no_cache
+def public_tournaments():
+    """Public tournaments listing page"""
+    try:
+        tournaments = TournamentDB.get_all_tournaments()
+        
+        # Calculate tournament statistics
+        active_tournaments = [t for t in tournaments if t['status'] == 'active']
+        active_count = len(active_tournaments)
+        
+        # Get additional tournament data
+        conn = get_db_connection()
+        total_participants = 0
+        total_tournament_matches = 0
+        
+        try:
+            with conn.cursor() as cursor:
+                # Get participant and match counts for each tournament
+                for tournament in tournaments:
+                    # Get player count
+                    cursor.execute("SELECT COUNT(*) as count FROM tournament_players WHERE tournament_id = %s", (tournament['id'],))
+                    tournament['player_count'] = cursor.fetchone()['count']
+                    total_participants += tournament['player_count']
+                    
+                    # Get match count
+                    cursor.execute("SELECT COUNT(*) as count FROM player_matches WHERE tournament_id = %s", (tournament['id'],))
+                    tournament['match_count'] = cursor.fetchone()['count']
+                    total_tournament_matches += tournament['match_count']
+                    
+                    # Get top player in tournament
+                    cursor.execute("""
+                        SELECT p.id, p.name, p.rating, p.photo_url
+                        FROM players p
+                        JOIN tournament_players tp ON p.id = tp.player_id
+                        WHERE tp.tournament_id = %s
+                        ORDER BY p.rating DESC
+                        LIMIT 1
+                    """, (tournament['id'],))
+                    top_player = cursor.fetchone()
+                    if top_player:
+                        tournament['top_player_id'] = top_player['id']
+                        tournament['top_player_name'] = top_player['name']
+                        tournament['top_player_rating'] = top_player['rating']
+                        tournament['top_player_photo_url'] = top_player['photo_url']
+        finally:
+            conn.close()
+        
+        return render_template('public_tournaments.html',
+                             tournaments=tournaments,
+                             active_tournaments=active_tournaments,
+                             active_count=active_count,
+                             total_participants=total_participants,
+                             total_tournament_matches=total_tournament_matches)
+    except Exception as e:
+        return f"Error loading tournaments: {str(e)}", 500
+
+@app.route('/public/tournament/<int:tournament_id>')
+@no_cache
+def public_tournament_detail(tournament_id):
+    """Public tournament detail page"""
+    try:
+        tournament = TournamentDB.get_tournament_by_id(tournament_id)
+        if not tournament:
+            return "Tournament not found", 404
+        
+        # Get tournament data
+        tournament_players = TournamentDB.get_tournament_players(tournament_id)
+        tournament_matches = TournamentDB.get_all_matches(tournament_id=tournament_id)
+        tournament_stats = TournamentDB.get_player_tournament_stats(tournament_id)
+        
+        # Sort tournament stats by points (wins * 3 + draws)
+        tournament_stats = sorted(tournament_stats, key=lambda x: (x['wins'] or 0) * 3 + (x['draws'] or 0), reverse=True)
+        
+        # Get tournament awards
+        golden_ball_tournament = TournamentDB.get_golden_ball_tournament(tournament_id) if hasattr(TournamentDB, 'get_golden_ball_tournament') else None
+        golden_boot_tournament = TournamentDB.get_golden_boot_tournament(tournament_id) if hasattr(TournamentDB, 'get_golden_boot_tournament') else None
+        golden_glove_tournament = TournamentDB.get_golden_glove_points_tournament(tournament_id) if hasattr(TournamentDB, 'get_golden_glove_points_tournament') else None
+        
+        # Calculate tournament statistics
+        total_goals = sum(match.get('player1_goals', 0) + match.get('player2_goals', 0) for match in tournament_matches)
+        avg_goals_per_match = total_goals / len(tournament_matches) if tournament_matches else 0
+        
+        # Match outcome statistics
+        decisive_matches = len([m for m in tournament_matches if m.get('player1_goals', 0) != m.get('player2_goals', 0)])
+        draw_matches = len([m for m in tournament_matches if m.get('player1_goals', 0) == m.get('player2_goals', 0)])
+        
+        return render_template('public_tournament_detail.html',
+                             tournament=tournament,
+                             tournament_players=tournament_players,
+                             tournament_matches=tournament_matches,
+                             tournament_stats=tournament_stats,
+                             golden_ball_tournament=golden_ball_tournament,
+                             golden_boot_tournament=golden_boot_tournament,
+                             golden_glove_tournament=golden_glove_tournament,
+                             total_goals=total_goals,
+                             avg_goals_per_match=avg_goals_per_match,
+                             decisive_matches=decisive_matches,
+                             draw_matches=draw_matches)
+    except Exception as e:
+        return f"Error loading tournament details: {str(e)}", 500
 
 # Test route to verify app is working
 @app.route('/test')

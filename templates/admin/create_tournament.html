@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Tournament - Player Tournament System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap');
+        
+        * { 
+            font-family: 'Inter', sans-serif;
+            scroll-behavior: smooth;
+        }
+        
+        .font-display {
+            font-family: 'Space Grotesk', sans-serif;
+        }
+        
+        /* Enhanced Glassmorphism */
+        .glass {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(255, 255, 255, 0.6) 100%);
+            backdrop-filter: blur(20px) saturate(1.5);
+            -webkit-backdrop-filter: blur(20px) saturate(1.5);
+            border: 1px solid rgba(255, 255, 255, 0.7);
+            box-shadow: 
+                0 0.5px 0 1px rgba(255, 255, 255, 0.23) inset,
+                0 1px 0 0 rgba(255, 255, 255, 0.66) inset,
+                0 4px 16px rgba(0, 0, 0, 0.08);
+        }
+        
+        /* Premium Gradient */
+        .animated-gradient {
+            background: linear-gradient(135deg, 
+                #e0c3fc 0%, 
+                #8ec5fc 20%, 
+                #e0aaff 40%, 
+                #c77dff 60%, 
+                #9381ff 80%, 
+                #b8b8ff 100%);
+            background-size: 400% 400%;
+            animation: gradient-shift 20s ease infinite;
+            opacity: 0.15;
+        }
+        
+        @keyframes gradient-shift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        
+        /* Gradient Text */
+        .gradient-text {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        /* Input Focus Effects */
+        .input-focus {
+            transition: all 0.3s ease;
+        }
+        
+        .input-focus:focus {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 25px rgba(99, 102, 241, 0.15);
+        }
+        
+        /* Button Effects */
+        .btn-gradient {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            transition: all 0.3s ease;
+        }
+        
+        .btn-gradient:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 15px 35px rgba(99, 102, 241, 0.25);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-50 relative">
+    <!-- Animated Background -->
+    <div class="fixed inset-0 animated-gradient"></div>
+    
+    <!-- Navigation -->
+    <nav class="relative bg-white/80 backdrop-blur-lg border-b border-gray-200/50 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Back Button -->
+                <div class="flex items-center">
+                    <a href="{{ url_for('admin_dashboard') }}" class="mr-4 text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-arrow-left text-xl"></i>
+                    </a>
+                    <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                        <i class="fas fa-trophy text-white text-sm"></i>
+                    </div>
+                    <h1 class="text-xl font-display font-bold gradient-text">Create Tournament</h1>
+                </div>
+                
+                <!-- User menu -->
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-600">Welcome, {{ session.admin_username }}</span>
+                    <a href="{{ url_for('admin_logout') }}" 
+                       class="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors">
+                        <i class="fas fa-sign-out-alt mr-1"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Main Content -->
+    <main class="relative max-w-2xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                <div class="mb-6 p-4 rounded-lg {% if category == 'success' %}bg-green-50 border border-green-200 text-green-700{% elif category == 'error' %}bg-red-50 border border-red-200 text-red-700{% else %}bg-blue-50 border border-blue-200 text-blue-700{% endif %}">
+                    <i class="fas {% if category == 'success' %}fa-check-circle{% elif category == 'error' %}fa-exclamation-circle{% else %}fa-info-circle{% endif %} mr-2"></i>
+                    {{ message }}
+                </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+        
+        <!-- Form Card -->
+        <div class="glass rounded-3xl p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                    <i class="fas fa-trophy text-white text-2xl"></i>
+                </div>
+                <h2 class="text-3xl font-display font-bold gradient-text mb-2">Create New Tournament</h2>
+                <p class="text-gray-600">Organize players into tournaments for competitive matches</p>
+            </div>
+            
+            <!-- Form -->
+            <form method="POST" enctype="multipart/form-data" class="space-y-6">
+                <div>
+                    <label for="name" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-trophy mr-2"></i>Tournament Name
+                    </label>
+                    <input type="text" 
+                           id="name" 
+                           name="name" 
+                           required 
+                           class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg"
+                           placeholder="Enter tournament name (e.g., Spring Championship 2024)"
+                           autofocus>
+                </div>
+                
+                <!-- Tournament Photo -->
+                <div>
+                    <label for="photo" class="block text-sm font-medium text-gray-700 mb-2">
+                        <i class="fas fa-image mr-2 text-blue-500"></i>Tournament Logo/Photo (Optional)
+                    </label>
+                    
+                    <!-- Photo Upload -->
+                    <div>
+                        <input type="file" 
+                               id="photo" 
+                               name="photo" 
+                               accept="image/*"
+                               class="input-focus w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                        <p class="text-xs text-gray-500 mt-2">
+                            <i class="fas fa-crop mr-1"></i>Photos will be cropped to square. Supported formats: PNG, JPG, JPEG, GIF, WebP (Max 5MB)
+                        </p>
+                    </div>
+                    
+                    <!-- Photo Preview -->
+                    <div id="photoPreview" class="hidden mt-4">
+                        <div class="relative inline-block">
+                            <img id="previewImage" class="w-24 h-24 object-cover rounded-xl border-2 border-gray-200" alt="Photo preview">
+                            <button type="button" 
+                                    id="editCrop" 
+                                    class="absolute -top-2 -right-2 w-6 h-6 bg-blue-500 text-white rounded-full text-xs hover:bg-blue-600 transition-colors" 
+                                    title="Crop photo">
+                                <i class="fas fa-crop"></i>
+                            </button>
+                            <button type="button" 
+                                    id="removePhotoPreview" 
+                                    class="absolute -top-2 -left-2 w-6 h-6 bg-red-500 text-white rounded-full text-xs hover:bg-red-600 transition-colors">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Hidden input for cropped image data -->
+                    <input type="hidden" id="croppedImageData" name="cropped_image_data" value="">
+                </div>
+                
+                <!-- Info Box -->
+                <div class="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-info-circle text-blue-500 mr-3"></i>
+                        <div>
+                            <h4 class="text-blue-800 font-semibold">Tournament Structure</h4>
+                            <p class="text-blue-700 text-sm mt-1">
+                                After creating the tournament, you'll be able to select players to participate. Matches will be 1v1 with ELO rating adjustments.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Feature Box -->
+                <div class="bg-green-50 border border-green-200 rounded-xl p-4">
+                    <div class="flex items-start">
+                        <i class="fas fa-star text-green-500 mr-3 mt-1"></i>
+                        <div>
+                            <h4 class="text-green-800 font-semibold">Features Included</h4>
+                            <ul class="text-green-700 text-sm mt-1 space-y-1">
+                                <li>• Player vs Player matches</li>
+                                <li>• Automatic rating calculations (300-1000 range)</li>
+                                <li>• Win/Draw/Loss tracking</li>
+                                <li>• Goals scored and conceded statistics</li>
+                                <li>• Tournament-specific player rankings</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="flex space-x-4">
+                    <button type="submit" 
+                            class="btn-gradient flex-1 py-3 px-6 text-white font-semibold rounded-xl hover:shadow-lg transform transition-all duration-200">
+                        <i class="fas fa-plus mr-2"></i>Create Tournament
+                    </button>
+                    <a href="{{ url_for('admin_dashboard') }}" 
+                       class="flex-1 py-3 px-6 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl text-center transition-colors">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </a>
+                </div>
+                
+                <!-- Quick Actions -->
+                <div class="border-t border-gray-200 pt-6 mt-8">
+                    <h4 class="font-semibold text-gray-900 mb-4">Quick Actions</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <a href="{{ url_for('manage_tournaments') }}" 
+                           class="p-4 border-2 border-blue-200 rounded-xl hover:border-blue-400 hover:bg-blue-50 transition-colors text-center">
+                            <i class="fas fa-cog text-blue-600 text-xl mb-2"></i>
+                            <p class="text-blue-600 font-semibold">Manage Tournaments</p>
+                        </a>
+                        <a href="{{ url_for('view_player_stats') }}" 
+                           class="p-4 border-2 border-purple-200 rounded-xl hover:border-purple-400 hover:bg-purple-50 transition-colors text-center">
+                            <i class="fas fa-chart-bar text-purple-600 text-xl mb-2"></i>
+                            <p class="text-purple-600 font-semibold">View Statistics</p>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </main>
+    
+    <!-- Crop Modal -->
+    <div id="cropModal" class="fixed inset-0 bg-black/50 backdrop-blur-sm hidden z-50 flex items-center justify-center p-4">
+        <div class="glass rounded-2xl p-6 max-w-lg w-full">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-semibold text-gray-900">
+                    <i class="fas fa-crop mr-2 text-blue-500"></i>Crop Tournament Photo
+                </h3>
+                <button id="cancelCrop" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            
+            <div class="mb-4">
+                <div id="cropContainer" class="max-w-full max-h-80 mx-auto">
+                    <img id="cropImage" class="max-w-full" style="display: none;">
+                </div>
+            </div>
+            
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex space-x-2">
+                    <button id="zoomIn" class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                        <i class="fas fa-search-plus"></i>
+                    </button>
+                    <button id="zoomOut" class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                        <i class="fas fa-search-minus"></i>
+                    </button>
+                    <button id="rotateLeft" class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button id="rotateRight" class="px-3 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 text-sm">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div class="flex space-x-4">
+                <button id="applyCrop" class="flex-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white py-2 px-4 rounded-lg font-medium hover:shadow-lg transition-all">
+                    <i class="fas fa-check mr-2"></i>Apply Crop
+                </button>
+                <button id="cancelCrop2" class="flex-1 bg-gray-500 text-white py-2 px-4 rounded-lg font-medium hover:bg-gray-600 transition-colors">
+                    <i class="fas fa-times mr-2"></i>Cancel
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Include Cropper.js -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.12/cropper.min.js"></script>
+    
+    <script>
+        let cropper = null;
+        let originalImageSrc = null;
+        
+        // Show crop modal
+        function showCropModal(imageSrc) {
+            const modal = document.getElementById('cropModal');
+            const cropImage = document.getElementById('cropImage');
+            
+            originalImageSrc = imageSrc;
+            cropImage.src = imageSrc;
+            cropImage.style.display = 'block';
+            modal.classList.remove('hidden');
+            
+            // Initialize cropper
+            if (cropper) {
+                cropper.destroy();
+            }
+            
+            cropper = new Cropper(cropImage, {
+                aspectRatio: 1,
+                viewMode: 1,
+                minCropBoxWidth: 100,
+                minCropBoxHeight: 100,
+                responsive: true,
+                restore: false,
+                checkCrossOrigin: false,
+                checkOrientation: false,
+                modal: true,
+                guides: true,
+                center: true,
+                highlight: false,
+                cropBoxMovable: true,
+                cropBoxResizable: true,
+                toggleDragModeOnDblclick: false
+            });
+        }
+        
+        // Close crop modal
+        function closeCropModal() {
+            const modal = document.getElementById('cropModal');
+            modal.classList.add('hidden');
+            
+            if (cropper) {
+                cropper.destroy();
+                cropper = null;
+            }
+        }
+        
+        // Apply crop
+        function applyCrop() {
+            if (!cropper) return;
+            
+            const canvas = cropper.getCroppedCanvas({
+                width: 300,
+                height: 300,
+                minWidth: 256,
+                minHeight: 256,
+                maxWidth: 512,
+                maxHeight: 512,
+                fillColor: '#fff',
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high'
+            });
+            
+            canvas.toBlob((blob) => {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    const base64Data = reader.result;
+                    
+                    // Update preview
+                    const previewImage = document.getElementById('previewImage');
+                    previewImage.src = base64Data;
+                    
+                    // Store cropped data
+                    document.getElementById('croppedImageData').value = base64Data;
+                    
+                    // Show preview
+                    document.getElementById('photoPreview').classList.remove('hidden');
+                    
+                    // Close crop modal
+                    closeCropModal();
+                };
+                reader.readAsDataURL(blob);
+            }, 'image/jpeg', 0.9);
+        }
+        
+        // Close modal when clicking outside or cancel buttons
+        document.getElementById('cancelCrop').addEventListener('click', closeCropModal);
+        document.getElementById('cancelCrop2').addEventListener('click', closeCropModal);
+        document.getElementById('cropModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCropModal();
+            }
+        });
+        
+        // Form validation and photo handling
+        document.addEventListener('DOMContentLoaded', function() {
+            const nameInput = document.getElementById('name');
+            const photoInput = document.getElementById('photo');
+            const photoPreview = document.getElementById('photoPreview');
+            const previewImage = document.getElementById('previewImage');
+            const removePhotoPreviewBtn = document.getElementById('removePhotoPreview');
+            const editCropBtn = document.getElementById('editCrop');
+            
+            // Auto-focus on the name input
+            if (nameInput) {
+                nameInput.focus();
+            }
+            
+            // Crop modal controls
+            const applyCropBtn = document.getElementById('applyCrop');
+            const zoomInBtn = document.getElementById('zoomIn');
+            const zoomOutBtn = document.getElementById('zoomOut');
+            const rotateLeftBtn = document.getElementById('rotateLeft');
+            const rotateRightBtn = document.getElementById('rotateRight');
+            
+            // Crop control event listeners
+            if (applyCropBtn) applyCropBtn.addEventListener('click', applyCrop);
+            
+            if (zoomInBtn) {
+                zoomInBtn.addEventListener('click', function() {
+                    if (cropper) cropper.zoom(0.1);
+                });
+            }
+            
+            if (zoomOutBtn) {
+                zoomOutBtn.addEventListener('click', function() {
+                    if (cropper) cropper.zoom(-0.1);
+                });
+            }
+            
+            if (rotateLeftBtn) {
+                rotateLeftBtn.addEventListener('click', function() {
+                    if (cropper) cropper.rotate(-90);
+                });
+            }
+            
+            if (rotateRightBtn) {
+                rotateRightBtn.addEventListener('click', function() {
+                    if (cropper) cropper.rotate(90);
+                });
+            }
+            
+            // Photo preview functionality
+            if (photoInput) {
+                photoInput.addEventListener('change', function(e) {
+                    const file = e.target.files[0];
+                    if (file) {
+                        // Validate file size (5MB limit)
+                        if (file.size > 5 * 1024 * 1024) {
+                            alert('File size must be less than 5MB');
+                            photoInput.value = '';
+                            photoPreview.classList.add('hidden');
+                            return;
+                        }
+                        
+                        // Validate file type
+                        const validTypes = ['image/png', 'image/jpg', 'image/jpeg', 'image/gif', 'image/webp'];
+                        if (!validTypes.includes(file.type)) {
+                            alert('Please select a valid image file (PNG, JPG, JPEG, GIF, or WebP)');
+                            photoInput.value = '';
+                            photoPreview.classList.add('hidden');
+                            return;
+                        }
+                        
+                        // Show cropping interface
+                        const reader = new FileReader();
+                        reader.onload = function(e) {
+                            showCropModal(e.target.result);
+                        };
+                        reader.readAsDataURL(file);
+                    } else {
+                        photoPreview.classList.add('hidden');
+                        document.getElementById('croppedImageData').value = '';
+                    }
+                });
+                
+                // Remove photo preview functionality
+                if (removePhotoPreviewBtn) {
+                    removePhotoPreviewBtn.addEventListener('click', function() {
+                        photoInput.value = '';
+                        photoPreview.classList.add('hidden');
+                        document.getElementById('croppedImageData').value = '';
+                    });
+                }
+                
+                // Edit crop functionality
+                if (editCropBtn) {
+                    editCropBtn.addEventListener('click', function() {
+                        if (originalImageSrc) {
+                            showCropModal(originalImageSrc);
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+</body>
+</html>

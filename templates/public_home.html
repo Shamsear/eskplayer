@@ -1,0 +1,543 @@
+{% extends "public_base.html" %}
+
+{% block title %}Player Tournament System - Professional Gaming Platform{% endblock %}
+
+{% block styles %}
+<style>
+    /* Enhanced animations */
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-20px); }
+    }
+    
+    @keyframes slideInFromTop {
+        from { 
+            opacity: 0;
+            transform: translateY(-30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes slideInFromBottom {
+        from { 
+            opacity: 0;
+            transform: translateY(30px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    @keyframes scaleIn {
+        from { 
+            opacity: 0;
+            transform: scale(0.9);
+        }
+        to {
+            opacity: 1;
+            transform: scale(1);
+        }
+    }
+    
+    .animate-float {
+        animation: float 6s ease-in-out infinite;
+    }
+    
+    .animate-slide-down {
+        animation: slideInFromTop 0.8s ease-out;
+    }
+    
+    .animate-slide-up {
+        animation: slideInFromBottom 0.8s ease-out;
+    }
+    
+    .animate-scale {
+        animation: scaleIn 0.6s ease-out;
+    }
+    
+    /* Decorative elements */
+    .decoration-dot {
+        position: absolute;
+        width: 300px;
+        height: 300px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        opacity: 0.1;
+        filter: blur(60px);
+    }
+    
+    /* Live indicator pulse */
+    @keyframes livePulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+    }
+    
+    .live-dot {
+        animation: livePulse 2s infinite;
+    }
+    
+    /* Improved card hover */
+    .feature-card {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .feature-card:hover {
+        transform: translateY(-8px) rotateZ(-1deg);
+    }
+    
+    /* Gradient border animation */
+    @keyframes borderAnimation {
+        0%, 100% {
+            background-position: 0% 50%;
+        }
+        50% {
+            background-position: 100% 50%;
+        }
+    }
+    
+    .gradient-border {
+        background: linear-gradient(90deg, #667eea, #764ba2, #f093fb, #667eea);
+        background-size: 300% 100%;
+        animation: borderAnimation 4s ease infinite;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Hero Section - Desktop -->
+<section class="hidden md:block relative py-20 overflow-hidden">
+    <!-- Decorative blobs -->
+    <div class="decoration-dot" style="top: -150px; left: -150px;"></div>
+    <div class="decoration-dot" style="bottom: -150px; right: -150px;"></div>
+    
+    <div class="relative z-10 max-w-7xl mx-auto px-4">
+        <div class="text-center">
+            <!-- Announcement badge -->
+            <div class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-indigo-100 px-4 py-2 rounded-full mb-6 animate-slide-down">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+                </span>
+                <span class="text-sm font-semibold text-purple-700">Season 2024 is Live!</span>
+            </div>
+            
+            <h1 class="text-6xl font-display font-bold mb-6 animate-slide-up">
+                <span class="gradient-text">Welcome to</span><br>
+                <span class="text-gray-900">Player Tournament System</span>
+            </h1>
+            <p class="text-xl text-gray-600 mb-10 max-w-3xl mx-auto animate-slide-up" style="animation-delay: 0.1s;">
+                Experience competitive gaming at its finest. Track performances, climb rankings, and become a champion.
+            </p>
+            
+            <!-- CTA Buttons with improved styling -->
+            <div class="flex flex-col sm:flex-row justify-center gap-4 animate-slide-up" style="animation-delay: 0.2s;">
+                <a href="{{ url_for('public_rankings') }}" 
+                   class="group relative inline-flex items-center justify-center px-8 py-4 font-semibold text-white transition-all duration-200 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl hover:shadow-2xl hover:scale-105 hover:-translate-y-1">
+                    <span class="absolute inset-0 w-full h-full -mt-1 rounded-xl opacity-30 bg-gradient-to-b from-transparent via-transparent to-purple-700"></span>
+                    <i class="fas fa-trophy mr-2"></i>
+                    <span class="relative">View Rankings</span>
+                    <i class="fas fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
+                </a>
+                <a href="{{ url_for('public_matches') }}" 
+                   class="group relative inline-flex items-center justify-center px-8 py-4 font-semibold transition-all duration-200 bg-white rounded-xl border-2 border-gray-200 hover:border-indigo-300 hover:bg-gradient-to-r hover:from-indigo-50 hover:to-purple-50">
+                    <i class="fas fa-gamepad mr-2 text-indigo-600"></i>
+                    <span class="text-gray-700">Latest Matches</span>
+                    <span class="ml-2 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-red-100 bg-red-600 rounded-full live-dot">LIVE</span>
+                </a>
+            </div>
+            
+            <!-- Quick Stats Bar -->
+            <div class="mt-12 flex justify-center gap-8 animate-slide-up" style="animation-delay: 0.3s;">
+                <div class="text-center">
+                    <p class="text-3xl font-bold gradient-text">{{ stats.total_players }}+</p>
+                    <p class="text-sm text-gray-600">Active Players</p>
+                </div>
+                <div class="text-center border-l border-r border-gray-300 px-8">
+                    <p class="text-3xl font-bold gradient-text">{{ stats.total_matches }}+</p>
+                    <p class="text-sm text-gray-600">Matches Played</p>
+                </div>
+                <div class="text-center">
+                    <p class="text-3xl font-bold gradient-text">{{ stats.total_tournaments }}</p>
+                    <p class="text-sm text-gray-600">Tournaments</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Hero Section - Mobile -->
+<section class="md:hidden py-12 relative overflow-hidden">
+    <!-- Mobile decorative elements -->
+    <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-200 to-purple-200 rounded-full opacity-30 blur-2xl"></div>
+    <div class="absolute bottom-0 left-0 w-32 h-32 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full opacity-30 blur-2xl"></div>
+    
+    <div class="relative z-10 px-4 text-center">
+        <div class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-indigo-100 px-3 py-1 rounded-full mb-4">
+            <span class="flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+            </span>
+            <span class="text-xs font-semibold text-purple-700">Season 2024</span>
+        </div>
+        
+        <h1 class="text-4xl font-display font-bold mb-4">
+            <span class="gradient-text">Tournament</span><br>
+            <span class="text-gray-900">System</span>
+        </h1>
+        <p class="text-gray-600 mb-8">Professional Gaming League</p>
+        
+        <div class="space-y-3">
+            <a href="{{ url_for('public_rankings') }}" 
+               class="block bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold shadow-lg">
+                <i class="fas fa-trophy mr-2"></i> View Rankings
+            </a>
+            <a href="{{ url_for('public_matches') }}" 
+               class="block bg-white text-indigo-600 px-6 py-3 rounded-xl font-semibold border-2 border-indigo-200 relative">
+                <i class="fas fa-gamepad mr-2"></i> Latest Matches
+                <span class="absolute top-2 right-2 flex h-3 w-3">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                </span>
+            </a>
+        </div>
+    </div>
+</section>
+
+<!-- Statistics Section with Enhanced Design -->
+<section class="py-12 md:py-16 relative">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Section Header -->
+        <div class="text-center mb-10">
+            <h2 class="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-3">Platform Statistics</h2>
+            <p class="text-gray-600">Real-time insights into our gaming community</p>
+        </div>
+        
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <!-- Total Players -->
+            <div class="glass glass-hover rounded-2xl p-6 text-center card-glow feature-card group">
+                <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-users text-white text-xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{{ stats.total_players }}</h3>
+                <p class="text-gray-600 mt-1">Total Players</p>
+                <div class="mt-3 h-1 w-16 mx-auto bg-gradient-to-r from-blue-500 to-indigo-600 rounded-full opacity-50"></div>
+            </div>
+            
+            <!-- Tournaments -->
+            <div class="glass glass-hover rounded-2xl p-6 text-center card-glow feature-card group">
+                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-trophy text-white text-xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{{ stats.total_tournaments }}</h3>
+                <p class="text-gray-600 mt-1">Tournaments</p>
+                <div class="mt-3 h-1 w-16 mx-auto bg-gradient-to-r from-green-500 to-emerald-600 rounded-full opacity-50"></div>
+            </div>
+            
+            <!-- Matches -->
+            <div class="glass glass-hover rounded-2xl p-6 text-center card-glow feature-card group">
+                <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-gamepad text-white text-xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{{ stats.total_matches }}</h3>
+                <p class="text-gray-600 mt-1">Matches Played</p>
+                <div class="mt-3 h-1 w-16 mx-auto bg-gradient-to-r from-purple-500 to-pink-600 rounded-full opacity-50"></div>
+            </div>
+            
+            <!-- Average Rating -->
+            <div class="glass glass-hover rounded-2xl p-6 text-center card-glow feature-card group">
+                <div class="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-star text-white text-xl"></i>
+                </div>
+                <h3 class="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">{{ stats.average_rating }}</h3>
+                <p class="text-gray-600 mt-1">Avg Rating</p>
+                <div class="mt-3 h-1 w-16 mx-auto bg-gradient-to-r from-orange-500 to-red-600 rounded-full opacity-50"></div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Main Content Grid with Enhanced Cards -->
+<section class="py-12 md:py-16">
+    <div class="max-w-7xl mx-auto px-4">
+        <!-- Section Header -->
+        <div class="text-center mb-10">
+            <h2 class="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-3">Latest Updates</h2>
+            <p class="text-gray-600">Awards, matches, and top performers</p>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <!-- Award Winners -->
+            <div class="glass rounded-3xl p-8 relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+                <!-- Decorative gradient -->
+                <div class="absolute top-0 right-0 w-24 h-24 bg-gradient-to-br from-yellow-400 to-orange-400 opacity-10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                
+                <div class="relative z-10">
+                    <div class="w-16 h-16 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-2xl flex items-center justify-center mb-6 animate-float">
+                        <i class="fas fa-award text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold text-gray-900 mb-2">Award Winners</h3>
+                    <p class="text-sm text-gray-600 mb-6">Season's top achievers</p>
+                    <div class="space-y-4">
+                    
+                    {% if golden_boot_overall %}
+                    <div class="bg-gradient-to-r from-red-500 to-pink-500 rounded-xl p-4 text-white transform hover:scale-105 transition-all">
+                        <div class="flex items-center">
+                            <i class="fas fa-futbol text-3xl md:text-4xl mr-4"></i>
+                            <div>
+                                <p class="text-xs md:text-sm opacity-90">Golden Boot</p>
+                                <a href="{{ url_for('public_player_profile', player_id=golden_boot_overall.id) }}" 
+                                   class="text-lg md:text-xl font-bold hover:underline">
+                                    {{ golden_boot_overall.name }}
+                                </a>
+                                <p class="text-sm">{{ golden_boot_overall.goals_scored }} Goals</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if golden_glove_overall %}
+                    <div class="bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl p-4 text-white transform hover:scale-105 transition-all">
+                        <div class="flex items-center">
+                            <i class="fas fa-hands text-3xl md:text-4xl mr-4"></i>
+                            <div>
+                                <p class="text-xs md:text-sm opacity-90">Golden Glove</p>
+                                <a href="{{ url_for('public_player_profile', player_id=golden_glove_overall.id) }}" 
+                                   class="text-lg md:text-xl font-bold hover:underline">
+                                    {{ golden_glove_overall.name }}
+                                </a>
+                                <p class="text-sm">{{ "%.1f"|format(golden_glove_overall.golden_glove_points) }} Points</p>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Matches -->
+            <div class="glass rounded-3xl p-8 relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+                <!-- Live indicator -->
+                <div class="absolute top-4 right-4 flex items-center gap-2 bg-red-500 text-white text-xs px-3 py-1 rounded-full">
+                    <span class="relative flex h-2 w-2">
+                        <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span class="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                    </span>
+                    <span class="font-semibold">LIVE</span>
+                </div>
+                
+                <!-- Decorative gradient -->
+                <div class="absolute top-0 left-0 w-24 h-24 bg-gradient-to-br from-purple-400 to-pink-400 opacity-10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                
+                <div class="relative z-10">
+                    <div class="w-16 h-16 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl flex items-center justify-center mb-6">
+                        <i class="fas fa-gamepad text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold text-gray-900 mb-2">Recent Matches</h3>
+                    <p class="text-sm text-gray-600 mb-6">Latest competitive results</p>
+                    <div class="space-y-3">
+                    {% if recent_matches %}
+                        {% for match in recent_matches[:5] %}
+                        <div class="bg-white/60 rounded-xl p-4 hover:bg-white/90 hover:shadow-lg transition-all border border-gray-200/50 group cursor-pointer">
+                            <div class="flex justify-between items-center mb-2">
+                                <div class="flex-1">
+                                    <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
+                                       class="font-semibold text-gray-800 hover:text-purple-600 transition-colors">
+                                        {{ match.player1_name }}
+                                    </a>
+                                </div>
+                                <div class="px-3">
+                                    <span class="bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-3 py-1 rounded-lg font-bold">
+                                        {{ match.player1_goals }} - {{ match.player2_goals }}
+                                    </span>
+                                </div>
+                                <div class="flex-1 text-right">
+                                    {% if match.player2_name %}
+                                        <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
+                                           class="font-semibold text-gray-800 hover:text-purple-600 transition-colors">
+                                            {{ match.player2_name }}
+                                        </a>
+                                    {% else %}
+                                        <span class="font-semibold text-gray-600">{{ match.guest_name }} (Guest)</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-600 flex justify-between">
+                                <span><i class="fas fa-clock mr-1"></i> {{ match.played_at.strftime('%m/%d %H:%M') }}</span>
+                                <span class="text-indigo-600">{{ match.tournament_name }}</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-gray-600 text-center py-8">No recent matches</p>
+                    {% endif %}
+                    
+                        <a href="{{ url_for('public_matches') }}" 
+                           class="mt-4 block w-full bg-gradient-to-r from-purple-500 to-pink-600 text-white text-center py-3 px-4 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:-translate-y-1">
+                            <i class="fas fa-list mr-2"></i>View All Matches
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Top Players -->
+            <div class="glass rounded-3xl p-8 relative overflow-hidden group hover:shadow-2xl transition-all duration-300">
+                <!-- Decorative gradient -->
+                <div class="absolute bottom-0 right-0 w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-400 opacity-10 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500"></div>
+                
+                <div class="relative z-10">
+                    <div class="w-16 h-16 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mb-6">
+                        <i class="fas fa-medal text-white text-2xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-display font-bold text-gray-900 mb-2">Top Players</h3>
+                    <p class="text-sm text-gray-600 mb-6">Leaderboard champions</p>
+                    <div class="space-y-3">
+                    {% if top_players %}
+                        {% for player in top_players[:5] %}
+                        <div class="flex items-center p-3 bg-white/60 rounded-xl hover:bg-white/90 hover:shadow-lg transition-all group border border-gray-200/50 cursor-pointer">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-r 
+                                {% if loop.index == 1 %}from-yellow-400 to-orange-500
+                                {% elif loop.index == 2 %}from-gray-400 to-gray-600
+                                {% elif loop.index == 3 %}from-orange-600 to-red-600
+                                {% else %}from-indigo-500 to-purple-500{% endif %}
+                                flex items-center justify-center text-white font-bold mr-3 group-hover:scale-110 transition-transform">
+                                {{ loop.index }}
+                            </div>
+                            <div class="flex-grow">
+                                <a href="{{ url_for('public_player_profile', player_id=player.id) }}" 
+                                   class="font-semibold text-gray-800 hover:text-purple-600 transition-colors">
+                                    {{ player.name }}
+                                </a>
+                                <div class="text-sm text-gray-600">
+                                    {{ player.matches_played }} matches
+                                </div>
+                            </div>
+                            <div class="text-right">
+                                <span class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                                    {{ player.rating }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-gray-600 text-center py-8">No player data available</p>
+                    {% endif %}
+                    
+                        <a href="{{ url_for('public_rankings') }}" 
+                           class="mt-4 block w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white text-center py-3 px-4 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:-translate-y-1">
+                            <i class="fas fa-chart-line mr-2"></i>View Full Rankings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Active Tournaments Section -->
+{% if active_tournaments %}
+<section class="py-12 md:py-16 bg-gradient-to-b from-gray-50 to-white">
+    <div class="max-w-7xl mx-auto px-4">
+        <div class="text-center mb-12">
+            <span class="inline-block px-4 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 text-sm font-semibold rounded-full mb-4">
+                🎮 Competitions
+            </span>
+            <h2 class="text-3xl md:text-4xl font-display font-bold text-gray-900 mb-3">Active Tournaments</h2>
+            <p class="text-gray-600 max-w-2xl mx-auto">Join the competition and prove your skills against the best players</p>
+        </div>
+        
+        <!-- Desktop Grid -->
+        <div class="hidden md:grid md:grid-cols-3 gap-8">
+            {% for tournament in active_tournaments[:6] %}
+            <div class="glass rounded-3xl overflow-hidden hover:shadow-2xl transition-all duration-300 group">
+                <div class="h-48 bg-gradient-to-br from-indigo-600 to-purple-600 relative overflow-hidden">
+                    {% if tournament.tournament_photo_url %}
+                        <img src="{{ tournament.tournament_photo_url }}" alt="{{ tournament.name }}" 
+                             class="w-full h-full object-cover opacity-60 group-hover:scale-110 transition-transform duration-700">
+                    {% endif %}
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+                    <div class="absolute bottom-4 left-4 right-4">
+                        <span class="inline-block px-3 py-1 bg-white/20 backdrop-blur-sm text-white text-xs font-semibold rounded-full mb-2">
+                            <i class="fas fa-calendar mr-1"></i> Ongoing
+                        </span>
+                        <h3 class="text-xl font-display font-bold text-white">{{ tournament.name }}</h3>
+                    </div>
+                </div>
+                <div class="p-6">
+                    <div class="grid grid-cols-2 gap-3 mb-4">
+                        <div class="bg-gradient-to-br from-indigo-50 to-indigo-100 p-3 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <i class="fas fa-users text-indigo-600"></i>
+                                <p class="text-2xl font-bold gradient-text">{{ tournament.player_count or 0 }}</p>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-1">Players</p>
+                        </div>
+                        <div class="bg-gradient-to-br from-purple-50 to-purple-100 p-3 rounded-xl">
+                            <div class="flex items-center justify-between">
+                                <i class="fas fa-gamepad text-purple-600"></i>
+                                <p class="text-2xl font-bold gradient-text">{{ tournament.match_count or 0 }}</p>
+                            </div>
+                            <p class="text-xs text-gray-600 mt-1">Matches</p>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('public_tournament_detail', tournament_id=tournament.id) }}" 
+                       class="group block w-full bg-gradient-to-r from-indigo-500 to-purple-600 text-white text-center py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-1 transition-all">
+                        <span>View Details</span>
+                        <i class="fas fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <!-- Mobile Carousel -->
+        <div class="md:hidden overflow-x-auto pb-4">
+            <div class="flex space-x-4" style="width: max-content;">
+                {% for tournament in active_tournaments %}
+                <div class="glass rounded-xl p-4" style="min-width: 250px;">
+                    <div class="flex items-center mb-3">
+                        {% if tournament.tournament_photo_url %}
+                            <img src="{{ tournament.tournament_photo_url }}" alt="{{ tournament.name }}" 
+                                 class="w-12 h-12 rounded-lg object-cover mr-3">
+                        {% else %}
+                            <div class="w-12 h-12 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                                <i class="fas fa-trophy text-white"></i>
+                            </div>
+                        {% endif %}
+                        <div>
+                            <h3 class="font-bold text-gray-800">{{ tournament.name }}</h3>
+                            <p class="text-xs text-gray-600">{{ tournament.player_count or 0 }} players</p>
+                        </div>
+                    </div>
+                    <a href="{{ url_for('public_tournament_detail', tournament_id=tournament.id) }}" 
+                       class="block bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-center py-2 rounded-lg text-sm">
+                        View Details
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="text-center mt-12">
+            <a href="{{ url_for('public_tournaments') }}" 
+               class="group inline-flex items-center justify-center bg-white border-2 border-indigo-200 text-indigo-600 px-8 py-4 rounded-xl font-semibold hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-transparent transform hover:-translate-y-1 transition-all duration-300">
+                <i class="fas fa-trophy mr-2"></i>
+                <span>Browse All Tournaments</span>
+                <i class="fas fa-arrow-right ml-2 transition-transform group-hover:translate-x-1"></i>
+            </a>
+        </div>
+    </div>
+</section>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,372 @@
+{% extends "public_base.html" %}
+
+{% block title %}Player Rankings - Tournament System{% endblock %}
+
+{% block styles %}
+<style>
+    /* Podium animations */
+    @keyframes rise {
+        from {
+            transform: translateY(100px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+    }
+    
+    .podium-animate {
+        animation: rise 0.8s ease-out;
+    }
+    
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        font-weight: bold;
+        font-size: 1.1rem;
+    }
+    
+    .rank-1 {
+        background: linear-gradient(135deg, #FFD700, #FFA500);
+        color: white;
+        box-shadow: 0 4px 15px rgba(255, 215, 0, 0.4);
+    }
+    
+    .rank-2 {
+        background: linear-gradient(135deg, #C0C0C0, #B8B8B8);
+        color: white;
+        box-shadow: 0 4px 15px rgba(192, 192, 192, 0.4);
+    }
+    
+    .rank-3 {
+        background: linear-gradient(135deg, #CD7F32, #B87333);
+        color: white;
+        box-shadow: 0 4px 15px rgba(205, 127, 50, 0.4);
+    }
+    
+    .rank-default {
+        background: linear-gradient(135deg, #f3f4f6, #e5e7eb);
+        color: #6b7280;
+    }
+    
+    .player-row {
+        transition: all 0.3s ease;
+    }
+    
+    .player-row:hover {
+        transform: translateX(8px);
+        background-color: rgba(99, 102, 241, 0.05);
+    }
+    
+    .stats-card-enhanced {
+        background: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.7));
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.8);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.3s ease;
+    }
+    
+    .stats-card-enhanced:hover {
+        transform: translateY(-8px) scale(1.05);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+    }
+    
+    .filter-tab {
+        position: relative;
+        padding: 0.75rem 1.5rem;
+        border-radius: 0.75rem;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    
+    .filter-tab:hover {
+        background: linear-gradient(135deg, #f0f0ff, #faf0ff);
+        transform: translateY(-2px);
+    }
+    
+    .filter-tab.active {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+    }
+    
+    .search-input-modern {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        padding-left: 2.5rem;
+        transition: all 0.3s ease;
+    }
+    
+    .search-input-modern:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    .trophy-glow {
+        filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.5));
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Enhanced Page Header -->
+    <div class="text-center mb-10">
+        <div class="inline-flex items-center gap-2 bg-gradient-to-r from-yellow-100 to-orange-100 px-4 py-2 rounded-full mb-6">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+            </span>
+            <span class="text-sm font-semibold text-yellow-700">Live Rankings</span>
+        </div>
+        <h1 class="text-5xl font-display font-bold gradient-text mb-4">Player Rankings</h1>
+        <p class="text-xl text-gray-600 mb-8">Track the best performers in our competitive league</p>
+        
+        <!-- Search Bar -->
+        <div class="max-w-md mx-auto mb-8">
+            <form method="GET" class="relative">
+                <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
+                <input type="text" name="search" 
+                       class="search-input-modern w-full" 
+                       placeholder="Search players..." 
+                       value="{{ search or '' }}">
+                <button type="submit" 
+                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-1.5 rounded-lg hover:shadow-lg transition-all">
+                    Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tournament/Overall Filter -->
+    <div class="glass rounded-3xl p-4 mb-6">
+        <div class="flex justify-center gap-6">
+            <a href="{{ url_for('public_rankings', scope='overall') }}" 
+               class="filter-tab {% if request.args.get('scope', 'overall') == 'overall' %}active{% endif %}">
+                <i class="fas fa-globe mr-2"></i> Overall Rankings
+            </a>
+            <a href="{{ url_for('public_rankings', scope='tournament') }}" 
+               class="filter-tab {% if request.args.get('scope') == 'tournament' %}active{% endif %}">
+                <i class="fas fa-trophy mr-2"></i> Tournament Rankings
+            </a>
+        </div>
+    </div>
+    
+    <!-- Award Filter Tabs -->
+    <div class="glass rounded-3xl p-6 mb-8">
+        <div class="flex flex-wrap justify-center gap-4">
+            <a href="{{ url_for('public_rankings', scope=request.args.get('scope', 'overall')) }}" 
+               class="filter-tab {% if not award_filter %}active{% endif %}">
+                <i class="fas fa-star mr-2"></i> All Players
+            </a>
+            <a href="{{ url_for('public_rankings', award='golden_boot', scope=request.args.get('scope', 'overall')) }}" 
+               class="filter-tab {% if award_filter == 'golden_boot' %}active{% endif %}">
+                <i class="fas fa-futbol mr-2"></i> Golden Boot
+            </a>
+            <a href="{{ url_for('public_rankings', award='golden_glove', scope=request.args.get('scope', 'overall')) }}" 
+               class="filter-tab {% if award_filter == 'golden_glove' %}active{% endif %}">
+                <i class="fas fa-hands mr-2"></i> Golden Glove
+            </a>
+        </div>
+    </div>
+
+    
+    <!-- Enhanced Rankings Table -->
+    <div class="glass rounded-3xl overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-indigo-600 to-purple-600 p-6 text-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center">
+                        {% if award_filter == 'golden_boot' %}
+                            <i class="fas fa-futbol mr-3"></i> Golden Boot Rankings
+                        {% elif award_filter == 'golden_glove' %}
+                            <i class="fas fa-hands mr-3"></i> Golden Glove Rankings
+                        {% else %}
+                            <i class="fas fa-medal mr-3"></i> Overall Player Rankings
+                        {% endif %}
+                    </h2>
+                </div>
+                <div>
+                    <span class="bg-white/20 px-4 py-2 rounded-full font-semibold">
+                        {{ players|length }} Players
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="p-0">
+            {% if players %}
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-gray-50 border-b border-gray-200">
+                        <tr>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">#</th>
+                            <th class="px-6 py-4 text-left text-sm font-semibold text-gray-700">Player</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Rating</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Matches</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">W-D-L</th>
+                            {% if award_filter == 'golden_boot' %}
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Goals</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Goals/Match</th>
+                            {% elif award_filter == 'golden_glove' %}
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">GG Points</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Goals Conceded</th>
+                            {% else %}
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Goals</th>
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Win %</th>
+                            {% endif %}
+                            <th class="px-6 py-4 text-center text-sm font-semibold text-gray-700">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200">
+                        {% for player in players %}
+                        <tr class="player-row hover:bg-gray-50 transition-all">
+                            <td class="px-6 py-4 text-center">
+                                <div class="rank-badge {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-default{% endif %}">
+                                    {{ loop.index }}
+                                </div>
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="flex items-center">
+                                    {% if player.photo_url %}
+                                        <img src="{{ player.photo_url }}" 
+                                             alt="{{ player.name }}" 
+                                             class="w-12 h-12 rounded-full object-cover mr-3 border-2 border-gray-200">
+                                    {% else %}
+                                        <div class="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mr-3">
+                                            <i class="fas fa-user text-white"></i>
+                                        </div>
+                                    {% endif %}
+                                    <div>
+                                        <div class="font-semibold text-gray-900">{{ player.name }}</div>
+                                        {% if loop.index == 1 %}
+                                            <span class="inline-flex items-center gap-1 text-xs text-yellow-600">
+                                                <i class="fas fa-crown"></i> Champion
+                                            </span>
+                                        {% elif loop.index <= 3 %}
+                                            <span class="inline-flex items-center gap-1 text-xs text-gray-600">
+                                                <i class="fas fa-medal"></i> Top 3
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="inline-flex px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full font-bold">
+                                    {{ player.rating or 300 }}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-center font-medium">{{ player.matches_played or 0 }}</td>
+                            <td class="px-6 py-4 text-center">
+                                <span class="text-green-600 font-semibold">{{ player.wins or 0 }}</span>-<span class="text-gray-600">{{ player.draws or 0 }}</span>-<span class="text-red-600 font-semibold">{{ player.losses or 0 }}</span>
+                            </td>
+                                    {% if award_filter == 'golden_boot' %}
+                                    <td class="text-center">
+                                        <strong class="text-danger">{{ player.goals_scored or 0 }}</strong>
+                                    </td>
+                                    <td class="text-center">
+                                        {{ "%.1f"|format((player.goals_scored or 0) / (player.matches_played or 1)) }}
+                                    </td>
+                                    {% elif award_filter == 'golden_glove' %}
+                                    <td class="text-center">
+                                        <strong class="text-success">{{ "%.1f"|format(player.golden_glove_points or 0) }}</strong>
+                                    </td>
+                                    <td class="text-center">{{ player.goals_conceded or 0 }}</td>
+                                    {% else %}
+                                    <td class="text-center">{{ player.goals_scored or 0 }}</td>
+                                    <td class="text-center">
+                                        {% if player.matches_played and player.matches_played > 0 %}
+                                            {{ "%.1f"|format((player.wins or 0) * 100 / player.matches_played) }}%
+                                        {% else %}
+                                            0.0%
+                                        {% endif %}
+                                    </td>
+                                    {% endif %}
+                            <td class="px-6 py-4 text-center">
+                                <a href="{{ url_for('public_player_profile', player_id=player.id) }}" 
+                                   class="inline-flex items-center px-4 py-2 bg-white border-2 border-indigo-200 text-indigo-600 rounded-lg font-semibold hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-transparent transition-all">
+                                    <i class="fas fa-eye mr-2"></i> View
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-16">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
+                    <i class="fas fa-users text-gray-400 text-4xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-700 mb-2">No players found</h3>
+                {% if search %}
+                <p class="text-gray-600 mb-6">No players match your search "{{ search }}"</p>
+                <a href="{{ url_for('public_rankings') }}" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
+                    <i class="fas fa-arrow-left mr-2"></i> View All Players
+                </a>
+                {% else %}
+                <p class="text-gray-600">Start adding players to see rankings</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+
+    <!-- Enhanced Statistics Summary -->
+    {% if players and not search %}
+    <div class="mt-12">
+        <h3 class="text-2xl font-bold text-center text-gray-900 mb-8">Platform Statistics</h3>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+            <div class="stats-card-enhanced group">
+                <div class="w-14 h-14 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-users text-white text-xl"></i>
+                </div>
+                <div class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">{{ players|length }}</div>
+                <div class="text-gray-600 mt-1">Total Players</div>
+            </div>
+            
+            <div class="stats-card-enhanced group">
+                <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-chart-line text-white text-xl"></i>
+                </div>
+                <div class="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{{ "%.0f"|format(players|map(attribute='rating')|sum / players|length) }}</div>
+                <div class="text-gray-600 mt-1">Average Rating</div>
+            </div>
+            
+            <div class="stats-card-enhanced group">
+                <div class="w-14 h-14 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-fire text-white text-xl"></i>
+                </div>
+                <div class="text-3xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">{{ players|map(attribute='goals_scored')|sum }}</div>
+                <div class="text-gray-600 mt-1">Total Goals</div>
+            </div>
+            
+            <div class="stats-card-enhanced group">
+                <div class="w-14 h-14 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
+                    <i class="fas fa-gamepad text-white text-xl"></i>
+                </div>
+                <div class="text-3xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">{{ players|map(attribute='matches_played')|sum }}</div>
+                <div class="text-gray-600 mt-1">Total Matches</div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

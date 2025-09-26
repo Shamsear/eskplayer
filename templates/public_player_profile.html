@@ -1,0 +1,791 @@
+{% extends "public_base.html" %}
+
+{% block title %}{{ player.name }} - Player Profile{% endblock %}
+
+{% block styles %}
+<style>
+    /* Enhanced Profile Animations */
+    @keyframes heroGradient {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+    }
+    
+    @keyframes floatAvatar {
+        0%, 100% { transform: translateY(0px) rotate(0deg); }
+        50% { transform: translateY(-8px) rotate(2deg); }
+    }
+    
+    @keyframes statsPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    @keyframes slideInLeft {
+        from { opacity: 0; transform: translateX(-30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    @keyframes slideInRight {
+        from { opacity: 0; transform: translateX(30px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    /* Enhanced Hero Section */
+    .hero-gradient {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #f093fb 100%);
+        background-size: 400% 400%;
+        animation: heroGradient 8s ease infinite;
+        position: relative;
+        overflow: hidden;
+        box-shadow: 0 0 50px rgba(102, 126, 234, 0.3);
+    }
+    
+    .hero-gradient::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 65%);
+        animation: rotate 25s linear infinite;
+    }
+    
+    @keyframes rotate {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+    }
+    
+    .hero-gradient::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(45deg, transparent 25%, rgba(255,255,255,0.08) 50%, transparent 75%);
+        animation: shimmer 6s ease-in-out infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-120%) skewX(-12deg); }
+        50% { transform: translateX(220%) skewX(-12deg); }
+        100% { transform: translateX(-120%) skewX(-12deg); }
+    }
+    
+    /* Hero Content Overlay */
+    .hero-content {
+        position: relative;
+        z-index: 10;
+        backdrop-filter: blur(1px);
+    }
+    
+    /* Enhanced Avatar with Pulse Ring */
+    .avatar-container {
+        position: relative;
+        animation: floatAvatar 6s ease-in-out infinite;
+    }
+    
+    .avatar-container::before {
+        content: '';
+        position: absolute;
+        inset: -8px;
+        border-radius: 50%;
+        background: linear-gradient(45deg, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
+        animation: avatarPulse 3s ease-in-out infinite;
+        z-index: -1;
+    }
+    
+    @keyframes avatarPulse {
+        0%, 100% { transform: scale(1); opacity: 0.6; }
+        50% { transform: scale(1.1); opacity: 0.3; }
+    }
+    
+    .avatar-glow {
+        box-shadow: 
+            0 0 0 3px rgba(255, 255, 255, 0.4),
+            0 0 0 6px rgba(255, 255, 255, 0.2),
+            0 0 20px rgba(255, 255, 255, 0.3),
+            0 8px 32px rgba(0, 0, 0, 0.25);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        border: 2px solid rgba(255, 255, 255, 0.6);
+    }
+    
+    .avatar-glow:hover {
+        transform: scale(1.08) rotate(2deg);
+        box-shadow: 
+            0 0 0 4px rgba(255, 255, 255, 0.6),
+            0 0 0 8px rgba(255, 255, 255, 0.3),
+            0 0 30px rgba(255, 255, 255, 0.4),
+            0 15px 50px rgba(0, 0, 0, 0.4);
+    }
+    
+    /* Enhanced Info Badges */
+    .info-badge {
+        background: rgba(255, 255, 255, 0.25);
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .info-badge::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: left 0.5s ease;
+    }
+    
+    .info-badge:hover {
+        background: rgba(255, 255, 255, 0.35);
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(255, 255, 255, 0.15);
+    }
+    
+    .info-badge:hover::before {
+        left: 100%;
+    }
+    
+    /* Enhanced Quick Stats */
+    .quick-stat {
+        background: rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .quick-stat::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(255,255,255,0.1), transparent);
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .quick-stat:hover {
+        transform: translateY(-4px) scale(1.02);
+        background: rgba(255, 255, 255, 0.28);
+        box-shadow: 0 10px 30px rgba(255, 255, 255, 0.2);
+    }
+    
+    .quick-stat:hover::after {
+        opacity: 1;
+    }
+    
+    .stat-icon-enhanced {
+        transition: all 0.3s ease;
+        position: relative;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    }
+    
+    .quick-stat:hover .stat-icon-enhanced {
+        transform: scale(1.1) rotate(5deg);
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    }
+    
+    /* Stats Cards Enhancement */
+    .stat-card {
+        transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stat-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        transition: left 0.6s ease;
+    }
+    
+    .stat-card:hover::before {
+        left: 100%;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-8px) rotateZ(-2deg);
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    }
+    
+    .stat-icon {
+        transition: all 0.3s ease;
+    }
+    
+    .stat-card:hover .stat-icon {
+        transform: scale(1.2) rotate(10deg);
+        animation: statsPulse 1s ease infinite;
+    }
+    
+    /* Progress Bars */
+    .progress-container {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 10px;
+        overflow: hidden;
+        height: 8px;
+        position: relative;
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+        border-radius: 10px;
+        transition: width 1s ease-in-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-bar::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.6), transparent);
+        animation: progressShimmer 2s infinite;
+    }
+    
+    @keyframes progressShimmer {
+        0% { left: -100%; }
+        100% { left: 100%; }
+    }
+    
+    /* Match History Cards */
+    .match-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid transparent;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .match-card::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 4px;
+        background: linear-gradient(180deg, #667eea, #764ba2);
+        transform: scaleY(0);
+        transition: transform 0.3s ease;
+    }
+    
+    .match-card:hover::before {
+        transform: scaleY(1);
+    }
+    
+    .match-card:hover {
+        transform: translateX(8px);
+        background: rgba(103, 126, 234, 0.05);
+    }
+    
+    /* Form Indicators */
+    .form-indicator {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        font-size: 12px;
+        margin: 0 2px;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .form-indicator::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        padding: 2px;
+        background: linear-gradient(135deg, currentColor, transparent);
+        mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+        mask-composite: xor;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+    
+    .form-indicator:hover::before {
+        opacity: 0.3;
+    }
+    
+    .form-indicator:hover {
+        transform: scale(1.2);
+    }
+    
+    .form-w { 
+        background: linear-gradient(135deg, #22c55e, #16a34a);
+        color: white;
+    }
+    
+    .form-d { 
+        background: linear-gradient(135deg, #f59e0b, #d97706);
+        color: white;
+    }
+    
+    .form-l { 
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+    }
+    
+    /* Tournament Cards */
+    .tournament-card {
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .tournament-card::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%);
+        transform: rotate(45deg);
+        transition: transform 0.6s ease;
+    }
+    
+    .tournament-card:hover::before {
+        transform: rotate(45deg) translateX(100%);
+    }
+    
+    .tournament-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Responsive Animations */
+    @media (min-width: 768px) {
+        .animate-slide-left {
+            animation: slideInLeft 0.6s ease-out;
+        }
+        
+        .animate-slide-right {
+            animation: slideInRight 0.6s ease-out;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .hero-gradient {
+            padding: 2rem 1rem;
+        }
+        
+        .stat-card {
+            margin-bottom: 1rem;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto">
+    <!-- Ultra-Compact Player Card -->
+    <section class="py-4 px-4">
+        <div class="max-w-4xl mx-auto">
+            <div class="glass rounded-2xl p-4 relative overflow-hidden">
+                <!-- Background Pattern -->
+                <div class="absolute inset-0 opacity-5">
+                    <div class="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full blur-3xl"></div>
+                    <div class="absolute bottom-0 left-0 w-24 h-24 bg-gradient-to-tr from-pink-500 to-purple-500 rounded-full blur-2xl"></div>
+                </div>
+                
+                <div class="relative z-10 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    <!-- Compact Avatar -->
+                    <div class="md:col-span-2 text-center md:text-left">
+                        {% if player.photo_url %}
+                            <img src="{{ player.photo_url }}" 
+                                 alt="{{ player.name }}" 
+                                 class="w-16 h-16 md:w-20 md:h-20 rounded-xl object-cover mx-auto md:mx-0 shadow-lg border-2 border-white/20">
+                        {% else %}
+                            <div class="w-16 h-16 md:w-20 md:h-20 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mx-auto md:mx-0 shadow-lg">
+                                <i class="fas fa-user text-white text-xl md:text-2xl"></i>
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Player Name & Key Info -->
+                    <div class="md:col-span-5 text-center md:text-left">
+                        <h1 class="text-2xl md:text-3xl font-display font-bold text-gray-900 mb-2">
+                            {{ player.name }}
+                        </h1>
+                        <div class="flex flex-wrap justify-center md:justify-start gap-2">
+                            <span class="inline-flex items-center px-2 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 text-xs font-semibold rounded-lg">
+                                <i class="fas fa-star mr-1"></i>{{ player.rating if player.rating else 'Unrated' }}
+                            </span>
+                            {% if player_rank %}
+                            <span class="inline-flex items-center px-2 py-1 bg-gradient-to-r from-yellow-100 to-orange-100 text-orange-700 text-xs font-semibold rounded-lg">
+                                <i class="fas fa-medal mr-1"></i>#{{ player_rank }}
+                            </span>
+                            {% endif %}
+                            <span class="inline-flex items-center px-2 py-1 bg-gradient-to-r from-gray-100 to-gray-200 text-gray-700 text-xs font-semibold rounded-lg">
+                                <i class="fas fa-gamepad mr-1"></i>{{ player.matches_played or 0 }} Matches
+                            </span>
+                        </div>
+                    </div>
+                    
+                    <!-- Compact Stats Grid -->
+                    <div class="md:col-span-5">
+                        <div class="grid grid-cols-4 gap-3">
+                            <!-- Win Rate Circle -->
+                            <div class="text-center">
+                                <div class="relative w-12 h-12 mx-auto mb-1">
+                                    <svg class="w-12 h-12 transform -rotate-90" viewBox="0 0 36 36">
+                                        <path class="text-gray-300" stroke="currentColor" stroke-width="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                        <path class="text-green-500" stroke="currentColor" stroke-width="3" fill="none" stroke-linecap="round" 
+                                              stroke-dasharray="{{ ((player.matches_won or 0) * 100 / (player.matches_played or 1)) if player.matches_played and player.matches_played > 0 else 0 }}, 100" 
+                                              d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                                    </svg>
+                                    <div class="absolute inset-0 flex items-center justify-center">
+                                        <span class="text-xs font-bold text-gray-700">{{ "%.0f"|format(((player.matches_won or 0) * 100 / (player.matches_played or 1)) if player.matches_played and player.matches_played > 0 else 0) }}%</span>
+                                    </div>
+                                </div>
+                                <div class="text-xs text-gray-600 font-medium">Win Rate</div>
+                            </div>
+                            
+                            <!-- Wins -->
+                            <div class="text-center">
+                                <div class="w-12 h-12 bg-gradient-to-br from-green-400 to-green-600 rounded-lg flex items-center justify-center mx-auto mb-1 shadow-md">
+                                    <i class="fas fa-trophy text-white text-sm"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900">{{ player.matches_won or 0 }}</div>
+                                <div class="text-xs text-gray-600">Wins</div>
+                            </div>
+                            
+                            <!-- Draws -->
+                            <div class="text-center">
+                                <div class="w-12 h-12 bg-gradient-to-br from-yellow-400 to-yellow-600 rounded-lg flex items-center justify-center mx-auto mb-1 shadow-md">
+                                    <i class="fas fa-handshake text-white text-sm"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900">{{ player.matches_drawn or 0 }}</div>
+                                <div class="text-xs text-gray-600">Draws</div>
+                            </div>
+                            
+                            <!-- Losses -->
+                            <div class="text-center">
+                                <div class="w-12 h-12 bg-gradient-to-br from-red-400 to-red-600 rounded-lg flex items-center justify-center mx-auto mb-1 shadow-md">
+                                    <i class="fas fa-times-circle text-white text-sm"></i>
+                                </div>
+                                <div class="text-lg font-bold text-gray-900">{{ player.matches_lost or 0 }}</div>
+                                <div class="text-xs text-gray-600">Losses</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Quick Info Bar -->
+                <div class="relative z-10 mt-3 pt-3 border-t border-gray-200/50">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 text-center">
+                        <div>
+                            <div class="text-lg font-bold text-gray-900">{{ total_goals_for or 0 }}</div>
+                            <div class="text-xs text-gray-600">Goals Scored</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-gray-900">{{ total_goals_against or 0 }}</div>
+                            <div class="text-xs text-gray-600">Goals Against</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold {% if (total_goals_for or 0) - (total_goals_against or 0) > 0 %}text-green-600{% elif (total_goals_for or 0) - (total_goals_against or 0) < 0 %}text-red-600{% else %}text-gray-900{% endif %}">
+                                {% if (total_goals_for or 0) - (total_goals_against or 0) > 0 %}+{% endif %}{{ (total_goals_for or 0) - (total_goals_against or 0) }}
+                            </div>
+                            <div class="text-xs text-gray-600">Goal Difference</div>
+                        </div>
+                        <div>
+                            <div class="text-lg font-bold text-gray-900">{{ "%.1f"|format((total_goals_for or 0) / (player.matches_played or 1)) }}</div>
+                            <div class="text-xs text-gray-600">Goals/Match</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Compact Content Grid -->
+    <section class="py-3 px-4">
+        <div class="max-w-4xl mx-auto">
+            
+            <!-- Full Width Content -->
+            <div class="space-y-4">
+                
+                <!-- Performance Overview -->
+                <div class="glass rounded-2xl p-4 animate-slide-left">
+                    <div class="flex items-center mb-3">
+                        <div class="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
+                            <i class="fas fa-chart-line text-white"></i>
+                        </div>
+                        <h3 class="text-xl font-display font-bold text-gray-900">Performance</h3>
+                    </div>
+                    
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                        <div class="stat-card glass-hover rounded-lg p-3 text-center group">
+                            <div class="stat-icon w-10 h-10 bg-gradient-to-br from-red-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <i class="fas fa-fire text-white text-sm"></i>
+                            </div>
+                            <div class="text-xl font-bold text-gray-900">{{ total_goals_for or 0 }}</div>
+                            <div class="text-xs text-gray-600">Goals Scored</div>
+                        </div>
+                        
+                        <div class="stat-card glass-hover rounded-lg p-3 text-center group">
+                            <div class="stat-icon w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <i class="fas fa-shield-alt text-white text-sm"></i>
+                            </div>
+                            <div class="text-xl font-bold text-gray-900">{{ total_goals_against or 0 }}</div>
+                            <div class="text-xs text-gray-600">Goals Against</div>
+                        </div>
+                        
+                        <div class="stat-card glass-hover rounded-lg p-3 text-center group">
+                            <div class="stat-icon w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <i class="fas fa-bullseye text-white text-sm"></i>
+                            </div>
+                            <div class="text-xl font-bold text-gray-900">{{ "%.1f"|format((total_goals_for or 0) / (player.matches_played or 1)) }}</div>
+                            <div class="text-xs text-gray-600">Avg Goals</div>
+                        </div>
+                        
+                        <div class="stat-card glass-hover rounded-lg p-3 text-center group">
+                            <div class="stat-icon w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-600 rounded-lg flex items-center justify-center mx-auto mb-2">
+                                <i class="fas fa-plus-minus text-white text-sm"></i>
+                            </div>
+                            <div class="text-xl font-bold {% if (total_goals_for or 0) - (total_goals_against or 0) > 0 %}text-green-600{% elif (total_goals_for or 0) - (total_goals_against or 0) < 0 %}text-red-600{% else %}text-gray-900{% endif %}">
+                                {% if (total_goals_for or 0) - (total_goals_against or 0) > 0 %}+{% endif %}{{ (total_goals_for or 0) - (total_goals_against or 0) }}
+                            </div>
+                            <div class="text-xs text-gray-600">Goal Diff</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Recent Form -->
+                <div class="glass rounded-2xl p-4 animate-slide-left" style="animation-delay: 0.1s;">
+                    <div class="flex items-center justify-between mb-3">
+                        <div class="flex items-center">
+                            <div class="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-600 rounded-lg flex items-center justify-center mr-3">
+                                <i class="fas fa-history text-white"></i>
+                            </div>
+                            <h3 class="text-xl font-display font-bold text-gray-900">Recent Form</h3>
+                        </div>
+                        <span class="text-xs text-gray-500">Last 5</span>
+                    </div>
+                    
+                    {% if recent_form and recent_form|length > 0 %}
+                    <div class="flex justify-center items-center gap-2 mb-3">
+                        {% for result in recent_form %}
+                        <div class="form-indicator form-{{ result.lower() }}">
+                            {{ result }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center text-xs text-gray-600">
+                        {% set wins_count = recent_form|select('equalto', 'W')|list|length %}
+                        {% set draws_count = recent_form|select('equalto', 'D')|list|length %}
+                        {% set losses_count = recent_form|select('equalto', 'L')|list|length %}
+                        <span class="font-medium">{{ wins_count }}W • {{ draws_count }}D • {{ losses_count }}L in last {{ recent_form|length }}</span>
+                    </div>
+                    {% elif match_history and match_history|length > 0 %}
+                    <!-- Fallback: Generate recent form from match history -->
+                    <div class="flex justify-center items-center gap-2 mb-3">
+                        {% for match in match_history[:5] %}
+                        {% set match_result = 'W' if match.result == 'Win' or match.result == 'W' else 'D' if match.result == 'Draw' or match.result == 'D' else 'L' if match.result == 'Loss' or match.result == 'L' else match.result %}
+                        <div class="form-indicator form-{{ match_result.lower() if match_result else 'unknown' }}">
+                            {{ match_result if match_result else '?' }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <div class="text-center text-xs text-gray-600">
+                        {% set recent_matches = match_history[:5] %}
+                        {% set wins_count = 0 %}
+                        {% set draws_count = 0 %}
+                        {% set losses_count = 0 %}
+                        {% for match in recent_matches %}
+                            {% if match.result == 'Win' or match.result == 'W' %}
+                                {% set wins_count = wins_count + 1 %}
+                            {% elif match.result == 'Draw' or match.result == 'D' %}
+                                {% set draws_count = draws_count + 1 %}
+                            {% elif match.result == 'Loss' or match.result == 'L' %}
+                                {% set losses_count = losses_count + 1 %}
+                            {% endif %}
+                        {% endfor %}
+                        <span class="font-medium">{{ wins_count }}W • {{ draws_count }}D • {{ losses_count }}L in last {{ recent_matches|length }}</span>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-6">
+                        <div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-2">
+                            <i class="fas fa-history text-gray-400 text-lg"></i>
+                        </div>
+                        <p class="text-gray-600 text-sm">No recent matches</p>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <!-- Match History -->
+                <div class="glass rounded-2xl overflow-hidden animate-slide-left" style="animation-delay: 0.2s;">
+                    <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-3 text-white">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fas fa-gamepad text-sm mr-2"></i>
+                                <h3 class="text-sm font-display font-bold">Match History & Ratings</h3>
+                            </div>
+                            <div class="text-xs opacity-90">
+                                <i class="fas fa-chart-line mr-1"></i>Rating Progress
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div>
+                        {% if match_history %}
+                        <div class="space-y-1">
+                            {% for match in match_history %}
+                            <div class="match-card bg-white rounded-lg p-3 border border-gray-200 hover:border-purple-300 hover:shadow-md transition-all">
+                                <!-- Main Match Row -->
+                                <div class="flex items-center justify-between mb-2">
+                                    <div class="flex items-center space-x-3 flex-1">
+                                        <!-- Match Details -->
+                                        <div class="flex-1">
+                                            <div class="flex items-center space-x-2 mb-1">
+                                                <span class="font-semibold text-gray-900 text-sm">vs {{ match.opponent_name }}</span>
+                                                <!-- Score -->
+                                                <div class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-2 py-0.5 rounded font-bold text-xs">
+                                                    {{ match.player_goals }}-{{ match.opponent_goals }}
+                                                </div>
+                                                <!-- Result -->
+                                                {% set display_result = 'W' if match.result == 'Win' or match.result == 'W' else 'D' if match.result == 'Draw' or match.result == 'D' else 'L' if match.result == 'Loss' or match.result == 'L' else match.result %}
+                                                <span class="px-2 py-0.5 rounded text-xs font-bold
+                                                    {% if display_result == 'W' %}bg-green-100 text-green-700
+                                                    {% elif display_result == 'D' %}bg-yellow-100 text-yellow-700
+                                                    {% elif display_result == 'L' %}bg-red-100 text-red-700
+                                                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                                    {{ display_result }}
+                                                </span>
+                                            </div>
+                                            <div class="text-xs text-gray-500">
+                                                <i class="fas fa-trophy mr-1"></i>{{ match.tournament_name }}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Rating Information Row -->
+                                <div class="flex items-center justify-between bg-gray-50 rounded px-3 py-2">
+                                    <div class="flex items-center space-x-4 text-xs">
+                                        <!-- Previous Rating -->
+                                        <div class="flex items-center space-x-1">
+                                            <span class="text-gray-500">From:</span>
+                                            <span class="font-medium text-gray-700">
+                                                {% if match.rating_before %}{{ match.rating_before }}{% else %}Unrated{% endif %}
+                                            </span>
+                                        </div>
+                                        
+                                        <!-- Arrow -->
+                                        <i class="fas fa-arrow-right text-gray-400"></i>
+                                        
+                                        <!-- New Rating -->
+                                        <div class="flex items-center space-x-1">
+                                            <span class="text-gray-500">To:</span>
+                                            <span class="font-bold text-gray-900">
+                                                {% if match.rating_after %}{{ match.rating_after }}{% else %}Unrated{% endif %}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Rating Change Badge -->
+                                    <div class="flex items-center">
+                                        {% if match.rating_change and match.rating_change != 0 %}
+                                            <div class="px-2 py-1 rounded-full text-xs font-bold flex items-center
+                                                {% if match.rating_change > 0 %}bg-green-100 text-green-700
+                                                {% elif match.rating_change < 0 %}bg-red-100 text-red-700
+                                                {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                                {% if match.rating_change > 0 %}
+                                                    <i class="fas fa-arrow-up mr-1"></i>+{{ match.rating_change }}
+                                                {% elif match.rating_change < 0 %}
+                                                    <i class="fas fa-arrow-down mr-1"></i>{{ match.rating_change }}
+                                                {% else %}
+                                                    <i class="fas fa-minus mr-1"></i>{{ match.rating_change }}
+                                                {% endif %}
+                                            </div>
+                                        {% elif match.rating_before and match.rating_after %}
+                                            <!-- Calculate rating change if not provided -->
+                                            {% set calculated_change = match.rating_after - match.rating_before %}
+                                            {% if calculated_change != 0 %}
+                                                <div class="px-2 py-1 rounded-full text-xs font-bold flex items-center
+                                                    {% if calculated_change > 0 %}bg-green-100 text-green-700
+                                                    {% elif calculated_change < 0 %}bg-red-100 text-red-700
+                                                    {% else %}bg-gray-100 text-gray-700{% endif %}">
+                                                    {% if calculated_change > 0 %}
+                                                        <i class="fas fa-arrow-up mr-1"></i>+{{ calculated_change }}
+                                                    {% elif calculated_change < 0 %}
+                                                        <i class="fas fa-arrow-down mr-1"></i>{{ calculated_change }}
+                                                    {% else %}
+                                                        <i class="fas fa-minus mr-1"></i>{{ calculated_change }}
+                                                    {% endif %}
+                                                </div>
+                                            {% else %}
+                                                <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">No change</span>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded">-</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% else %}
+                        <div class="text-center py-12">
+                            <div class="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <i class="fas fa-gamepad text-gray-400 text-3xl"></i>
+                            </div>
+                            <h3 class="text-xl font-semibold text-gray-700 mb-2">No Match History</h3>
+                            <p class="text-gray-500">This player hasn't played any matches yet</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+    </section>
+
+    <!-- Back Button -->
+    <div class="text-center py-4 px-4">
+        <a href="{{ url_for('public_rankings') }}" 
+           class="group inline-flex items-center justify-center bg-white border-2 border-indigo-200 text-indigo-600 px-6 py-3 rounded-lg font-semibold hover:bg-gradient-to-r hover:from-indigo-500 hover:to-purple-600 hover:text-white hover:border-transparent transform hover:-translate-y-1 transition-all duration-300">
+            <i class="fas fa-arrow-left mr-2 transition-transform group-hover:-translate-x-1"></i>
+            <span>Back to Rankings</span>
+        </a>
+    </div>
+</div>
+
+<script>
+    // Progressive loading animation for stats
+    document.addEventListener('DOMContentLoaded', function() {
+        const statCards = document.querySelectorAll('.stat-card');
+        statCards.forEach((card, index) => {
+            setTimeout(() => {
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.classList.add('animate-slide-in');
+            }, 100 * index);
+        });
+        
+        // Form indicators animation
+        const formIndicators = document.querySelectorAll('.form-indicator');
+        formIndicators.forEach((indicator, index) => {
+            setTimeout(() => {
+                indicator.style.transform = 'scale(1)';
+                indicator.style.opacity = '1';
+            }, 200 + (index * 100));
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,467 @@
+{% extends "public_base.html" %}
+
+{% block title %}Match Results - Tournament System{% endblock %}
+
+{% block styles %}
+<style>
+    /* Match card animations */
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .match-card {
+        animation: slideIn 0.5s ease-out;
+        transition: all 0.3s ease;
+    }
+    
+    .match-card:hover {
+        transform: translateX(8px);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+    
+    /* Score badge styling */
+    .score-badge {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.5rem 1rem;
+        border-radius: 1rem;
+        font-weight: bold;
+        font-size: 1.25rem;
+        box-shadow: 0 4px 15px rgba(99, 102, 241, 0.3);
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    /* Winner glow effect */
+    .winner-glow {
+        position: relative;
+    }
+    
+    .winner-glow::after {
+        content: '';
+        position: absolute;
+        inset: -2px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        border-radius: inherit;
+        opacity: 0.3;
+        z-index: -1;
+        filter: blur(8px);
+    }
+    
+    /* Live match pulse */
+    @keyframes livePulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+        }
+        70% {
+            box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+        }
+    }
+    
+    .live-indicator {
+        animation: livePulse 2s infinite;
+    }
+    
+    /* Tournament filter styling */
+    .filter-select {
+        background: white;
+        border: 2px solid #e5e7eb;
+        border-radius: 0.75rem;
+        padding: 0.75rem 1rem;
+        padding-right: 2.5rem;
+        font-weight: 500;
+        transition: all 0.3s ease;
+        cursor: pointer;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+    
+    /* High scoring match badge */
+    .high-score-badge {
+        background: linear-gradient(135deg, #ef4444, #dc2626);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 0.5rem;
+        font-size: 0.75rem;
+        font-weight: bold;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    /* Player avatar */
+    .player-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .stats-icon {
+        width: 56px;
+        height: 56px;
+        border-radius: 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Enhanced Page Header -->
+    <div class="text-center mb-10">
+        <div class="inline-flex items-center gap-2 bg-gradient-to-r from-purple-100 to-pink-100 px-4 py-2 rounded-full mb-6">
+            <span class="relative flex h-2 w-2">
+                <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75"></span>
+                <span class="relative inline-flex rounded-full h-2 w-2 bg-purple-500"></span>
+            </span>
+            <span class="text-sm font-semibold text-purple-700">Live Match Results</span>
+        </div>
+        <h1 class="text-5xl font-display font-bold gradient-text mb-4">Match Results</h1>
+        <p class="text-xl text-gray-600 mb-8">Track all competitive matches and their outcomes</p>
+        
+        <!-- Tournament Filter -->
+        <div class="max-w-md mx-auto">
+            <form method="GET" class="relative">
+                <label class="block text-sm font-semibold text-gray-700 mb-2">Filter by Tournament</label>
+                <div class="relative">
+                    <select name="tournament_id" class="filter-select w-full appearance-none" onchange="this.form.submit()">
+                        <option value="">🏆 All Tournaments</option>
+                        {% for tournament in tournaments %}
+                            <option value="{{ tournament.id }}" 
+                                    {% if tournament.id == selected_tournament_id %}selected{% endif %}>
+                                {{ tournament.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <i class="fas fa-chevron-down absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Enhanced Statistics Cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10">
+        <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
+            <div class="stats-icon bg-gradient-to-br from-purple-500 to-pink-600 text-white mx-auto mb-4">
+                <i class="fas fa-gamepad"></i>
+            </div>
+            <h3 class="text-3xl font-bold gradient-text">{{ matches|length }}</h3>
+            <p class="text-gray-600 mt-1">
+                {% if selected_tournament %}Tournament{% else %}Total{% endif %} Matches
+            </p>
+        </div>
+        
+        <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
+            <div class="stats-icon bg-gradient-to-br from-orange-500 to-red-600 text-white mx-auto mb-4">
+                <i class="fas fa-fire"></i>
+            </div>
+            <h3 class="text-3xl font-bold gradient-text">{{ total_goals }}</h3>
+            <p class="text-gray-600 mt-1">Goals Scored</p>
+        </div>
+        
+        <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
+            <div class="stats-icon bg-gradient-to-br from-blue-500 to-indigo-600 text-white mx-auto mb-4">
+                <i class="fas fa-clock"></i>
+            </div>
+            <h3 class="text-3xl font-bold gradient-text">{{ today_matches }}</h3>
+            <p class="text-gray-600 mt-1">Today's Matches</p>
+        </div>
+        
+        <div class="glass glass-hover rounded-2xl p-6 text-center card-glow">
+            <div class="stats-icon bg-gradient-to-br from-green-500 to-emerald-600 text-white mx-auto mb-4">
+                <i class="fas fa-chart-line"></i>
+            </div>
+            <h3 class="text-3xl font-bold gradient-text">{{ "%.1f"|format(avg_goals_per_match) }}</h3>
+            <p class="text-gray-600 mt-1">Avg Goals/Match</p>
+        </div>
+    </div>
+
+    <!-- Enhanced Match Results -->
+    <div class="glass rounded-3xl overflow-hidden mb-8">
+        <div class="bg-gradient-to-r from-purple-600 to-pink-600 p-6 text-white">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h2 class="text-2xl font-bold flex items-center">
+                        <i class="fas fa-list mr-3"></i> 
+                        {% if selected_tournament %}
+                            {{ selected_tournament.name }} - Match Results
+                        {% else %}
+                            Recent Match Results
+                        {% endif %}
+                    </h2>
+                </div>
+                <div>
+                    <span class="bg-white/20 px-4 py-2 rounded-full font-semibold">
+                        {{ matches|length }} matches
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="p-0">
+            {% if matches %}
+            <div class="divide-y divide-gray-200">
+                {% for match in matches %}
+                <div class="match-card p-6 hover:bg-gray-50 transition-all" style="animation-delay: {{ loop.index * 0.05 }}s;">
+                    <div class="grid md:grid-cols-12 gap-4 items-center">
+                        <!-- Date & Tournament -->
+                        <div class="md:col-span-3">
+                            <div class="flex flex-col">
+                                <span class="text-sm font-semibold text-gray-900">{{ match.played_at.strftime('%B %d, %Y') }}</span>
+                                <span class="text-xs text-gray-600">{{ match.played_at.strftime('%H:%M') }}</span>
+                                <span class="inline-flex items-center px-3 py-1 bg-gradient-to-r from-indigo-100 to-purple-100 text-indigo-700 text-xs font-semibold rounded-full mt-2 w-fit">
+                                    <i class="fas fa-trophy mr-1"></i> {{ match.tournament_name or 'Unknown' }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Player 1 -->
+                        <div class="md:col-span-3">
+                            <div class="flex items-center justify-start md:justify-end">
+                                {% if match.player1_photo_url %}
+                                    <img src="{{ match.player1_photo_url }}" 
+                                         alt="{{ match.player1_name }}" 
+                                         class="player-avatar mr-3">
+                                {% else %}
+                                    <div class="player-avatar bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center mr-3">
+                                        <i class="fas fa-user text-white text-xl"></i>
+                                    </div>
+                                {% endif %}
+                                <div class="text-right">
+                                    <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
+                                       class="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                                        {{ match.player1_name }}
+                                    </a>
+                                    {% if match.player1_absent %}
+                                        <div class="text-xs text-red-600 font-semibold">ABSENT</div>
+                                    {% endif %}
+                                    {% if match.player1_goals > match.player2_goals and not match.player1_absent %}
+                                        <div class="text-xs text-green-600 font-semibold">WINNER</div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Score -->
+                        <div class="md:col-span-3">
+                            <div class="text-center">
+                                <span class="score-badge">
+                                    <span class="text-2xl">{{ match.player1_goals }}</span>
+                                    <span class="text-lg mx-2">-</span>
+                                    <span class="text-2xl">{{ match.player2_goals }}</span>
+                                </span>
+                                {% if (match.player1_goals + match.player2_goals) > 10 %}
+                                    <div class="mt-2">
+                                        <span class="high-score-badge">
+                                            <i class="fas fa-fire mr-1"></i> High Score
+                                        </span>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Player 2 -->
+                        <div class="md:col-span-3">
+                            <div class="flex items-center">
+                                <div class="text-left">
+                                    {% if match.player2_name %}
+                                        <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
+                                           class="font-bold text-gray-900 hover:text-indigo-600 transition-colors">
+                                            {{ match.player2_name }}
+                                        </a>
+                                    {% else %}
+                                        <span class="font-bold text-gray-700">{{ match.guest_name }}</span>
+                                        <span class="text-xs text-gray-500 block">Guest Player</span>
+                                    {% endif %}
+                                    {% if match.player2_absent %}
+                                        <div class="text-xs text-red-600 font-semibold">ABSENT</div>
+                                    {% endif %}
+                                    {% if match.player2_goals > match.player1_goals and not match.player2_absent %}
+                                        <div class="text-xs text-green-600 font-semibold">WINNER</div>
+                                    {% endif %}
+                                </div>
+                                {% if match.player2_photo_url %}
+                                    <img src="{{ match.player2_photo_url }}" 
+                                         alt="{{ match.player2_name or match.guest_name }}" 
+                                         class="player-avatar ml-3">
+                                {% else %}
+                                    <div class="player-avatar bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center ml-3">
+                                        <i class="fas fa-user text-white text-xl"></i>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center py-16">
+                <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
+                    <i class="fas fa-gamepad text-gray-400 text-4xl"></i>
+                </div>
+                <h3 class="text-2xl font-bold text-gray-700 mb-2">No matches found</h3>
+                {% if selected_tournament %}
+                <p class="text-gray-600 mb-6">No matches found for {{ selected_tournament.name }}</p>
+                <a href="{{ url_for('public_matches') }}" 
+                   class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
+                    <i class="fas fa-arrow-left mr-2"></i> View All Matches
+                </a>
+                {% else %}
+                <p class="text-gray-600">No matches have been played yet</p>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Enhanced Match Statistics -->
+    {% if matches %}
+    <div class="grid md:grid-cols-2 gap-8 mt-12">
+        <!-- Match Outcomes -->
+        <div class="glass rounded-3xl p-8">
+            <div class="flex items-center mb-6">
+                <div class="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center mr-3">
+                    <i class="fas fa-chart-pie text-white text-xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">Match Outcomes</h3>
+            </div>
+            <div class="grid grid-cols-3 gap-4">
+                <div class="text-center p-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-2xl border border-green-200 hover:shadow-lg transition-all">
+                    <i class="fas fa-trophy text-green-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-gray-900">{{ decisive_matches }}</div>
+                    <div class="text-sm text-gray-600">Decisive</div>
+                </div>
+                <div class="text-center p-4 bg-gradient-to-br from-yellow-50 to-orange-50 rounded-2xl border border-yellow-200 hover:shadow-lg transition-all">
+                    <i class="fas fa-handshake text-yellow-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-gray-900">{{ draw_matches }}</div>
+                    <div class="text-sm text-gray-600">Draws</div>
+                </div>
+                <div class="text-center p-4 bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl border border-gray-200 hover:shadow-lg transition-all">
+                    <i class="fas fa-ban text-gray-600 text-3xl mb-3"></i>
+                    <div class="text-2xl font-bold text-gray-900">{{ walkover_matches }}</div>
+                    <div class="text-sm text-gray-600">Walkovers</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Top Scorers -->
+        <div class="glass rounded-3xl p-8">
+            <div class="flex items-center mb-6">
+                <div class="w-12 h-12 bg-gradient-to-br from-orange-500 to-red-600 rounded-xl flex items-center justify-center mr-3">
+                    <i class="fas fa-fire text-white text-xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900">Top Scorers (Recent)</h3>
+            </div>
+            {% if top_scorers %}
+                <div class="space-y-3">
+                    {% for scorer in top_scorers[:5] %}
+                    <div class="flex items-center p-3 bg-white/60 rounded-xl hover:bg-white/80 transition-all group">
+                        <div class="w-10 h-10 rounded-full bg-gradient-to-r 
+                            {% if loop.index == 1 %}from-yellow-400 to-orange-500
+                            {% elif loop.index == 2 %}from-gray-400 to-gray-600
+                            {% elif loop.index == 3 %}from-orange-600 to-red-600
+                            {% else %}from-indigo-500 to-purple-500{% endif %}
+                            flex items-center justify-center text-white font-bold mr-3 group-hover:scale-110 transition-transform">
+                            {{ loop.index }}
+                        </div>
+                        <div class="flex-grow">
+                            <a href="{{ url_for('public_player_profile', player_id=scorer.player_id) }}" 
+                               class="font-semibold text-gray-900 hover:text-indigo-600 transition-colors">
+                                {{ scorer.player_name }}
+                            </a>
+                        </div>
+                        <span class="bg-gradient-to-r from-red-500 to-pink-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                            {{ scorer.total_goals }} goals
+                        </span>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-gray-600 text-center py-8">No scoring data available</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- High Scoring Matches -->
+    {% if high_scoring_matches %}
+    <div class="mt-12">
+        <div class="glass rounded-3xl p-8">
+            <div class="flex items-center justify-between mb-8">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-gradient-to-br from-red-500 to-orange-600 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-fire text-white text-xl"></i>
+                    </div>
+                    <h3 class="text-2xl font-bold text-gray-900">High Scoring Matches</h3>
+                </div>
+                <span class="bg-gradient-to-r from-red-100 to-orange-100 text-red-700 px-3 py-1 rounded-full text-sm font-semibold">
+                    🔥 Hot Games
+                </span>
+            </div>
+            <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {% for match in high_scoring_matches[:6] %}
+                <div class="bg-gradient-to-br from-white to-gray-50 p-6 rounded-2xl border border-gray-200 hover:shadow-xl transition-all hover:scale-105">
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <div class="font-bold text-gray-900">
+                                <a href="{{ url_for('public_player_profile', player_id=match.player1_id) }}" 
+                                   class="hover:text-indigo-600 transition-colors">
+                                    {{ match.player1_name }}
+                                </a>
+                            </div>
+                            <div class="text-sm text-gray-600 my-1">vs</div>
+                            <div class="font-bold text-gray-900">
+                                {% if match.player2_name %}
+                                    <a href="{{ url_for('public_player_profile', player_id=match.player2_id) }}" 
+                                       class="hover:text-indigo-600 transition-colors">
+                                        {{ match.player2_name }}
+                                    </a>
+                                {% else %}
+                                    {{ match.guest_name }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="bg-gradient-to-r from-red-500 to-orange-500 text-white px-3 py-2 rounded-lg font-bold text-lg">
+                                {{ match.player1_goals + match.player2_goals }}
+                            </span>
+                            <div class="text-xs text-gray-500 mt-1">Total Goals</div>
+                        </div>
+                    </div>
+                    <div class="flex justify-between items-center pt-4 border-t border-gray-200">
+                        <span class="text-sm text-gray-600">
+                            <i class="fas fa-calendar mr-1"></i>
+                            {{ match.played_at.strftime('%b %d, %H:%M') }}
+                        </span>
+                        <span class="bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                            {{ match.player1_goals }}-{{ match.player2_goals }}
+                        </span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+{% endblock %}
