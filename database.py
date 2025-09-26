@@ -2251,6 +2251,47 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
+    def delete_tournament(tournament_id):
+        """Delete a tournament and all associated data"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Check if tournament exists
+                cursor.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+                tournament = cursor.fetchone()
+                if not tournament:
+                    raise ValueError("Tournament not found")
+                
+                # Get photo info for cleanup before deletion
+                tournament_photo_file_id = tournament.get('tournament_photo_file_id')
+                
+                # Delete in correct order to maintain referential integrity
+                # 1. Delete tournament-specific player stats
+                cursor.execute("DELETE FROM player_stats WHERE tournament_id = %s", (tournament_id,))
+                
+                # 2. Delete player matches in this tournament
+                cursor.execute("DELETE FROM player_matches WHERE tournament_id = %s", (tournament_id,))
+                
+                # 3. Delete guest matches in this tournament
+                cursor.execute("DELETE FROM guest_matches WHERE tournament_id = %s", (tournament_id,))
+                
+                # 4. Remove tournament players associations
+                cursor.execute("DELETE FROM tournament_players WHERE tournament_id = %s", (tournament_id,))
+                
+                # 5. Finally delete the tournament itself
+                cursor.execute("DELETE FROM tournaments WHERE id = %s", (tournament_id,))
+                
+                conn.commit()
+                
+                # Return photo_file_id for cleanup by the calling code
+                return {'success': True, 'tournament_photo_file_id': tournament_photo_file_id}
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
     def get_player_vs_opponents(player_id):
         """Get head-to-head records against all opponents"""
         conn = get_db_connection()

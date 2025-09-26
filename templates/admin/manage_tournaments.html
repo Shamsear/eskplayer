@@ -167,7 +167,7 @@
                        class="block w-full bg-gradient-to-r from-blue-500 to-indigo-600 text-white text-center py-2 px-4 rounded-lg font-medium hover:shadow-lg transition-all">
                         <i class="fas fa-cog mr-2"></i>Manage Players
                     </a>
-                    <div class="grid grid-cols-3 gap-3">
+                    <div class="grid grid-cols-2 gap-3 mb-3">
                         <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
                            class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                             <i class="fas fa-chart-bar mr-1"></i>Stats
@@ -176,10 +176,16 @@
                            class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                             <i class="fas fa-gamepad mr-1"></i>Match
                         </a>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
                         <a href="{{ url_for('edit_tournament', tournament_id=tournament.id) }}" 
                            class="bg-white text-gray-700 text-center py-2 px-3 rounded-lg font-medium border border-gray-200 hover:bg-gray-50 transition-colors text-sm">
                             <i class="fas fa-pen mr-1"></i>Edit
                         </a>
+                        <button onclick="deleteTournament({{ tournament.id }}, '{{ tournament.name }}')"
+                                class="bg-red-50 text-red-600 text-center py-2 px-3 rounded-lg font-medium border border-red-200 hover:bg-red-100 transition-colors text-sm">
+                            <i class="fas fa-trash mr-1"></i>Delete
+                        </button>
                     </div>
                 </div>
             </div>
@@ -241,5 +247,61 @@
             </a>
         </div>
     </main>
+    
+    <!-- Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+        <div class="glass rounded-3xl p-8 max-w-md mx-4">
+            <div class="text-center">
+                <div class="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-2xl"></i>
+                </div>
+                <h3 class="text-xl font-bold text-gray-900 mb-4">Delete Tournament</h3>
+                <p class="text-gray-600 mb-2">Are you sure you want to delete tournament:</p>
+                <p id="tournamentName" class="text-lg font-semibold text-gray-900 mb-6"></p>
+                <p class="text-sm text-red-600 mb-8">
+                    <i class="fas fa-warning mr-1"></i>
+                    <strong>Warning:</strong> This will permanently delete the tournament and all associated matches, player stats, and data. This action cannot be undone.
+                </p>
+                <div class="flex space-x-4">
+                    <button onclick="closeDeleteModal()" 
+                            class="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 py-3 px-6 rounded-xl font-semibold transition-colors">
+                        <i class="fas fa-times mr-2"></i>Cancel
+                    </button>
+                    <form id="deleteForm" method="POST" class="flex-1">
+                        <button type="submit" 
+                                class="w-full bg-red-600 hover:bg-red-700 text-white py-3 px-6 rounded-xl font-semibold transition-colors">
+                            <i class="fas fa-trash mr-2"></i>Delete
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function deleteTournament(tournamentId, tournamentName) {
+            document.getElementById('tournamentName').textContent = tournamentName;
+            document.getElementById('deleteForm').action = `/admin/tournaments/${tournamentId}/delete`;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+        
+        function closeDeleteModal() {
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+        
+        // Close modal when clicking outside
+        document.getElementById('deleteModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeDeleteModal();
+            }
+        });
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDeleteModal();
+            }
+        });
+    </script>
 </body>
 </html>

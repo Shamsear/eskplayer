@@ -584,6 +584,36 @@ def edit_tournament(tournament_id):
     
     return render_template('admin/edit_tournament.html', tournament=tournament)
 
+@app.route('/admin/tournaments/<int:tournament_id>/delete', methods=['POST'])
+@admin_required
+@no_cache
+def delete_tournament(tournament_id):
+    """Delete a tournament and all associated data"""
+    try:
+        tournament = TournamentDB.get_tournament_by_id(tournament_id)
+        if not tournament:
+            flash('Tournament not found', 'error')
+        else:
+            tournament_name = tournament['name']
+            photo_file_id = tournament.get('tournament_photo_file_id')
+            
+            # Delete tournament from database (this will cascade delete related data)
+            TournamentDB.delete_tournament(tournament_id)
+            
+            # Clean up photo if it exists
+            if photo_file_id:
+                try:
+                    from imagekit_config import delete_tournament_photo
+                    delete_tournament_photo(photo_file_id)
+                except Exception as e:
+                    print(f"Warning: Failed to delete photo for tournament {tournament_name}: {e}")
+            
+            flash(f'Tournament "{tournament_name}" has been deleted successfully!', 'success')
+    except Exception as e:
+        flash(f'Error deleting tournament: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_tournaments'))
+
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])
 @admin_required
