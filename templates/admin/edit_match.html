@@ -198,6 +198,39 @@
             
             <!-- Edit Form -->
             <form method="POST" id="editMatchForm">
+                <!-- Guest Match Detection -->
+                {% if match.match_type == 'guest' %}
+                <div class="mb-10">
+                    <div class="bg-blue-50 border border-blue-200 rounded-3xl p-6">
+                        <div class="flex items-center mb-4">
+                            <div class="w-12 h-12 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center mr-4">
+                                <i class="fas fa-user-plus text-white text-xl"></i>
+                            </div>
+                            <h3 class="text-2xl font-display font-bold text-blue-900">Guest Match</h3>
+                        </div>
+                        <div class="bg-white rounded-2xl p-4 border border-blue-100">
+                            <p class="text-blue-700 font-medium">
+                                <i class="fas fa-info-circle mr-2"></i>
+                                This is a guest match between <strong>{{ match.player1_name }}</strong> (clan member) and <strong>{{ match.player2_name }}</strong> (external guest). Only the clan member's rating is tracked.
+                            </p>
+                        </div>
+                        
+                        <!-- Guest Name Edit -->
+                        <div class="mt-4">
+                            <label for="guest_name" class="block text-sm font-medium text-blue-800 mb-2">
+                                <i class="fas fa-user mr-2"></i>Guest Player Name
+                            </label>
+                            <input type="text" 
+                                   id="guest_name" 
+                                   name="guest_name" 
+                                   value="{{ match.player2_name }}"
+                                   class="input-focus w-full px-4 py-3 border border-blue-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                                   placeholder="Enter guest player name...">
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+                
                 <!-- Absence Options -->
                 <div class="bg-yellow-50 border border-yellow-200 rounded-3xl p-8 mb-10">
                     <div class="flex items-center mb-6">
@@ -324,21 +357,36 @@
                                     {{ match.player2_name[:2].upper() }}
                                 </div>
                                 <h4 class="text-2xl font-bold text-gray-900 mb-3">{{ match.player2_name }}</h4>
+                                {% if match.match_type == 'guest' %}
+                                    <div class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 mb-3">
+                                        <i class="fas fa-user-friends mr-1"></i>Guest Player
+                                    </div>
+                                {% endif %}
                                 
                                 <!-- Rating Display -->
                                 <div class="bg-gray-50 rounded-2xl p-4 mb-6">
-                                    <div class="text-xs font-medium text-gray-500 mb-1">Rating Change</div>
-                                    <div class="flex items-center justify-center space-x-2">
-                                        <span class="text-lg font-bold text-gray-700">{{ match.player2_rating_before }}</span>
-                                        <i class="fas fa-arrow-right text-gray-400"></i>
-                                        <span class="text-lg font-bold {% if match.player2_rating_after > match.player2_rating_before %}text-green-600{% elif match.player2_rating_after < match.player2_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">{{ match.player2_rating_after }}</span>
-                                    </div>
-                                    {% if match.player2_rating_after != match.player2_rating_before %}
-                                        <div class="mt-1">
-                                            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if match.player2_rating_after > match.player2_rating_before %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
-                                                {% if match.player2_rating_after > match.player2_rating_before %}+{% endif %}{{ match.player2_rating_after - match.player2_rating_before }}
-                                            </span>
+                                    {% if match.match_type == 'guest' %}
+                                        <div class="text-xs font-medium text-gray-500 mb-1">Guest Rating</div>
+                                        <div class="flex items-center justify-center space-x-2">
+                                            <span class="text-lg font-bold text-orange-600">No Rating</span>
                                         </div>
+                                        <div class="mt-2 text-xs text-gray-500">
+                                            Guest players don't have tracked ratings
+                                        </div>
+                                    {% else %}
+                                        <div class="text-xs font-medium text-gray-500 mb-1">Rating Change</div>
+                                        <div class="flex items-center justify-center space-x-2">
+                                            <span class="text-lg font-bold text-gray-700">{{ match.player2_rating_before }}</span>
+                                            <i class="fas fa-arrow-right text-gray-400"></i>
+                                            <span class="text-lg font-bold {% if match.player2_rating_after > match.player2_rating_before %}text-green-600{% elif match.player2_rating_after < match.player2_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">{{ match.player2_rating_after }}</span>
+                                        </div>
+                                        {% if match.player2_rating_after != match.player2_rating_before %}
+                                            <div class="mt-1">
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold {% if match.player2_rating_after > match.player2_rating_before %}bg-green-100 text-green-800{% else %}bg-red-100 text-red-800{% endif %}">
+                                                    {% if match.player2_rating_after > match.player2_rating_before %}+{% endif %}{{ match.player2_rating_after - match.player2_rating_before }}
+                                                </span>
+                                            </div>
+                                        {% endif %}
                                     {% endif %}
                                 </div>
                                 
@@ -409,8 +457,13 @@
                             
                             <!-- Player 2 Side -->
                             <div class="col-span-2 text-center">
-                                <div class="bg-gradient-to-br from-red-50 to-pink-100 rounded-2xl p-6">
+                                <div class="bg-gradient-to-br from-red-50 to-pink-100 rounded-2xl p-6{% if match.match_type == 'guest' %} border-2 border-orange-200{% endif %}">
                                     <p class="font-black text-xl text-gray-900 mb-2">{{ match.player2_name }}</p>
+                                    {% if match.match_type == 'guest' %}
+                                        <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 mb-2">
+                                            <i class="fas fa-user-friends mr-1"></i>Guest
+                                        </div>
+                                    {% endif %}
                                     <div class="text-6xl font-black text-red-600 mb-2 transition-all duration-300" id="preview_goals2_display">{{ match.player2_goals }}</div>
                                     <div class="text-sm font-medium text-gray-600">Goals</div>
                                 </div>
@@ -449,9 +502,15 @@
                         <i class="fas fa-exclamation-triangle text-yellow-500 mr-3"></i>
                         <div>
                             <h4 class="text-yellow-800 font-semibold">Important Notice</h4>
-                            <p class="text-yellow-700 text-sm mt-1">
-                                Editing this match will recalculate player ratings. The old rating changes will be reversed and new ratings will be calculated based on the updated score.
-                            </p>
+                            {% if match.match_type == 'guest' %}
+                                <p class="text-yellow-700 text-sm mt-1">
+                                    Editing this guest match will recalculate the <strong>clan member's rating only</strong>. The old rating changes will be reversed and new ratings will be calculated based on the updated score. Guest player stats are not tracked.
+                                </p>
+                            {% else %}
+                                <p class="text-yellow-700 text-sm mt-1">
+                                    Editing this match will recalculate player ratings. The old rating changes will be reversed and new ratings will be calculated based on the updated score.
+                                </p>
+                            {% endif %}
                         </div>
                     </div>
                 </div>

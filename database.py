@@ -1877,19 +1877,48 @@ class TournamentDB:
     
     @staticmethod
     def get_match_by_id(match_id):
-        """Get a specific match by its ID"""
+        """Get a specific match by its ID (checks both player_matches and guest_matches)"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
+                # First check player_matches table
                 cursor.execute("""
                     SELECT pm.*, 
                            p1.name as player1_name, p2.name as player2_name,
-                           t.name as tournament_name
+                           t.name as tournament_name,
+                           'regular' as match_type
                     FROM player_matches pm
                     JOIN players p1 ON pm.player1_id = p1.id
                     JOIN players p2 ON pm.player2_id = p2.id
                     JOIN tournaments t ON pm.tournament_id = t.id
                     WHERE pm.match_id = %s
+                """, (match_id,))
+                regular_match = cursor.fetchone()
+                if regular_match:
+                    return regular_match
+                
+                # If not found, check guest_matches table
+                cursor.execute("""
+                    SELECT gm.*,
+                           p.name as player1_name, gm.guest_name as player2_name,
+                           t.name as tournament_name,
+                           'guest' as match_type,
+                           gm.clan_player_id as player1_id, NULL as player2_id,
+                           gm.clan_goals as player1_goals, gm.guest_goals as player2_goals,
+                           CASE WHEN gm.clan_goals > gm.guest_goals THEN gm.clan_player_id
+                                WHEN gm.guest_goals > gm.clan_goals THEN NULL
+                                ELSE NULL END as winner_id,
+                           CASE WHEN gm.clan_goals = gm.guest_goals THEN true ELSE false END as is_draw,
+                           gm.clan_rating_before as player1_rating_before,
+                           300 as player2_rating_before,
+                           gm.clan_rating_after as player1_rating_after,
+                           300 as player2_rating_after,
+                           gm.clan_absent as player1_absent,
+                           gm.guest_absent as player2_absent
+                    FROM guest_matches gm
+                    JOIN players p ON gm.clan_player_id = p.id
+                    JOIN tournaments t ON gm.tournament_id = t.id
+                    WHERE gm.match_id = %s
                 """, (match_id,))
                 return cursor.fetchone()
         finally:
@@ -2331,8 +2360,31 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def edit_match(match_id, new_player1_goals, new_player2_goals, player1_absent=False, player2_absent=False):
-        """Edit a match and recalculate player ratings"""
+    def edit_match(match_id, new_player1_goals, new_player2_goals, player1_absent=False, player2_absent=False, new_guest_name=None):
+        """Edit a match and recalculate player ratings (handles both regular and guest matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get match details before editing
+                match = TournamentDB.get_match_by_id(match_id)
+                if not match:
+                    raise ValueError("Match not found")
+                
+                # Check if this is a guest match
+                if match.get('match_type') == 'guest':
+                    return TournamentDB._edit_guest_match(match_id, new_player1_goals, new_player2_goals, player1_absent, player2_absent, new_guest_name)
+                else:
+                    return TournamentDB._edit_regular_match(match_id, new_player1_goals, new_player2_goals, player1_absent, player2_absent)
+                
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def _edit_regular_match(match_id, new_player1_goals, new_player2_goals, player1_absent=False, player2_absent=False):
+        """Edit a regular player vs player match"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -2577,6 +2629,157 @@ class TournamentDB:
                       1 if new_is_draw else 0,
                       1 if new_winner_id == match['player1_id'] else 0,
                       new_player2_goals, new_player1_goals))
+                
+                conn.commit()
+                return match_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def _edit_guest_match(match_id, new_clan_goals, new_guest_goals, clan_absent=False, guest_absent=False, new_guest_name=None):
+        """Edit a guest match (clan player vs external guest)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get guest match details before editing
+                cursor.execute("""
+                    SELECT gm.*, p.name as clan_player_name, t.name as tournament_name
+                    FROM guest_matches gm
+                    JOIN players p ON gm.clan_player_id = p.id
+                    JOIN tournaments t ON gm.tournament_id = t.id
+                    WHERE gm.match_id = %s
+                """, (match_id,))
+                match = cursor.fetchone()
+                if not match:
+                    raise ValueError("Guest match not found")
+                
+                # Check if anything actually changed
+                current_absence_state = (match.get('clan_absent', False), match.get('guest_absent', False))
+                new_absence_state = (clan_absent, guest_absent)
+                goals_changed = match['clan_goals'] != new_clan_goals or match['guest_goals'] != new_guest_goals
+                absence_changed = current_absence_state != new_absence_state
+                guest_name_changed = new_guest_name and match['guest_name'] != new_guest_name
+                
+                if not goals_changed and not absence_changed and not guest_name_changed:
+                    return match_id
+                
+                # First, reverse the old match effects
+                old_clan_rating_change = match['clan_rating_after'] - match['clan_rating_before']
+                
+                # Only reverse stats if the old match wasn't null
+                if not match.get('is_null_match', False):
+                    # Reverse clan player stats for the old match
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = rating - %s, 
+                            matches_played = matches_played - 1,
+                            matches_won = matches_won - %s,
+                            matches_drawn = matches_drawn - %s,
+                            matches_lost = matches_lost - %s,
+                            goals_scored = goals_scored - %s,
+                            goals_conceded = goals_conceded - %s
+                        WHERE id = %s
+                    """, (old_clan_rating_change,
+                          1 if match['clan_goals'] > match['guest_goals'] else 0,
+                          1 if match['clan_goals'] == match['guest_goals'] else 0,
+                          1 if match['guest_goals'] > match['clan_goals'] else 0,
+                          match['clan_goals'], match['guest_goals'], match['clan_player_id']))
+                
+                # Get current clan player rating (after reversal)
+                cursor.execute("SELECT rating FROM players WHERE id = %s", (match['clan_player_id'],))
+                current_clan_rating = cursor.fetchone()['rating']
+                
+                # Calculate new match results
+                new_is_null_match = clan_absent and guest_absent
+                new_is_walkover = clan_absent or guest_absent
+                
+                # Handle absence scenarios for goals
+                if new_is_null_match:
+                    # Null match - no goals, apply penalty
+                    new_clan_goals = 0
+                    new_guest_goals = 0
+                    NULL_MATCH_PENALTY = 15
+                    new_clan_rating = max(0, min(1000, current_clan_rating - NULL_MATCH_PENALTY))
+                elif new_is_walkover:
+                    # Walkover - set 3-0 score
+                    new_clan_goals = 0 if clan_absent else 3
+                    new_guest_goals = 0 if guest_absent else 3
+                    
+                    # Calculate walkover rating changes (75% of normal)
+                    guest_rating = 300  # Assume guest has default rating
+                    if new_clan_goals > new_guest_goals:
+                        rating_change = TournamentDB.calculate_rating_change(current_clan_rating, guest_rating, is_draw=False)[0]
+                    else:
+                        rating_change = TournamentDB.calculate_rating_change(guest_rating, current_clan_rating, is_draw=False)[1]
+                    
+                    # Reduce for walkover
+                    rating_change = int(rating_change * 0.75)
+                    new_clan_rating = max(0, min(1000, current_clan_rating + rating_change))
+                else:
+                    # Normal match - calculate based on goals
+                    guest_rating = 300  # Assume guest has default rating
+                    if new_clan_goals > new_guest_goals:
+                        rating_change = TournamentDB.calculate_rating_change(current_clan_rating, guest_rating, is_draw=False)[0]
+                    elif new_guest_goals > new_clan_goals:
+                        rating_change = TournamentDB.calculate_rating_change(guest_rating, current_clan_rating, is_draw=False)[1]
+                    else:
+                        rating_change = TournamentDB.calculate_rating_change(current_clan_rating, guest_rating, is_draw=True)[0]
+                    new_clan_rating = max(0, min(1000, current_clan_rating + rating_change))
+                
+                # Update the guest match with new data
+                update_values = [
+                    new_clan_goals, new_guest_goals, clan_absent, guest_absent,
+                    new_is_null_match, new_is_walkover, current_clan_rating, new_clan_rating, match_id
+                ]
+                
+                if new_guest_name:
+                    cursor.execute("""
+                        UPDATE guest_matches SET
+                            clan_goals = %s,
+                            guest_goals = %s,
+                            clan_absent = %s,
+                            guest_absent = %s,
+                            is_null_match = %s,
+                            is_walkover = %s,
+                            clan_rating_before = %s,
+                            clan_rating_after = %s,
+                            guest_name = %s
+                        WHERE match_id = %s
+                    """, update_values[:-1] + [new_guest_name] + [match_id])
+                else:
+                    cursor.execute("""
+                        UPDATE guest_matches SET
+                            clan_goals = %s,
+                            guest_goals = %s,
+                            clan_absent = %s,
+                            guest_absent = %s,
+                            is_null_match = %s,
+                            is_walkover = %s,
+                            clan_rating_before = %s,
+                            clan_rating_after = %s
+                        WHERE match_id = %s
+                    """, update_values)
+                
+                # Apply new clan player stats (only if not null match)
+                if not new_is_null_match:
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = %s, 
+                            matches_played = matches_played + 1,
+                            matches_won = matches_won + %s,
+                            matches_drawn = matches_drawn + %s,
+                            matches_lost = matches_lost + %s,
+                            goals_scored = goals_scored + %s,
+                            goals_conceded = goals_conceded + %s
+                        WHERE id = %s
+                    """, (new_clan_rating, 
+                          1 if new_clan_goals > new_guest_goals else 0,
+                          1 if new_clan_goals == new_guest_goals else 0,
+                          1 if new_guest_goals > new_clan_goals else 0,
+                          new_clan_goals, new_guest_goals, match['clan_player_id']))
                 
                 conn.commit()
                 return match_id

@@ -998,20 +998,34 @@ def edit_match(match_id):
             new_player2_goals = int(request.form.get('player2_goals', 0))
             player1_absent = 'player1_absent' in request.form
             player2_absent = 'player2_absent' in request.form
+            new_guest_name = request.form.get('guest_name', '').strip() or None
             
-            TournamentDB.edit_match(match_id, new_player1_goals, new_player2_goals, player1_absent, player2_absent)
+            TournamentDB.edit_match(match_id, new_player1_goals, new_player2_goals, player1_absent, player2_absent, new_guest_name)
             
-            # Generate appropriate success message
+            # Generate appropriate success message based on match type
+            match_type = match.get('match_type', 'regular')
             if player1_absent and player2_absent:
                 result_msg = "Match updated - both players marked absent (nullified)"
             elif player1_absent:
-                result_msg = "Match updated - walkover win assigned"
+                if match_type == 'guest':
+                    result_msg = "Guest match updated - clan player absent (guest wins walkover)"
+                else:
+                    result_msg = "Match updated - walkover win assigned"
             elif player2_absent:
-                result_msg = "Match updated - walkover win assigned"
+                if match_type == 'guest':
+                    result_msg = "Guest match updated - guest absent (clan player wins walkover)"
+                else:
+                    result_msg = "Match updated - walkover win assigned"
             else:
-                result_msg = "Match updated successfully!"
+                if match_type == 'guest':
+                    result_msg = "Guest match updated successfully!"
+                else:
+                    result_msg = "Match updated successfully!"
             
-            flash(f'{result_msg} Player ratings have been recalculated.', 'success')
+            if match_type == 'guest':
+                flash(f'{result_msg} Clan member rating has been recalculated.', 'success')
+            else:
+                flash(f'{result_msg} Player ratings have been recalculated.', 'success')
             return redirect(url_for('manage_matches'))
         except Exception as e:
             flash(f'Error updating match: {str(e)}', 'error')
