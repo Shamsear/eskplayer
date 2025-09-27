@@ -1279,14 +1279,50 @@ def public_rankings():
 @app.route('/public/matches')
 @no_cache
 def public_matches():
-    """Public match results page"""
+    """Public match results page with pagination and search"""
     try:
         tournament_id = request.args.get('tournament_id')
-        selected_tournament_id = int(tournament_id) if tournament_id else None
+        page = int(request.args.get('page', 1))
+        per_page = 25  # Fixed at 25 matches per page for public view
         
-        # Get matches
-        matches = TournamentDB.get_all_matches(tournament_id=selected_tournament_id, limit=50)
+        # Convert tournament_id to int if provided
+        selected_tournament_id = None
+        if tournament_id:
+            try:
+                selected_tournament_id = int(tournament_id)
+            except ValueError:
+                tournament_id = None
+        
+        # For search functionality, we'll load more matches than displayed
+        # This allows client-side search to work across more data
+        search_limit = max(per_page, 1000)  # Load at least 1000 matches for search
+        
+        # Calculate offset for pagination
+        offset = (page - 1) * per_page
+        
+        # Get matches - load more for better search functionality
+        matches = TournamentDB.get_all_matches(
+            tournament_id=selected_tournament_id, 
+            limit=search_limit, 
+            offset=0,  # Start from beginning for search
+            search_query=None  # Don't filter server-side, we'll do client-side
+        )
+        
         tournaments = TournamentDB.get_all_tournaments()
+        
+        # Get total count for pagination (all matches, not just loaded)
+        total_matches = TournamentDB.get_matches_count(
+            tournament_id=selected_tournament_id,
+            search_query=None  # Total count without search filter
+        )
+        
+        # For client-side pagination, we work with loaded matches
+        loaded_matches_count = len(matches)
+        
+        # Calculate pagination info based on total matches
+        total_pages = (total_matches + per_page - 1) // per_page
+        has_prev = page > 1
+        has_next = page < total_pages
         
         # Find selected tournament
         selected_tournament = None
@@ -1316,6 +1352,13 @@ def public_matches():
                              tournaments=tournaments,
                              selected_tournament=selected_tournament,
                              selected_tournament_id=selected_tournament_id,
+                             current_page=page,
+                             total_pages=total_pages,
+                             has_prev=has_prev,
+                             has_next=has_next,
+                             total_matches=total_matches,
+                             loaded_matches_count=loaded_matches_count,
+                             per_page=per_page,
                              total_goals=total_goals,
                              avg_goals_per_match=avg_goals_per_match,
                              today_matches=today_matches,
