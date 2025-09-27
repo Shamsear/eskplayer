@@ -964,23 +964,74 @@ def bulk_record_matches():
 @admin_required
 @no_cache
 def manage_matches():
-    """View and manage all matches"""
+    """View and manage all matches with pagination and search"""
     tournament_id = request.args.get('tournament_id')
-    matches = TournamentDB.get_all_matches(tournament_id=tournament_id, limit=50)
+    search_query = request.args.get('search', '').strip()
+    page = int(request.args.get('page', 1))
+    
+    # Get per_page from request with default of 25, allow up to 10000 matches
+    per_page = int(request.args.get('per_page', 25))
+    per_page = max(1, min(per_page, 10000))  # Limit between 1 and 10000
+    
+    # For search functionality, we'll load more matches than requested
+    # This allows client-side search to work across more data
+    search_limit = max(per_page, 1000)  # Load at least 1000 matches for search
+    
+    # Calculate offset for pagination
+    offset = (page - 1) * per_page
+    
+    # Convert tournament_id to int if provided
+    tournament_id_int = None
+    if tournament_id:
+        try:
+            tournament_id_int = int(tournament_id)
+        except ValueError:
+            tournament_id = None
+    
+    # Get matches - load more for better search functionality
+    all_matches = TournamentDB.get_all_matches(
+        tournament_id=tournament_id_int, 
+        limit=search_limit, 
+        offset=0,  # Start from beginning for search
+        search_query=None  # Don't filter server-side, we'll do client-side
+    )
+    
+    # For display, we'll use client-side pagination and search
+    matches = all_matches
+    
+    # Get total count for pagination (all matches, not just loaded)
+    total_matches = TournamentDB.get_matches_count(
+        tournament_id=tournament_id_int,
+        search_query=None  # Total count without search filter
+    )
+    
+    # For client-side pagination, we work with loaded matches
+    loaded_matches_count = len(matches)
+    
+    # Calculate pagination info based on total matches
+    total_pages = (total_matches + per_page - 1) // per_page
+    has_prev = page > 1
+    has_next = page < total_pages
+    
+    # Get tournaments for filter
     tournaments = TournamentDB.get_all_tournaments()
     
     selected_tournament = None
-    if tournament_id:
-        try:
-            tournament_id = int(tournament_id)
-            selected_tournament = next((t for t in tournaments if t['id'] == tournament_id), None)
-        except ValueError:
-            pass
+    if tournament_id_int:
+        selected_tournament = next((t for t in tournaments if t['id'] == tournament_id_int), None)
     
     return render_template('admin/manage_matches.html', 
                          matches=matches, 
                          tournaments=tournaments,
-                         selected_tournament=selected_tournament)
+                         selected_tournament=selected_tournament,
+                         current_page=page,
+                         total_pages=total_pages,
+                         has_prev=has_prev,
+                         has_next=has_next,
+                         total_matches=total_matches,
+                         loaded_matches_count=loaded_matches_count,
+                         per_page=per_page,
+                         search_query=search_query)
 
 @app.route('/admin/matches/<int:match_id>/edit', methods=['GET', 'POST'])
 @admin_required
@@ -1042,6 +1093,38 @@ def delete_match(match_id):
         flash('Match deleted successfully! Player ratings have been recalculated.', 'success')
     except Exception as e:
         flash(f'Error deleting match: {str(e)}', 'error')
+    
+    return redirect(url_for('manage_matches'))
+
+@app.route('/admin/matches/bulk-delete', methods=['POST'])
+@admin_required
+@no_cache
+def bulk_delete_matches():
+    """Bulk delete selected matches"""
+    try:
+        match_ids = request.form.getlist('match_ids')
+        if not match_ids:
+            flash('No matches selected for deletion.', 'error')
+            return redirect(url_for('manage_matches'))
+        
+        deleted_count = 0
+        errors = []
+        
+        for match_id in match_ids:
+            try:
+                TournamentDB.delete_match(int(match_id))
+                deleted_count += 1
+            except Exception as e:
+                errors.append(f'Match #{match_id}: {str(e)}')
+        
+        if deleted_count > 0:
+            flash(f'Successfully deleted {deleted_count} match{"es" if deleted_count > 1 else ""}! Player ratings have been recalculated.', 'success')
+        
+        if errors:
+            flash(f'Errors occurred: {"; ".join(errors)}', 'error')
+    
+    except Exception as e:
+        flash(f'Error during bulk delete: {str(e)}', 'error')
     
     return redirect(url_for('manage_matches'))
 

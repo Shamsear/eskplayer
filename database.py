@@ -420,6 +420,30 @@ def migrate_database(conn):
                 # Add indexes for guest matches
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_clan_player ON guest_matches(clan_player_id);')
                 cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_tournament ON guest_matches(tournament_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_played_at ON guest_matches(played_at DESC);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_guest_matches_match_id ON guest_matches(match_id);')
+                
+                # Add indexes for player_matches table for better performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_played_at ON player_matches(played_at DESC);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_tournament ON player_matches(tournament_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_player1 ON player_matches(player1_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_player2 ON player_matches(player2_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_match_id ON player_matches(match_id);')
+                
+                # Add indexes for players table for search performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_name ON players(name);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_rating ON players(rating DESC);')
+                
+                conn.commit()
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_played_at ON player_matches(played_at DESC);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_tournament ON player_matches(tournament_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_player1 ON player_matches(player1_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_player2 ON player_matches(player2_id);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_player_matches_match_id ON player_matches(match_id);')
+                
+                # Add indexes for players table for search performance
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_name ON players(name);')
+                cursor.execute('CREATE INDEX IF NOT EXISTS idx_players_rating ON players(rating DESC);')
                 
                 conn.commit()
                 print("guest_matches table created successfully!")
@@ -1844,34 +1868,146 @@ class TournamentDB:
         return match_id
     
     @staticmethod
-    def get_all_matches(tournament_id=None, limit=None):
-        """Get all matches with player details"""
+    def get_all_matches(tournament_id=None, limit=None, offset=0, search_query=None):
+        """Get all matches (both regular and guest) with player details, with pagination and search support"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
+                # Union query to get both regular and guest matches
                 query = """
-                    SELECT pm.*, 
-                           p1.name as player1_name, p2.name as player2_name,
-                           t.name as tournament_name
-                    FROM player_matches pm
-                    JOIN players p1 ON pm.player1_id = p1.id
-                    JOIN players p2 ON pm.player2_id = p2.id
-                    JOIN tournaments t ON pm.tournament_id = t.id
+                    (
+                        SELECT pm.match_id, pm.tournament_id, pm.played_at,
+                               p1.name as player1_name, p2.name as player2_name,
+                               t.name as tournament_name,
+                               pm.player1_goals, pm.player2_goals,
+                               pm.winner_id, pm.is_draw, pm.is_walkover, pm.is_null_match,
+                               pm.player1_absent, pm.player2_absent,
+                               pm.player1_rating_before, pm.player2_rating_before,
+                               pm.player1_rating_after, pm.player2_rating_after,
+                               'regular' as match_type,
+                               pm.player1_id, pm.player2_id,
+                               pm.id as record_id
+                        FROM player_matches pm
+                        JOIN players p1 ON pm.player1_id = p1.id
+                        JOIN players p2 ON pm.player2_id = p2.id
+                        JOIN tournaments t ON pm.tournament_id = t.id
+                        {tournament_filter_regular}
+                    )
+                    UNION ALL
+                    (
+                        SELECT gm.match_id, gm.tournament_id, gm.played_at,
+                               p.name as player1_name, gm.guest_name as player2_name,
+                               t.name as tournament_name,
+                               gm.clan_goals as player1_goals, gm.guest_goals as player2_goals,
+                               CASE WHEN gm.clan_goals > gm.guest_goals THEN gm.clan_player_id
+                                    WHEN gm.guest_goals > gm.clan_goals THEN NULL
+                                    ELSE NULL END as winner_id,
+                               CASE WHEN gm.clan_goals = gm.guest_goals THEN true ELSE false END as is_draw,
+                               gm.is_walkover, gm.is_null_match,
+                               gm.clan_absent as player1_absent, gm.guest_absent as player2_absent,
+                               gm.clan_rating_before as player1_rating_before,
+                               300 as player2_rating_before,
+                               gm.clan_rating_after as player1_rating_after,
+                               300 as player2_rating_after,
+                               'guest' as match_type,
+                               gm.clan_player_id as player1_id, NULL as player2_id,
+                               gm.id as record_id
+                        FROM guest_matches gm
+                        JOIN players p ON gm.clan_player_id = p.id
+                        JOIN tournaments t ON gm.tournament_id = t.id
+                        {tournament_filter_guest}
+                    )
+                    ORDER BY played_at DESC
                 """
+                
                 params = []
                 
-                if tournament_id:
-                    query += " WHERE pm.tournament_id = %s"
-                    params.append(tournament_id)
+                # Build WHERE clauses for tournament and search filters
+                conditions_regular = []
+                conditions_guest = []
                 
-                query += " ORDER BY pm.played_at DESC"
+                if tournament_id:
+                    conditions_regular.append("pm.tournament_id = %s")
+                    conditions_guest.append("gm.tournament_id = %s")
+                    params.extend([tournament_id, tournament_id])
+                
+                if search_query:
+                    search_pattern = f"%{search_query.lower()}%"
+                    conditions_regular.append("(LOWER(p1.name) LIKE %s OR LOWER(p2.name) LIKE %s)")
+                    conditions_guest.append("(LOWER(p.name) LIKE %s OR LOWER(gm.guest_name) LIKE %s)")
+                    params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+                
+                tournament_filter_regular = "WHERE " + " AND ".join(conditions_regular) if conditions_regular else ""
+                tournament_filter_guest = "WHERE " + " AND ".join(conditions_guest) if conditions_guest else ""
+                
+                query = query.format(
+                    tournament_filter_regular=tournament_filter_regular,
+                    tournament_filter_guest=tournament_filter_guest
+                )
                 
                 if limit:
-                    query += " LIMIT %s"
-                    params.append(limit)
+                    query += f" LIMIT %s OFFSET %s"
+                    params.extend([limit, offset])
                 
                 cursor.execute(query, params)
                 return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_matches_count(tournament_id=None, search_query=None):
+        """Get total count of matches for pagination"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Count query for both regular and guest matches
+                query = """
+                    SELECT COUNT(*) as total FROM (
+                        (
+                            SELECT pm.match_id
+                            FROM player_matches pm
+                            JOIN players p1 ON pm.player1_id = p1.id
+                            JOIN players p2 ON pm.player2_id = p2.id
+                            {tournament_filter_regular}
+                        )
+                        UNION ALL
+                        (
+                            SELECT gm.match_id
+                            FROM guest_matches gm
+                            JOIN players p ON gm.clan_player_id = p.id
+                            {tournament_filter_guest}
+                        )
+                    ) as all_matches
+                """
+                
+                params = []
+                
+                # Build WHERE clauses for tournament and search filters
+                conditions_regular = []
+                conditions_guest = []
+                
+                if tournament_id:
+                    conditions_regular.append("pm.tournament_id = %s")
+                    conditions_guest.append("gm.tournament_id = %s")
+                    params.extend([tournament_id, tournament_id])
+                
+                if search_query:
+                    search_pattern = f"%{search_query.lower()}%"
+                    conditions_regular.append("(LOWER(p1.name) LIKE %s OR LOWER(p2.name) LIKE %s)")
+                    conditions_guest.append("(LOWER(p.name) LIKE %s OR LOWER(gm.guest_name) LIKE %s)")
+                    params.extend([search_pattern, search_pattern, search_pattern, search_pattern])
+                
+                tournament_filter_regular = "WHERE " + " AND ".join(conditions_regular) if conditions_regular else ""
+                tournament_filter_guest = "WHERE " + " AND ".join(conditions_guest) if conditions_guest else ""
+                
+                query = query.format(
+                    tournament_filter_regular=tournament_filter_regular,
+                    tournament_filter_guest=tournament_filter_guest
+                )
+                
+                cursor.execute(query, params)
+                result = cursor.fetchone()
+                return result['total'] if result else 0
         finally:
             conn.close()
     
@@ -1926,7 +2062,29 @@ class TournamentDB:
     
     @staticmethod
     def delete_match(match_id):
-        """Delete a match and recalculate player ratings"""
+        """Delete a match and recalculate player ratings (handles both regular and guest matches)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get match details before deletion
+                match = TournamentDB.get_match_by_id(match_id)
+                if not match:
+                    raise ValueError("Match not found")
+                
+                # Check if this is a guest match
+                if match.get('match_type') == 'guest':
+                    return TournamentDB._delete_guest_match(match_id)
+                else:
+                    return TournamentDB._delete_regular_match(match_id)
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def _delete_regular_match(match_id):
+        """Delete a regular player vs player match"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -2005,6 +2163,56 @@ class TournamentDB:
                 
                 # Delete the match
                 cursor.execute("DELETE FROM player_matches WHERE match_id = %s", (match_id,))
+                
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def _delete_guest_match(match_id):
+        """Delete a guest match (clan player vs external guest)"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get guest match details before deletion
+                cursor.execute("""
+                    SELECT gm.*, p.name as clan_player_name, t.name as tournament_name
+                    FROM guest_matches gm
+                    JOIN players p ON gm.clan_player_id = p.id
+                    JOIN tournaments t ON gm.tournament_id = t.id
+                    WHERE gm.match_id = %s
+                """, (match_id,))
+                match = cursor.fetchone()
+                if not match:
+                    raise ValueError("Guest match not found")
+                
+                # Reverse the clan player's rating change
+                clan_rating_change = match['clan_rating_after'] - match['clan_rating_before']
+                
+                # Only reverse stats if the match wasn't null
+                if not match.get('is_null_match', False):
+                    # Reverse clan player stats
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = rating - %s, 
+                            matches_played = matches_played - 1,
+                            matches_won = matches_won - %s,
+                            matches_drawn = matches_drawn - %s,
+                            matches_lost = matches_lost - %s,
+                            goals_scored = goals_scored - %s,
+                            goals_conceded = goals_conceded - %s
+                        WHERE id = %s
+                    """, (clan_rating_change,
+                          1 if match['clan_goals'] > match['guest_goals'] else 0,
+                          1 if match['clan_goals'] == match['guest_goals'] else 0,
+                          1 if match['guest_goals'] > match['clan_goals'] else 0,
+                          match['clan_goals'], match['guest_goals'], match['clan_player_id']))
+                
+                # Delete the guest match
+                cursor.execute("DELETE FROM guest_matches WHERE match_id = %s", (match_id,))
                 
                 conn.commit()
         except Exception as e:

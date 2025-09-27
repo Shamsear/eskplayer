@@ -143,20 +143,64 @@
             </div>
         </div>
         
-        <!-- Tournament Filter -->
+        <!-- Search and Filter Section -->
         <div class="glass rounded-3xl p-6 mb-8">
-            <h3 class="text-lg font-semibold text-gray-900 mb-4">Filter by Tournament</h3>
-            <div class="flex flex-wrap gap-3">
-                <a href="{{ url_for('manage_matches') }}" 
-                   class="px-4 py-2 {% if not selected_tournament %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
-                    All Tournaments
-                </a>
-                {% for tournament in tournaments %}
-                <a href="{{ url_for('manage_matches') }}?tournament_id={{ tournament.id }}" 
-                   class="px-4 py-2 {% if selected_tournament and selected_tournament.id == tournament.id %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
-                    {{ tournament.name }}
-                </a>
-                {% endfor %}
+            <!-- Search Bar -->
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Search Matches</h3>
+                <div class="flex space-x-4">
+                    <!-- Search Input -->
+                    <div class="relative flex-1">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <i class="fas fa-search text-gray-400"></i>
+                        </div>
+                        <input type="text" 
+                               id="realTimeSearch" 
+                               placeholder="Search by player names (real-time)..."
+                               class="block w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-lg">
+                    </div>
+                    
+                    <!-- Show Per Page Input -->
+                    <div class="flex items-center space-x-2 min-w-0">
+                        <label for="perPageInput" class="text-sm font-medium text-gray-700 whitespace-nowrap">Show:</label>
+                        <input type="number" 
+                               id="perPageInput" 
+                               value="{{ per_page }}"
+                               min="1" 
+                               max="10000"
+                               placeholder="25"
+                               class="w-20 px-2 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none text-center text-sm">
+                        <span class="text-sm text-gray-500 whitespace-nowrap">per page</span>
+                    </div>
+                </div>
+                <div class="mt-2 space-y-1">
+                    <p class="text-sm text-gray-500">Real-time search by player names (both regular and guest players)</p>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-gray-400">{{ loaded_matches_count }} matches loaded for search ({{ total_matches }} total in database)</span>
+                        {% if loaded_matches_count < total_matches %}
+                        <button onclick="loadMoreMatches()" class="text-indigo-600 hover:text-indigo-800 font-medium">
+                            Load All Matches
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tournament Filter -->
+            <div>
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">Filter by Tournament</h3>
+                <div class="flex flex-wrap gap-3">
+                    <a href="{{ url_for('manage_matches') }}" 
+                       class="px-4 py-2 {% if not selected_tournament %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        All Tournaments
+                    </a>
+                    {% for tournament in tournaments %}
+                    <a href="{{ url_for('manage_matches') }}?tournament_id={{ tournament.id }}" 
+                       class="px-4 py-2 {% if selected_tournament and selected_tournament.id == tournament.id %}bg-indigo-600 text-white{% else %}bg-gray-200 text-gray-700 hover:bg-gray-300{% endif %} rounded-lg font-medium transition-colors">
+                        {{ tournament.name }}
+                    </a>
+                    {% endfor %}
+                </div>
             </div>
         </div>
         
@@ -170,14 +214,43 @@
                     {% else %}
                         All Matches
                     {% endif %}
-                    <span class="text-sm font-normal text-gray-600 ml-2">({{ matches|length }} matches)</span>
+                    <span class="text-sm font-normal text-gray-600 ml-2">
+                        {% if search_query %}
+                            ({{ matches|length }} of {{ total_matches }} matches found)
+                        {% else %}
+                            (Showing {{ matches|length }} of {{ total_matches }} matches)
+                        {% endif %}
+                    </span>
                 </h3>
+                
+                <!-- Bulk Actions -->
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <input type="checkbox" id="selectAll" class="h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded" onchange="toggleAllOnPage()">
+                        <label for="selectAll" class="text-sm font-medium text-gray-700">Select All</label>
+                    </div>
+                    <button id="bulkDeleteBtn" 
+                            onclick="bulkDeleteMatches()" 
+                            disabled
+                            class="bg-red-500 hover:bg-red-600 disabled:opacity-50 disabled:cursor-not-allowed text-white px-4 py-2 rounded-lg font-semibold transition-colors">
+                        <i class="fas fa-trash mr-2"></i>Delete Selected
+                    </button>
+                    <span id="selectedCount" class="text-sm text-gray-600">0 selected</span>
+                </div>
             </div>
             
             <div class="space-y-4">
                 {% for match in matches %}
                 <div class="match-row bg-white rounded-xl p-6 border border-gray-200">
                     <div class="flex items-center justify-between">
+                        <!-- Checkbox -->
+                        <div class="mr-4">
+                            <input type="checkbox" 
+                                   class="match-checkbox h-4 w-4 text-red-600 focus:ring-red-500 border-gray-300 rounded" 
+                                   value="{{ match.match_id }}"
+                                   onchange="handleCheckboxChange(this)">
+                        </div>
+                        
                         <!-- Match Details -->
                         <div class="flex-1">
                             <div class="flex items-center space-x-6">
@@ -185,6 +258,11 @@
                                 <div class="text-center">
                                     <div class="text-sm text-gray-500">Match #{{ match.match_id }}</div>
                                     <div class="text-xs text-gray-400">{{ match.played_at.strftime('%m/%d/%Y %H:%M') }}</div>
+                                    {% if match.match_type == 'guest' %}
+                                        <div class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 mt-1">
+                                            <i class="fas fa-user-friends mr-1"></i>Guest
+                                        </div>
+                                    {% endif %}
                                 </div>
                                 
                                 <!-- Players and Score -->
@@ -240,16 +318,27 @@
                                     
                                     <!-- Player 2 -->
                                     <div class="text-left flex-1">
-                                        <div class="font-semibold text-gray-900">{{ match.player2_name }}</div>
-                                        <div class="text-sm text-gray-500">
-                                            {{ match.player2_rating_before }} → 
-                                            <span class="{% if match.player2_rating_after > match.player2_rating_before %}text-green-600{% elif match.player2_rating_after < match.player2_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">
-                                                {{ match.player2_rating_after }}
-                                            </span>
-                                            {% if match.player2_rating_after != match.player2_rating_before %}
-                                                <span class="text-xs">
-                                                    ({% if match.player2_rating_after > match.player2_rating_before %}+{% endif %}{{ match.player2_rating_after - match.player2_rating_before }})
+                                        <div class="font-semibold text-gray-900">
+                                            {{ match.player2_name }}
+                                            {% if match.match_type == 'guest' %}
+                                                <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold bg-orange-100 text-orange-800 ml-2">
+                                                    <i class="fas fa-user-friends mr-1"></i>Guest
                                                 </span>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-sm text-gray-500">
+                                            {% if match.match_type == 'guest' %}
+                                                <span class="text-orange-600">No Rating (Guest)</span>
+                                            {% else %}
+                                                {{ match.player2_rating_before }} → 
+                                                <span class="{% if match.player2_rating_after > match.player2_rating_before %}text-green-600{% elif match.player2_rating_after < match.player2_rating_before %}text-red-600{% else %}text-gray-600{% endif %}">
+                                                    {{ match.player2_rating_after }}
+                                                </span>
+                                                {% if match.player2_rating_after != match.player2_rating_before %}
+                                                    <span class="text-xs">
+                                                        ({% if match.player2_rating_after > match.player2_rating_before %}+{% endif %}{{ match.player2_rating_after - match.player2_rating_before }})
+                                                    </span>
+                                                {% endif %}
                                             {% endif %}
                                         </div>
                                     </div>
@@ -283,11 +372,80 @@
                 {% endfor %}
             </div>
             
-            {% if matches|length >= 50 %}
-            <div class="mt-6 text-center text-gray-500">
-                <p class="text-sm">Showing the 50 most recent matches.</p>
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <div class="mt-8 flex items-center justify-between">
+                <div class="text-sm text-gray-700">
+                    Showing <span class="font-medium">{{ ((current_page - 1) * per_page) + 1 }}</span> to 
+                    <span class="font-medium">{{ ((current_page - 1) * per_page) + matches|length }}</span> of 
+                    <span class="font-medium">{{ total_matches }}</span> matches
+                </div>
+                
+                <nav class="flex items-center space-x-2">
+                    <!-- Previous button -->
+                    {% if has_prev %}
+                        <a href="{{ url_for('manage_matches', page=current_page-1, tournament_id=request.args.get('tournament_id', ''), search=search_query, per_page=per_page) }}"
+                           class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-chevron-left"></i>
+                        </a>
+                    {% else %}
+                        <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-left"></i>
+                        </span>
+                    {% endif %}
+                    
+                    <!-- Page numbers -->
+                    {% set start_page = [current_page - 2, 1]|max %}
+                    {% set end_page = [start_page + 4, total_pages]|min %}
+                    
+                    {% if start_page > 1 %}
+                        <a href="{{ url_for('manage_matches', page=1, tournament_id=request.args.get('tournament_id', ''), search=search_query, per_page=per_page) }}"
+                           class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                            1
+                        </a>
+                        {% if start_page > 2 %}
+                            <span class="px-3 py-2 text-sm font-medium text-gray-400">...</span>
+                        {% endif %}
+                    {% endif %}
+                    
+                    {% for page_num in range(start_page, end_page + 1) %}
+                        {% if page_num == current_page %}
+                            <span class="px-3 py-2 text-sm font-medium text-white bg-indigo-600 border border-indigo-600 rounded-lg">
+                                {{ page_num }}
+                            </span>
+                        {% else %}
+                            <a href="{{ url_for('manage_matches', page=page_num, tournament_id=request.args.get('tournament_id', ''), search=search_query, per_page=per_page) }}"
+                               class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                                {{ page_num }}
+                            </a>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if end_page < total_pages %}
+                        {% if end_page < total_pages - 1 %}
+                            <span class="px-3 py-2 text-sm font-medium text-gray-400">...</span>
+                        {% endif %}
+                        <a href="{{ url_for('manage_matches', page=total_pages, tournament_id=request.args.get('tournament_id', ''), search=search_query, per_page=per_page) }}"
+                           class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                            {{ total_pages }}
+                        </a>
+                    {% endif %}
+                    
+                    <!-- Next button -->
+                    {% if has_next %}
+                        <a href="{{ url_for('manage_matches', page=current_page+1, tournament_id=request.args.get('tournament_id', ''), search=search_query, per_page=per_page) }}"
+                           class="px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 transition-colors">
+                            <i class="fas fa-chevron-right"></i>
+                        </a>
+                    {% else %}
+                        <span class="px-3 py-2 text-sm font-medium text-gray-300 bg-gray-100 border border-gray-200 rounded-lg cursor-not-allowed">
+                            <i class="fas fa-chevron-right"></i>
+                        </span>
+                    {% endif %}
+                </nav>
             </div>
             {% endif %}
+            
         </div>
         {% else %}
         <!-- Empty State -->
@@ -350,5 +508,343 @@
             </a>
         </div>
     </main>
+    
+    <!-- JavaScript for Bulk Delete with Persistent Selection and Client-side Pagination -->
+    <script>
+        // LocalStorage key for selected matches
+        const SELECTED_MATCHES_KEY = 'selected_matches';
+        
+        // Client-side pagination variables
+        const MATCHES_PER_PAGE = {{ per_page }};
+        let currentPage = {{ current_page }};
+        let allMatchRows = [];
+        let filteredMatchRows = [];
+        let currentSearchTerm = '';
+        
+        // Get selected matches from localStorage
+        function getSelectedMatches() {
+            const stored = localStorage.getItem(SELECTED_MATCHES_KEY);
+            return stored ? JSON.parse(stored) : [];
+        }
+        
+        // Save selected matches to localStorage
+        function saveSelectedMatches(selectedMatches) {
+            localStorage.setItem(SELECTED_MATCHES_KEY, JSON.stringify(selectedMatches));
+        }
+        
+        // Clear all selected matches
+        function clearSelectedMatches() {
+            localStorage.removeItem(SELECTED_MATCHES_KEY);
+        }
+        
+        function toggleAllOnPage() {
+            const selectAll = document.getElementById('selectAll');
+            const checkboxes = document.querySelectorAll('.match-checkbox');
+            
+            let selectedMatches = getSelectedMatches();
+            
+            checkboxes.forEach(checkbox => {
+                // Only affect visible matches
+                const matchRow = checkbox.closest('.match-row');
+                const isVisible = matchRow && matchRow.style.display !== 'none';
+                
+                if (isVisible) {
+                    const matchId = checkbox.value;
+                    if (selectAll.checked) {
+                        checkbox.checked = true;
+                        if (!selectedMatches.includes(matchId)) {
+                            selectedMatches.push(matchId);
+                        }
+                    } else {
+                        checkbox.checked = false;
+                        selectedMatches = selectedMatches.filter(id => id !== matchId);
+                    }
+                }
+            });
+            
+            saveSelectedMatches(selectedMatches);
+            updateBulkActions();
+        }
+        
+        function updateBulkActions() {
+            const selectedMatches = getSelectedMatches();
+            const checkboxes = document.querySelectorAll('.match-checkbox');
+            const bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+            const selectedCount = document.getElementById('selectedCount');
+            const selectAll = document.getElementById('selectAll');
+            
+            // Update checkbox states based on localStorage
+            let currentPageCheckedCount = 0;
+            let visibleCheckboxCount = 0;
+            
+            checkboxes.forEach(checkbox => {
+                const matchId = checkbox.value;
+                const isSelected = selectedMatches.includes(matchId);
+                checkbox.checked = isSelected;
+                
+                // Only count visible checkboxes for the select all state
+                const matchRow = checkbox.closest('.match-row');
+                const isVisible = matchRow && matchRow.style.display !== 'none';
+                
+                if (isVisible) {
+                    visibleCheckboxCount++;
+                    if (isSelected) currentPageCheckedCount++;
+                }
+            });
+            
+            const totalSelectedCount = selectedMatches.length;
+            selectedCount.textContent = `${totalSelectedCount} selected${totalSelectedCount > 0 ? ' (across all pages)' : ''}`;
+            
+            if (totalSelectedCount > 0) {
+                bulkDeleteBtn.disabled = false;
+                bulkDeleteBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            } else {
+                bulkDeleteBtn.disabled = true;
+                bulkDeleteBtn.classList.add('opacity-50', 'cursor-not-allowed');
+            }
+            
+            // Update select all checkbox state for visible matches only
+            if (visibleCheckboxCount === 0) {
+                selectAll.indeterminate = false;
+                selectAll.checked = false;
+            } else if (currentPageCheckedCount === 0) {
+                selectAll.indeterminate = false;
+                selectAll.checked = false;
+            } else if (currentPageCheckedCount === visibleCheckboxCount) {
+                selectAll.indeterminate = false;
+                selectAll.checked = true;
+            } else {
+                selectAll.indeterminate = true;
+                selectAll.checked = false;
+            }
+        }
+        
+        // Handle individual checkbox changes
+        function handleCheckboxChange(checkbox) {
+            let selectedMatches = getSelectedMatches();
+            const matchId = checkbox.value;
+            
+            if (checkbox.checked) {
+                if (!selectedMatches.includes(matchId)) {
+                    selectedMatches.push(matchId);
+                }
+            } else {
+                selectedMatches = selectedMatches.filter(id => id !== matchId);
+            }
+            
+            saveSelectedMatches(selectedMatches);
+            updateBulkActions();
+        }
+        
+        function bulkDeleteMatches() {
+            const selectedMatches = getSelectedMatches();
+            
+            if (selectedMatches.length === 0) {
+                alert('Please select matches to delete.');
+                return;
+            }
+            
+            const confirmMessage = `Are you sure you want to delete ${selectedMatches.length} match${selectedMatches.length > 1 ? 'es' : ''}? This will recalculate all affected player ratings and cannot be undone.`;
+            
+            if (!confirm(confirmMessage)) {
+                return;
+            }
+            
+            // Create form and submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '{{ url_for("bulk_delete_matches") }}';
+            
+            selectedMatches.forEach(matchId => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'match_ids';
+                input.value = matchId;
+                form.appendChild(input);
+            });
+            
+            // Clear selected matches after successful submission setup
+            clearSelectedMatches();
+            
+            document.body.appendChild(form);
+            form.submit();
+        }
+        
+        // Initialize match rows array
+        function initializeMatchRows() {
+            allMatchRows = Array.from(document.querySelectorAll('.match-row'));
+            filteredMatchRows = [...allMatchRows];
+        }
+        
+        // Real-time search function with client-side pagination
+        function realTimeSearch() {
+            const searchTerm = document.getElementById('realTimeSearch').value.toLowerCase();
+            currentSearchTerm = searchTerm;
+            
+            // Filter matches based on search term
+            if (searchTerm) {
+                filteredMatchRows = allMatchRows.filter(row => {
+                    const player1Name = row.querySelector('.text-right .font-semibold').textContent.toLowerCase();
+                    const player2Name = row.querySelector('.text-left .font-semibold').textContent.toLowerCase();
+                    const tournamentName = row.dataset.tournament ? row.dataset.tournament.toLowerCase() : '';
+                    
+                    return player1Name.includes(searchTerm) || 
+                           player2Name.includes(searchTerm) || 
+                           tournamentName.includes(searchTerm);
+                });
+            } else {
+                filteredMatchRows = [...allMatchRows];
+            }
+            
+            // Reset to first page when searching
+            currentPage = 1;
+            
+            // Update display
+            updateMatchDisplay();
+            updatePaginationControls();
+        }
+        
+        // Update match display based on current page and filters
+        function updateMatchDisplay() {
+            // Hide all matches first
+            allMatchRows.forEach(row => {
+                row.style.display = 'none';
+            });
+            
+            // Calculate which matches to show on current page
+            const startIndex = (currentPage - 1) * MATCHES_PER_PAGE;
+            const endIndex = startIndex + MATCHES_PER_PAGE;
+            const matchesToShow = filteredMatchRows.slice(startIndex, endIndex);
+            
+            // Show matches for current page
+            matchesToShow.forEach(row => {
+                row.style.display = '';
+            });
+            
+            // Update match count display
+            const matchCountSpan = document.querySelector('h3 span');
+            if (matchCountSpan) {
+                const totalFiltered = filteredMatchRows.length;
+                const totalLoaded = allMatchRows.length;
+                
+                if (currentSearchTerm) {
+                    matchCountSpan.textContent = `(${totalFiltered} of ${totalLoaded} matches found)`;
+                } else {
+                    matchCountSpan.textContent = `(Showing ${Math.min(matchesToShow.length, totalFiltered)} of ${totalLoaded} loaded matches)`;
+                }
+            }
+            
+            // Update bulk actions
+            updateBulkActions();
+        }
+        
+        // Update pagination controls
+        function updatePaginationControls() {
+            const totalPages = Math.ceil(filteredMatchRows.length / MATCHES_PER_PAGE);
+            const paginationContainer = document.querySelector('.mt-8.flex.items-center.justify-between');
+            
+            if (paginationContainer && totalPages > 1) {
+                // Show pagination
+                paginationContainer.style.display = 'flex';
+                
+                // Update pagination info text
+                const startMatch = ((currentPage - 1) * MATCHES_PER_PAGE) + 1;
+                const endMatch = Math.min(currentPage * MATCHES_PER_PAGE, filteredMatchRows.length);
+                const paginationInfo = paginationContainer.querySelector('.text-sm.text-gray-700');
+                if (paginationInfo) {
+                    paginationInfo.innerHTML = `Showing <span class="font-medium">${startMatch}</span> to <span class="font-medium">${endMatch}</span> of <span class="font-medium">${filteredMatchRows.length}</span> matches`;
+                }
+            } else if (paginationContainer) {
+                // Hide pagination if not needed
+                paginationContainer.style.display = 'none';
+            }
+        }
+        
+        // Navigate to specific page
+        function goToPage(page) {
+            const totalPages = Math.ceil(filteredMatchRows.length / MATCHES_PER_PAGE);
+            currentPage = Math.max(1, Math.min(page, totalPages));
+            updateMatchDisplay();
+            updatePaginationControls();
+        }
+        
+        // Handle per-page input changes
+        function handlePerPageChange() {
+            const perPageInput = document.getElementById('perPageInput');
+            let perPageValue = parseInt(perPageInput.value) || 25;
+            
+            // Clamp between 1 and 10000
+            perPageValue = Math.max(1, Math.min(perPageValue, 10000));
+            perPageInput.value = perPageValue;
+            
+            // Redirect to page 1 with new per_page value
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('per_page', perPageValue);
+            urlParams.set('page', 1); // Reset to first page
+            
+            window.location.href = window.location.pathname + '?' + urlParams.toString();
+        }
+        
+        // Load all matches for comprehensive search
+        function loadMoreMatches() {
+            const urlParams = new URLSearchParams(window.location.search);
+            urlParams.set('per_page', '{{ total_matches }}'); // Load all matches
+            urlParams.set('page', 1);
+            
+            // Show loading indication
+            const button = event.target;
+            button.textContent = 'Loading...';
+            button.disabled = true;
+            
+            window.location.href = window.location.pathname + '?' + urlParams.toString();
+        }
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize match rows for client-side operations
+            initializeMatchRows();
+            
+            // Set up initial display
+            updateMatchDisplay();
+            updatePaginationControls();
+            updateBulkActions();
+            
+            // Set up real-time search
+            const realTimeSearchInput = document.getElementById('realTimeSearch');
+            if (realTimeSearchInput) {
+                // Add keyup event for real-time search
+                realTimeSearchInput.addEventListener('keyup', realTimeSearch);
+                realTimeSearchInput.addEventListener('input', realTimeSearch);
+            }
+            
+            // Set up per-page input handler
+            const perPageInput = document.getElementById('perPageInput');
+            if (perPageInput) {
+                // Handle enter key and blur events
+                perPageInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        handlePerPageChange();
+                    }
+                });
+                perPageInput.addEventListener('blur', handlePerPageChange);
+            }
+            
+            // Add click handlers to existing pagination links to use client-side navigation
+            setupPaginationHandlers();
+        });
+        
+        // Setup pagination link handlers for client-side navigation
+        function setupPaginationHandlers() {
+            const paginationLinks = document.querySelectorAll('nav a[href*="page="]');
+            paginationLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const url = new URL(this.href);
+                    const page = parseInt(url.searchParams.get('page')) || 1;
+                    goToPage(page);
+                });
+            });
+        }
+    </script>
 </body>
 </html>
