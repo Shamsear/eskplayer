@@ -604,8 +604,8 @@
                 this.highlightedIndex = -1;
                 this.filteredPlayers = [];
                 
-                // Initialize as readonly
-                this.input.readOnly = true;
+                // Initialize as NOT readonly for immediate typing
+                this.input.readOnly = false;
                 
                 this.init();
             }
@@ -633,7 +633,7 @@
                     }
                 });
                 
-                // Handle input changes for search
+                // Handle input changes for search - open dropdown and search immediately
                 this.input.addEventListener('input', (e) => {
                     if (!this.isOpen) {
                         this.open();
@@ -749,8 +749,7 @@
                 this.menu.classList.add('show');
                 this.arrow.classList.add('open');
                 
-                // Make input editable
-                this.input.readOnly = false;
+                // Input is already editable, no need to change readOnly
                 
                 // Clear input if it contains the selected text to allow searching
                 if (this.selectedText && this.input.value === this.selectedText) {
@@ -773,16 +772,16 @@
                 this.arrow.classList.remove('open');
                 this.highlightedIndex = -1;
                 
-                // Set input to readonly and restore selected text
-                this.input.readOnly = true;
+                // Keep input editable and restore selected text
+                // this.input.readOnly = true;  // Removed to keep input always editable
                 if (this.selectedText) {
                     this.input.value = this.selectedText;
                 } else {
                     this.input.value = '';
                 }
                 
-                // Remove focus
-                this.input.blur();
+                // Don't remove focus to allow continued typing
+                // this.input.blur();  // Commented out to maintain focus
             }
             
             handleKeyDown(e) {

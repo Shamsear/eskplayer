@@ -154,10 +154,13 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <div class="flex items-center">
-                            <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3">
-                                <i class="fas fa-trophy text-white text-sm"></i>
+                            <img src="{{ url_for('static', filename='../logo.png') }}" 
+                                 alt="Eskimos Clan Logo" 
+                                 class="w-8 h-8 rounded-lg mr-3 object-cover">
+                            <div>
+                                <h1 class="text-xl font-display font-bold gradient-text">Eskimos Tournament System</h1>
+                                <p class="text-xs text-gray-500 -mt-1">Admin Panel</p>
                             </div>
-                            <h1 class="text-xl font-display font-bold gradient-text">Player Tournament System</h1>
                         </div>
                     </div>
                 </div>
@@ -190,8 +193,8 @@
         
         <!-- Header -->
         <div class="text-center mb-12">
-            <h2 class="text-4xl font-display font-bold gradient-text mb-4">Admin Dashboard</h2>
-            <p class="text-xl text-gray-600">Manage players, tournaments, and matches</p>
+            <h2 class="text-4xl font-display font-bold gradient-text mb-4">Eskimos Admin Dashboard</h2>
+            <p class="text-xl text-gray-600">Manage clan players, tournaments, and matches</p>
         </div>
         
         <!-- Statistics Cards -->

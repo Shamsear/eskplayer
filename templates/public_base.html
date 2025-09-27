@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Tournament System{% endblock %}</title>
+    <title>{% block title %}Eskimos Gaming Clan - Tournament System{% endblock %}</title>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='../logo.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ url_for('static', filename='../logo.png') }}">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -270,10 +270,13 @@
                 <div class="flex items-center">
                     <div class="flex-shrink-0">
                         <a href="{{ url_for('public_home') }}" class="flex items-center group">
-                            <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-3 group-hover:scale-110 transition-transform">
-                                <i class="fas fa-trophy text-white text-sm"></i>
+                            <img src="{{ url_for('static', filename='../logo.png') }}" 
+                                 alt="Eskimos Clan Logo" 
+                                 class="w-8 h-8 rounded-lg mr-3 group-hover:scale-110 transition-transform object-cover">
+                            <div>
+                                <h1 class="text-xl font-display font-bold gradient-text">Eskimos Tournament System</h1>
+                                <p class="text-xs text-gray-500 -mt-1">Professional Gaming Clan</p>
                             </div>
-                            <h1 class="text-xl font-display font-bold gradient-text">Player Tournament System</h1>
                         </a>
                     </div>
                 </div>
@@ -322,10 +325,13 @@
     <div class="md:hidden sticky top-0 z-50 bg-white/80 backdrop-blur-lg border-b border-gray-200/50" x-data="{ mobileMenuOpen: false }">
         <div class="px-4 py-3 flex justify-between items-center">
             <a href="{{ url_for('public_home') }}" class="flex items-center">
-                <div class="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg flex items-center justify-center mr-2">
-                    <i class="fas fa-trophy text-white text-sm"></i>
+                <img src="{{ url_for('static', filename='../logo.png') }}" 
+                     alt="Eskimos Clan Logo" 
+                     class="w-8 h-8 rounded-lg mr-2 object-cover">
+                <div>
+                    <h1 class="text-lg font-display font-bold gradient-text">Eskimos</h1>
+                    <p class="text-xs text-gray-500 -mt-1">Gaming Clan</p>
                 </div>
-                <h1 class="text-lg font-display font-bold gradient-text">Tournament System</h1>
             </a>
             <button @click="mobileMenuOpen = !mobileMenuOpen" class="text-gray-700">
                 <i class="fas" :class="mobileMenuOpen ? 'fa-times' : 'fa-bars'" class="text-xl"></i>
@@ -379,12 +385,15 @@
                 <!-- Brand -->
                 <div class="col-span-2">
                     <div class="flex items-center mb-4">
-                        <div class="w-10 h-10 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mr-3">
-                            <i class="fas fa-trophy text-white"></i>
+                        <img src="{{ url_for('static', filename='../logo.png') }}" 
+                             alt="Eskimos Clan Logo" 
+                             class="w-10 h-10 rounded-xl mr-3 object-cover">
+                        <div>
+                            <h3 class="text-xl font-display font-bold gradient-text">Eskimos Gaming Clan</h3>
+                            <p class="text-sm text-gray-500">Tournament System</p>
                         </div>
-                        <h3 class="text-xl font-display font-bold gradient-text">Player Tournament System</h3>
                     </div>
-                    <p class="text-gray-600 mb-4">Professional tournament management system with real-time statistics, player rankings, and match tracking.</p>
+                    <p class="text-gray-600 mb-4">Professional gaming clan with competitive tournament system featuring real-time statistics, player rankings, and match tracking for the Eskimos community.</p>
                     <div class="flex space-x-4">
                         <a href="#" class="text-gray-400 hover:text-indigo-600 transition-colors">
                             <i class="fab fa-twitter text-xl"></i>
