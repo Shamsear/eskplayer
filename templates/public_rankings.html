@@ -140,30 +140,27 @@
         
         <!-- Search Bar -->
         <div class="max-w-md mx-auto mb-8">
-            <form method="GET" class="relative">
+            <div class="relative">
                 <i class="fas fa-search absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i>
-                <input type="text" name="search" 
+                <input type="text" id="player-search" 
                        class="search-input-modern w-full" 
                        placeholder="Search players..." 
-                       value="{{ search or '' }}">
-                <button type="submit" 
-                        class="absolute right-2 top-1/2 transform -translate-y-1/2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white px-4 py-1.5 rounded-lg hover:shadow-lg transition-all">
-                    Search
-                </button>
-            </form>
+                       value="{{ search or '' }}"
+                       autocomplete="off">
+            </div>
         </div>
     </div>
 
     <!-- Tournament/Overall Filter -->
     <div class="glass rounded-3xl p-4 mb-6">
         <div class="flex flex-wrap justify-center gap-4">
-            <a href="{{ url_for('public_rankings', scope='overall') }}" 
+            <a href="{{ url_for('public_rankings', scope='overall', search=search, award=award_filter) }}" 
                class="filter-tab {% if scope == 'overall' %}active{% endif %}">
                 <i class="fas fa-globe mr-2"></i> Overall
             </a>
             {% if tournaments %}
                 {% for tournament in tournaments %}
-                <a href="{{ url_for('public_rankings', scope=tournament.id|string) }}" 
+                <a href="{{ url_for('public_rankings', scope=tournament.id|string, search=search, award=award_filter) }}" 
                    class="filter-tab {% if scope == tournament.id|string %}active{% endif %}">
                     <i class="fas fa-trophy mr-2"></i> {{ tournament.name }}
                 </a>
@@ -175,15 +172,15 @@
     <!-- Award Filter Tabs -->
     <div class="glass rounded-3xl p-6 mb-8">
         <div class="flex flex-wrap justify-center gap-4">
-            <a href="{{ url_for('public_rankings', scope=scope) }}" 
+            <a href="{{ url_for('public_rankings', scope=scope, search=search) }}" 
                class="filter-tab {% if not award_filter %}active{% endif %}">
                 <i class="fas fa-star mr-2"></i> All Players
             </a>
-            <a href="{{ url_for('public_rankings', award='golden_boot', scope=scope) }}" 
+            <a href="{{ url_for('public_rankings', award='golden_boot', scope=scope, search=search) }}" 
                class="filter-tab {% if award_filter == 'golden_boot' %}active{% endif %}">
                 <i class="fas fa-futbol mr-2"></i> Golden Boot
             </a>
-            <a href="{{ url_for('public_rankings', award='golden_glove', scope=scope) }}" 
+            <a href="{{ url_for('public_rankings', award='golden_glove', scope=scope, search=search) }}" 
                class="filter-tab {% if award_filter == 'golden_glove' %}active{% endif %}">
                 <i class="fas fa-hands mr-2"></i> Golden Glove
             </a>
@@ -248,8 +245,8 @@
                         {% for player in players %}
                         <tr class="player-row hover:bg-gray-50 transition-all">
                             <td class="px-6 py-4 text-center">
-                                <div class="rank-badge {% if loop.index == 1 %}rank-1{% elif loop.index == 2 %}rank-2{% elif loop.index == 3 %}rank-3{% else %}rank-default{% endif %}">
-                                    {{ loop.index }}
+                                <div class="rank-badge {% if player.original_rank == 1 %}rank-1{% elif player.original_rank == 2 %}rank-2{% elif player.original_rank == 3 %}rank-3{% else %}rank-default{% endif %}">
+                                    {{ player.original_rank }}
                                 </div>
                             </td>
                             <td class="px-6 py-4">
@@ -265,11 +262,11 @@
                                     {% endif %}
                                     <div>
                                         <div class="font-semibold text-gray-900">{{ player.name }}</div>
-                                        {% if loop.index == 1 %}
+                                        {% if player.original_rank == 1 %}
                                             <span class="inline-flex items-center gap-1 text-xs text-yellow-600">
                                                 <i class="fas fa-crown"></i> Champion
                                             </span>
-                                        {% elif loop.index <= 3 %}
+                                        {% elif player.original_rank <= 3 %}
                                             <span class="inline-flex items-center gap-1 text-xs text-gray-600">
                                                 <i class="fas fa-medal"></i> Top 3
                                             </span>
@@ -380,4 +377,128 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Real-time search functionality
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('player-search');
+        const playerRows = document.querySelectorAll('tr.player-row');
+        // Find player count element by searching for the span containing "Players"
+        const playersCountElement = Array.from(document.querySelectorAll('span')).find(el => el.textContent.includes('Players'));
+        
+        console.log('Search initialized:', {
+            searchInput: !!searchInput,
+            playerRowsCount: playerRows.length,
+            playersCountElement: !!playersCountElement
+        });
+        
+        if (searchInput && playerRows.length > 0) {
+            // Store original player count
+            const originalCount = playerRows.length;
+            
+            searchInput.addEventListener('input', function(e) {
+                const searchTerm = e.target.value.toLowerCase().trim();
+                let visibleCount = 0;
+                
+                console.log('Searching for:', searchTerm);
+                
+                playerRows.forEach(function(row, index) {
+                    // Look for player name in the row - it should be in a div with class containing 'font-semibold'
+                    const playerNameElement = row.querySelector('div.font-semibold');
+                    
+                    if (playerNameElement) {
+                        const playerName = playerNameElement.textContent.toLowerCase();
+                        
+                        if (searchTerm === '' || playerName.includes(searchTerm)) {
+                            row.style.display = 'table-row';
+                            visibleCount++;
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    } else {
+                        console.log('No player name element found in row', index);
+                        // Fallback: search in all text content of the row
+                        const rowText = row.textContent.toLowerCase();
+                        if (searchTerm === '' || rowText.includes(searchTerm)) {
+                            row.style.display = 'table-row';
+                            visibleCount++;
+                        } else {
+                            row.style.display = 'none';
+                        }
+                    }
+                });
+                
+                console.log('Visible players:', visibleCount);
+                
+                // Update player count display
+                if (playersCountElement) {
+                    playersCountElement.textContent = visibleCount + ' Players';
+                }
+                
+                // Show/hide table based on results
+                const tableContainer = document.querySelector('.overflow-x-auto');
+                const noResultsContainer = document.querySelector('.no-search-results');
+                
+                if (visibleCount === 0 && searchTerm) {
+                    // Hide table and show no results
+                    if (tableContainer) tableContainer.style.display = 'none';
+                    
+                    if (!noResultsContainer) {
+                        const noResults = document.createElement('div');
+                        noResults.className = 'no-search-results text-center py-16';
+                        noResults.innerHTML = `
+                            <div class="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-gray-100 to-gray-200 rounded-full mb-6">
+                                <i class="fas fa-search text-gray-400 text-4xl"></i>
+                            </div>
+                            <h3 class="text-2xl font-bold text-gray-700 mb-2">No players found</h3>
+                            <p class="text-gray-600 mb-6">No players match your search "<strong>${searchTerm}</strong>"</p>
+                            <button onclick="clearSearch()" 
+                                    class="inline-flex items-center px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
+                                <i class="fas fa-times mr-2"></i> Clear Search
+                            </button>
+                        `;
+                        if (tableContainer && tableContainer.parentNode) {
+                            tableContainer.parentNode.appendChild(noResults);
+                        }
+                    } else {
+                        const searchTermSpan = noResultsContainer.querySelector('p');
+                        if (searchTermSpan) {
+                            searchTermSpan.innerHTML = `No players match your search "<strong>${searchTerm}</strong>"`;
+                        }
+                    }
+                } else {
+                    // Show table and hide no results
+                    if (tableContainer) tableContainer.style.display = 'block';
+                    if (noResultsContainer) {
+                        noResultsContainer.remove();
+                    }
+                }
+            });
+            
+            // Clear search on Escape key
+            searchInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') {
+                    clearSearch();
+                }
+            });
+        } else {
+            console.error('Search elements not found:', {
+                searchInput: !!searchInput,
+                playerRowsCount: playerRows.length
+            });
+        }
+    });
+    
+    // Global function to clear search
+    function clearSearch() {
+        const searchInput = document.getElementById('player-search');
+        if (searchInput) {
+            searchInput.value = '';
+            searchInput.dispatchEvent(new Event('input'));
+            searchInput.focus();
+        }
+    }
+</script>
 {% endblock %}

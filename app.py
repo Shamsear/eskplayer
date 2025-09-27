@@ -1237,18 +1237,15 @@ def public_rankings():
             try:
                 tournament_id = int(scope)
                 players_stats = TournamentDB.get_player_tournament_stats(tournament_id)
-                if not players_stats:
-                    players_stats = TournamentDB.get_overall_player_stats()
+                # Do NOT fall back to overall stats if tournament has no players
+                # Tournament-specific stats will be empty list if no data exists
+                # (no fallback needed, keep the empty list)
             except (ValueError, TypeError):
                 # Fallback to overall if invalid tournament id
                 players_stats = TournamentDB.get_overall_player_stats()
                 scope = 'overall'
         
-        # Apply search filter
-        if search:
-            players_stats = [s for s in players_stats if search.lower() in s['name'].lower()]
-        
-        # Sort based on award filter
+        # Sort based on award filter FIRST (this determines the ranking order)
         if award_filter == 'golden_boot':
             players_stats = sorted(players_stats, key=lambda x: (x['goals_scored'], x['goals_scored']/max(x['matches_played'], 1)), reverse=True)
         elif award_filter == 'golden_glove':
@@ -1256,6 +1253,15 @@ def public_rankings():
             unqualified_stats = [s for s in players_stats if s['matches_played'] < 4]
             qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
             players_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
+        # If no award filter, players are already sorted by rating (default)
+        
+        # Assign ranking AFTER sorting is complete (this ranking reflects the current filter combination)
+        for i, player in enumerate(players_stats):
+            player['original_rank'] = i + 1
+        
+        # Apply search filter (preserves ranking but filters display)
+        if search:
+            players_stats = [s for s in players_stats if search.lower() in s['name'].lower()]
         
         # Find selected tournament for display
         selected_tournament = None
