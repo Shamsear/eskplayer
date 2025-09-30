@@ -693,7 +693,7 @@
             }
             
             // Revalidate the match
-            validateMatch(matchIndex);
+            validateMatchAndUpdateButton(matchIndex);
         }
         
         function addMatch() {
@@ -835,7 +835,7 @@
                         <input type="number" name="match_${matchCount}_player1_goals" min="0" max="50" value="0"
                                id="match_${matchCount}_player1_goals"
                                class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-center"
-                               onchange="validateMatch(${matchCount})" required>
+                               onchange="validateMatchAndUpdateButton(${matchCount})" required>
                     </div>
                     
                     <div>
@@ -845,7 +845,7 @@
                         <input type="number" name="match_${matchCount}_player2_goals" min="0" max="50" value="0"
                                id="match_${matchCount}_player2_goals"
                                class="input-focus w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-center"
-                               onchange="validateMatch(${matchCount})" required>
+                               onchange="validateMatchAndUpdateButton(${matchCount})" required>
                     </div>
                 </div>
                 
@@ -865,18 +865,18 @@
             
             // Create dropdown instances
             matchDropdowns[player1DropdownId] = new SearchableDropdown(player1DropdownId, (player) => {
-                validateMatch(currentMatchIndex);
+                validateMatchAndUpdateButton(currentMatchIndex);
             });
             
             matchDropdowns[player2DropdownId] = new SearchableDropdown(player2DropdownId, (player) => {
-                validateMatch(currentMatchIndex);
+                validateMatchAndUpdateButton(currentMatchIndex);
             });
             
             // Add event listener for guest name input
             const guestNameInput = document.getElementById(`match_${currentMatchIndex}_guest_name`);
             if (guestNameInput) {
                 guestNameInput.addEventListener('input', function() {
-                    validateMatch(currentMatchIndex);
+                    validateMatchAndUpdateButton(currentMatchIndex);
                 });
             }
             
@@ -1037,7 +1037,8 @@
                 preview.classList.add('hidden');
             }
             
-            updateSubmitButton();
+            // Note: Don't call updateSubmitButton() here to avoid infinite recursion
+            // updateSubmitButton() calls validateAllMatches() which calls validateMatch()
             return errors;
         }
         
@@ -1077,7 +1078,13 @@
                 player2Goals.value = 0;
             }
             
-            validateMatch(index);
+            validateMatchAndUpdateButton(index);
+        }
+        
+        function validateMatchAndUpdateButton(index, showAlert = true) {
+            // This wrapper function prevents infinite recursion
+            validateMatch(index, showAlert);
+            updateSubmitButton();
         }
         
         function updateMatchPlayerLabels(index, player1Name, player2Name) {
@@ -1152,13 +1159,41 @@
                 }
             }
             
-            // Validate goals
-            if (!player1Goals || player1Goals.value === '' || isNaN(player1Goals.value) || parseInt(player1Goals.value) < 0) {
-                errors.push('Player 1 goals must be a valid number (0 or higher)');
+            // Validate goals - 0 is a perfectly valid score!
+            if (!player1Goals) {
+                errors.push('Player 1 goals field is missing');
+            } else {
+                const goals1Value = player1Goals.value.trim();
+                if (goals1Value === '') {
+                    errors.push('Player 1 goals are required');
+                } else {
+                    const goals1Number = parseInt(goals1Value);
+                    if (isNaN(goals1Number) || goals1Number < 0) {
+                        if (isNaN(goals1Number)) {
+                            errors.push('Player 1 goals must be a valid number');
+                        } else {
+                            errors.push('Player 1 goals must be 0 or higher');
+                        }
+                    }
+                }
             }
             
-            if (!player2Goals || player2Goals.value === '' || isNaN(player2Goals.value) || parseInt(player2Goals.value) < 0) {
-                errors.push('Player 2 goals must be a valid number (0 or higher)');
+            if (!player2Goals) {
+                errors.push('Player 2 goals field is missing');
+            } else {
+                const goals2Value = player2Goals.value.trim();
+                if (goals2Value === '') {
+                    errors.push('Player 2 goals are required');
+                } else {
+                    const goals2Number = parseInt(goals2Value);
+                    if (isNaN(goals2Number) || goals2Number < 0) {
+                        if (isNaN(goals2Number)) {
+                            errors.push('Player 2 goals must be a valid number');
+                        } else {
+                            errors.push('Player 2 goals must be 0 or higher');
+                        }
+                    }
+                }
             }
             
             return errors;

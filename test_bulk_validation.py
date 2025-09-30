@@ -142,8 +142,8 @@ def test_validation_scenarios():
         
         print()
     
-    # Test a valid scenario
-    print("9. Testing: Valid Match Scenario")
+    # Test valid scenarios
+    print("9. Testing: Valid Match Scenario with Goals")
     valid_data = {
         "tournament_id": "1",
         "match_count": "1",
@@ -158,6 +158,39 @@ def test_validation_scenarios():
         print("   ✅ Valid data passed validation")
     else:
         print(f"   ❌ Valid data failed validation: {', '.join(errors)}")
+    
+    print("\n10. Testing: Valid Match with Zero Scores (0-0 draw)")
+    zero_score_data = {
+        "tournament_id": "1",
+        "match_count": "1",
+        "match_0_player1_id": "1",
+        "match_0_player2_id": "2",
+        "match_0_player1_goals": "0",  # Zero should be valid!
+        "match_0_player2_goals": "0"   # Zero should be valid!
+    }
+    
+    errors = simulate_validation(zero_score_data)
+    if not errors:
+        print("   ✅ Zero scores (0-0) correctly passed validation")
+    else:
+        print(f"   ❌ Zero scores failed validation (this should work!): {', '.join(errors)}")
+    
+    print("\n11. Testing: Valid Guest Match with Zero Score")
+    guest_zero_data = {
+        "tournament_id": "1",
+        "match_count": "1",
+        "match_0_player1_id": "1",
+        "match_0_player1_goals": "0",   # Zero should be valid!
+        "match_0_player2_goals": "3",
+        "match_0_is_guest_match": "on",
+        "match_0_guest_name": "Guest Player"
+    }
+    
+    errors = simulate_validation(guest_zero_data)
+    if not errors:
+        print("   ✅ Guest match with zero score correctly passed validation")
+    else:
+        print(f"   ❌ Guest match with zero score failed validation: {', '.join(errors)}")
     
     print("\n🎉 Validation testing completed!")
 
@@ -227,26 +260,34 @@ def simulate_validation(form_data):
                     match_errors.append('Player 2 selection is invalid')
                     player2_id = None
         
-        # Validate goals
+        # Validate goals - 0 is a perfectly valid score!
         if player1_goals is None or player1_goals == '':
             match_errors.append('Player 1 goals are required')
         else:
-            try:
-                player1_goals = int(player1_goals)
-                if player1_goals < 0:
-                    match_errors.append('Player 1 goals must be 0 or higher')
-            except (ValueError, TypeError):
-                match_errors.append('Player 1 goals must be a valid number')
+            player1_goals_str = str(player1_goals).strip()
+            if player1_goals_str == '':
+                match_errors.append('Player 1 goals are required')
+            else:
+                try:
+                    player1_goals_int = int(player1_goals_str)
+                    if player1_goals_int < 0:
+                        match_errors.append('Player 1 goals must be 0 or higher')
+                except (ValueError, TypeError):
+                    match_errors.append('Player 1 goals must be a valid number')
         
         if player2_goals is None or player2_goals == '':
             match_errors.append('Player 2 goals are required')
         else:
-            try:
-                player2_goals = int(player2_goals)
-                if player2_goals < 0:
-                    match_errors.append('Player 2 goals must be 0 or higher')
-            except (ValueError, TypeError):
-                match_errors.append('Player 2 goals must be a valid number')
+            player2_goals_str = str(player2_goals).strip()
+            if player2_goals_str == '':
+                match_errors.append('Player 2 goals are required')
+            else:
+                try:
+                    player2_goals_int = int(player2_goals_str)
+                    if player2_goals_int < 0:
+                        match_errors.append('Player 2 goals must be 0 or higher')
+                except (ValueError, TypeError):
+                    match_errors.append('Player 2 goals must be a valid number')
         
         # Add match errors to validation errors list
         if match_errors:
