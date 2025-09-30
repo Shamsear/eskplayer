@@ -1137,6 +1137,8 @@
             const guestName = document.getElementById(`match_${index}_guest_name`);
             const player1Goals = document.getElementById(`match_${index}_player1_goals`);
             const player2Goals = document.getElementById(`match_${index}_player2_goals`);
+            const player1Absent = document.getElementById(`match_${index}_player1_absent`);
+            const player2Absent = document.getElementById(`match_${index}_player2_absent`);
             
             const errors = [];
             
@@ -1159,10 +1161,17 @@
                 }
             }
             
-            // Validate goals - 0 is a perfectly valid score!
+            // Check if players are absent - this affects goal validation
+            const isPlayer1Absent = player1Absent && player1Absent.checked;
+            const isPlayer2Absent = player2Absent && player2Absent.checked;
+            
+            // Validate goals - but consider player absence
+            // When players are absent, goals are automatically set by the system
             if (!player1Goals) {
                 errors.push('Player 1 goals field is missing');
-            } else {
+            } else if (!isPlayer1Absent && !isPlayer2Absent) {
+                // Only validate goals strictly when no one is absent
+                // When players are absent, goals are managed automatically
                 const goals1Value = player1Goals.value.trim();
                 if (goals1Value === '') {
                     errors.push('Player 1 goals are required');
@@ -1177,10 +1186,12 @@
                     }
                 }
             }
+            // If players are absent, we accept whatever goals are set (walkover scores)
             
             if (!player2Goals) {
                 errors.push('Player 2 goals field is missing');
-            } else {
+            } else if (!isPlayer1Absent && !isPlayer2Absent) {
+                // Only validate goals strictly when no one is absent
                 const goals2Value = player2Goals.value.trim();
                 if (goals2Value === '') {
                     errors.push('Player 2 goals are required');
@@ -1195,6 +1206,7 @@
                     }
                 }
             }
+            // If players are absent, we accept whatever goals are set (walkover scores)
             
             return errors;
         }

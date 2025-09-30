@@ -192,6 +192,41 @@ def test_validation_scenarios():
     else:
         print(f"   ❌ Guest match with zero score failed validation: {', '.join(errors)}")
     
+    print("\n12. Testing: Match with Player 1 Absent (Walkover)")
+    absence_data = {
+        "tournament_id": "1",
+        "match_count": "1",
+        "match_0_player1_id": "1",
+        "match_0_player2_id": "2",
+        "match_0_player1_goals": "0",   # Walkover score
+        "match_0_player2_goals": "3",   # Walkover score
+        "match_0_player1_absent": "on"  # Player 1 is absent
+    }
+    
+    errors = simulate_validation(absence_data)
+    if not errors:
+        print("   ✅ Match with absent player correctly passed validation")
+    else:
+        print(f"   ❌ Match with absent player failed validation: {', '.join(errors)}")
+    
+    print("\n13. Testing: Match with Both Players Absent (Nullified)")
+    both_absent_data = {
+        "tournament_id": "1",
+        "match_count": "1",
+        "match_0_player1_id": "1",
+        "match_0_player2_id": "2",
+        "match_0_player1_goals": "0",   # Nullified score
+        "match_0_player2_goals": "0",   # Nullified score
+        "match_0_player1_absent": "on", # Both players absent
+        "match_0_player2_absent": "on"  
+    }
+    
+    errors = simulate_validation(both_absent_data)
+    if not errors:
+        print("   ✅ Match with both players absent correctly passed validation")
+    else:
+        print(f"   ❌ Match with both players absent failed validation: {', '.join(errors)}")
+    
     print("\n🎉 Validation testing completed!")
 
 def simulate_validation(form_data):
@@ -233,6 +268,8 @@ def simulate_validation(form_data):
         player2_goals = form_data.get(f'match_{i}_player2_goals')
         is_guest_match = f'match_{i}_is_guest_match' in form_data
         guest_name = form_data.get(f'match_{i}_guest_name', '').strip()
+        player1_absent = f'match_{i}_player1_absent' in form_data
+        player2_absent = f'match_{i}_player2_absent' in form_data
         
         # Validate player1_id
         if not player1_id:
@@ -260,34 +297,38 @@ def simulate_validation(form_data):
                     match_errors.append('Player 2 selection is invalid')
                     player2_id = None
         
-        # Validate goals - 0 is a perfectly valid score!
-        if player1_goals is None or player1_goals == '':
-            match_errors.append('Player 1 goals are required')
-        else:
-            player1_goals_str = str(player1_goals).strip()
-            if player1_goals_str == '':
+        # Validate goals - but consider player absence
+        # When players are absent, goals are automatically set by the system
+        if not player1_absent and not player2_absent:
+            # Only validate goals strictly when no one is absent
+            if player1_goals is None or player1_goals == '':
                 match_errors.append('Player 1 goals are required')
             else:
-                try:
-                    player1_goals_int = int(player1_goals_str)
-                    if player1_goals_int < 0:
-                        match_errors.append('Player 1 goals must be 0 or higher')
-                except (ValueError, TypeError):
-                    match_errors.append('Player 1 goals must be a valid number')
-        
-        if player2_goals is None or player2_goals == '':
-            match_errors.append('Player 2 goals are required')
-        else:
-            player2_goals_str = str(player2_goals).strip()
-            if player2_goals_str == '':
+                player1_goals_str = str(player1_goals).strip()
+                if player1_goals_str == '':
+                    match_errors.append('Player 1 goals are required')
+                else:
+                    try:
+                        player1_goals_int = int(player1_goals_str)
+                        if player1_goals_int < 0:
+                            match_errors.append('Player 1 goals must be 0 or higher')
+                    except (ValueError, TypeError):
+                        match_errors.append('Player 1 goals must be a valid number')
+            
+            if player2_goals is None or player2_goals == '':
                 match_errors.append('Player 2 goals are required')
             else:
-                try:
-                    player2_goals_int = int(player2_goals_str)
-                    if player2_goals_int < 0:
-                        match_errors.append('Player 2 goals must be 0 or higher')
-                except (ValueError, TypeError):
-                    match_errors.append('Player 2 goals must be a valid number')
+                player2_goals_str = str(player2_goals).strip()
+                if player2_goals_str == '':
+                    match_errors.append('Player 2 goals are required')
+                else:
+                    try:
+                        player2_goals_int = int(player2_goals_str)
+                        if player2_goals_int < 0:
+                            match_errors.append('Player 2 goals must be 0 or higher')
+                    except (ValueError, TypeError):
+                        match_errors.append('Player 2 goals must be a valid number')
+        # If players are absent, we accept whatever goals are set (walkover/nullified scores)
         
         # Add match errors to validation errors list
         if match_errors:

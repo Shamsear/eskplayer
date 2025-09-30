@@ -940,28 +940,42 @@ def bulk_record_matches():
                             match_errors.append('Player 2 selection is invalid')
                             player2_id = None
                 
-                # Validate goals
-                if player1_goals is None or player1_goals == '':
-                    match_errors.append('Player 1 goals are required')
+                # Validate goals - but consider player absence
+                # When players are absent, goals are automatically managed by the system
+                if not player1_absent and not player2_absent:
+                    # Only validate goals strictly when no one is absent
+                    if player1_goals is None or player1_goals == '':
+                        match_errors.append('Player 1 goals are required')
+                    else:
+                        try:
+                            player1_goals = int(player1_goals)
+                            if player1_goals < 0:
+                                match_errors.append('Player 1 goals must be 0 or higher')
+                        except (ValueError, TypeError):
+                            match_errors.append('Player 1 goals must be a valid number')
+                            player1_goals = None
+                    
+                    if player2_goals is None or player2_goals == '':
+                        match_errors.append('Player 2 goals are required')
+                    else:
+                        try:
+                            player2_goals = int(player2_goals)
+                            if player2_goals < 0:
+                                match_errors.append('Player 2 goals must be 0 or higher')
+                        except (ValueError, TypeError):
+                            match_errors.append('Player 2 goals must be a valid number')
+                            player2_goals = None
                 else:
+                    # When players are absent, accept any valid numeric goals (walkover/nullified scores)
                     try:
-                        player1_goals = int(player1_goals)
-                        if player1_goals < 0:
-                            match_errors.append('Player 1 goals must be 0 or higher')
+                        player1_goals = int(player1_goals) if player1_goals else 0
                     except (ValueError, TypeError):
-                        match_errors.append('Player 1 goals must be a valid number')
-                        player1_goals = None
-                
-                if player2_goals is None or player2_goals == '':
-                    match_errors.append('Player 2 goals are required')
-                else:
+                        player1_goals = 0  # Default for absent players
+                    
                     try:
-                        player2_goals = int(player2_goals)
-                        if player2_goals < 0:
-                            match_errors.append('Player 2 goals must be 0 or higher')
+                        player2_goals = int(player2_goals) if player2_goals else 0  
                     except (ValueError, TypeError):
-                        match_errors.append('Player 2 goals must be a valid number')
-                        player2_goals = None
+                        player2_goals = 0  # Default for absent players
                 
                 # Add match errors to validation errors list
                 if match_errors:
