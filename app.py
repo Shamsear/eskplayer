@@ -873,12 +873,38 @@ def bulk_record_matches():
     if request.method == 'POST':
         try:
             matches_data = []
-            tournament_id = int(request.form['tournament_id'])
+            validation_errors = []
             
-            # Get all match data from form
-            match_count = int(request.form.get('match_count', 0))
+            # Validate tournament selection
+            if 'tournament_id' not in request.form or not request.form['tournament_id']:
+                flash('Please select a tournament', 'error')
+                tournaments = TournamentDB.get_all_tournaments()
+                return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
             
+            try:
+                tournament_id = int(request.form['tournament_id'])
+            except (ValueError, TypeError):
+                flash('Invalid tournament selection', 'error')
+                tournaments = TournamentDB.get_all_tournaments()
+                return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
+            
+            # Get match count
+            try:
+                match_count = int(request.form.get('match_count', 0))
+            except (ValueError, TypeError):
+                match_count = 0
+            
+            if match_count == 0:
+                flash('No matches to record', 'error')
+                tournaments = TournamentDB.get_all_tournaments()
+                return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
+            
+            # Validate each match
             for i in range(match_count):
+                match_errors = []
+                match_number = i + 1
+                
+                # Get form data with validation
                 player1_id = request.form.get(f'match_{i}_player1_id')
                 player2_id = request.form.get(f'match_{i}_player2_id')
                 player1_goals = request.form.get(f'match_{i}_player1_goals')
@@ -888,34 +914,94 @@ def bulk_record_matches():
                 is_guest_match = f'match_{i}_is_guest_match' in request.form
                 guest_name = request.form.get(f'match_{i}_guest_name', '').strip()
                 
-                # Validate match data based on type
-                if is_guest_match:
-                    # For guest matches: need player1_id, guest_name, and goals
-                    if not all([player1_id, guest_name, player1_goals is not None, player2_goals is not None]):
-                        continue
+                # Validate player1_id
+                if not player1_id:
+                    match_errors.append('Player 1 is required')
                 else:
-                    # For normal matches: need both player IDs and goals
-                    if not all([player1_id, player2_id, player1_goals is not None, player2_goals is not None]):
-                        continue
+                    try:
+                        player1_id = int(player1_id)
+                    except (ValueError, TypeError):
+                        match_errors.append('Player 1 selection is invalid')
+                        player1_id = None
                 
+                # Validate based on match type
+                if is_guest_match:
+                    if not guest_name:
+                        match_errors.append('Guest player name is required')
+                else:
+                    if not player2_id:
+                        match_errors.append('Player 2 is required')
+                    else:
+                        try:
+                            player2_id = int(player2_id)
+                            if player1_id and player1_id == player2_id:
+                                match_errors.append('Players must be different')
+                        except (ValueError, TypeError):
+                            match_errors.append('Player 2 selection is invalid')
+                            player2_id = None
+                
+                # Validate goals
+                if player1_goals is None or player1_goals == '':
+                    match_errors.append('Player 1 goals are required')
+                else:
+                    try:
+                        player1_goals = int(player1_goals)
+                        if player1_goals < 0:
+                            match_errors.append('Player 1 goals must be 0 or higher')
+                    except (ValueError, TypeError):
+                        match_errors.append('Player 1 goals must be a valid number')
+                        player1_goals = None
+                
+                if player2_goals is None or player2_goals == '':
+                    match_errors.append('Player 2 goals are required')
+                else:
+                    try:
+                        player2_goals = int(player2_goals)
+                        if player2_goals < 0:
+                            match_errors.append('Player 2 goals must be 0 or higher')
+                    except (ValueError, TypeError):
+                        match_errors.append('Player 2 goals must be a valid number')
+                        player2_goals = None
+                
+                # Add match errors to validation errors list
+                if match_errors:
+                    for error in match_errors:
+                        validation_errors.append(f'Match {match_number}: {error}')
+                    continue
+                
+                # If validation passes, add to matches_data
                 matches_data.append({
                     'tournament_id': tournament_id,
-                    'player1_id': int(player1_id),
-                    'player2_id': int(player2_id) if player2_id else None,
-                    'player1_goals': int(player1_goals),
-                    'player2_goals': int(player2_goals),
+                    'player1_id': player1_id,
+                    'player2_id': player2_id,
+                    'player1_goals': player1_goals,
+                    'player2_goals': player2_goals,
                     'player1_absent': player1_absent,
                     'player2_absent': player2_absent,
                     'is_guest_match': is_guest_match,
                     'guest_name': guest_name if is_guest_match else None
                 })
             
-            if matches_data:
-                # Process matches individually to handle guest matches
-                match_ids = []
-                regular_matches = []
-                
-                for match_data in matches_data:
+            # If there are validation errors, show them
+            if validation_errors:
+                error_message = 'Please fix the following errors:\n' + '\n'.join(validation_errors)
+                flash(error_message, 'error')
+                tournaments = TournamentDB.get_all_tournaments()
+                return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
+            
+            # If no valid matches, show error
+            if not matches_data:
+                flash('No valid matches found to record', 'error')
+                tournaments = TournamentDB.get_all_tournaments()
+                return render_template('admin/bulk_record_matches.html', tournaments=tournaments)
+            
+            # Process validated matches
+            match_ids = []
+            regular_matches = []
+            processing_errors = []
+            
+            for i, match_data in enumerate(matches_data):
+                try:
                     if match_data.get('is_guest_match', False):
                         # Process guest match
                         guest_match_id = TournamentDB.record_guest_match(
@@ -931,17 +1017,28 @@ def bulk_record_matches():
                     else:
                         # Collect regular matches for bulk processing
                         regular_matches.append(match_data)
-                
-                # Process regular matches in bulk if any
-                if regular_matches:
+                except Exception as e:
+                    processing_errors.append(f'Match {i+1}: {str(e)}')
+            
+            # Process regular matches in bulk if any
+            if regular_matches:
+                try:
                     regular_match_ids = TournamentDB.record_bulk_matches(regular_matches)
                     match_ids.extend(regular_match_ids)
-                
+                except Exception as e:
+                    processing_errors.append(f'Regular matches processing error: {str(e)}')
+            
+            # Show results
+            if processing_errors:
+                error_message = 'Some matches could not be recorded:\n' + '\n'.join(processing_errors)
+                flash(error_message, 'error')
+            
+            if match_ids:
                 total_matches = len(match_ids)
                 guest_count = sum(1 for match in matches_data if match.get('is_guest_match', False))
                 regular_count = total_matches - guest_count
                 
-                success_msg = f'Successfully recorded {total_matches} matches!'
+                success_msg = f'Successfully recorded {total_matches} match{"es" if total_matches > 1 else ""}!'
                 if guest_count > 0 and regular_count > 0:
                     success_msg += f' ({regular_count} regular, {guest_count} guest)'
                 elif guest_count > 0:
@@ -949,8 +1046,8 @@ def bulk_record_matches():
                 success_msg += ' Ratings updated.'
                 
                 flash(success_msg, 'success')
-            else:
-                flash('No valid matches to record', 'error')
+            elif not processing_errors:  # Only show this if we haven't already shown processing errors
+                flash('No matches were recorded', 'error')
                 
         except Exception as e:
             flash(f'Error recording matches: {str(e)}', 'error')

@@ -269,7 +269,7 @@
             </div>
             
             <!-- Form -->
-            <form method="POST" id="bulkMatchForm">
+            <form method="POST" id="bulkMatchForm" onsubmit="return validateBeforeSubmit(event)">
                 <!-- Tournament Selection -->
                 <div class="mb-6">
                     <label for="tournament_id" class="block text-sm font-medium text-gray-700 mb-2">
@@ -885,6 +885,34 @@
             updateSubmitButton();
         }
         
+        function validateBeforeSubmit(event) {
+            event.preventDefault();
+            
+            // Remove any existing error messages
+            const existingErrorDiv = document.getElementById('validation-errors');
+            if (existingErrorDiv) {
+                existingErrorDiv.remove();
+            }
+            
+            const validation = validateAllMatches();
+            
+            if (!validation.isValid) {
+                showValidationErrors(validation.errors);
+                return false;
+            }
+            
+            // If validation passes, show confirmation and submit
+            const confirmMsg = `You are about to record ${validation.validMatches} match${validation.validMatches > 1 ? 'es' : ''}. Continue?`;
+            if (confirm(confirmMsg)) {
+                // Remove the onsubmit handler temporarily to allow actual submission
+                const form = document.getElementById('bulkMatchForm');
+                form.onsubmit = null;
+                form.submit();
+            }
+            
+            return false;
+        }
+        
         function removeMatch(index) {
             const matchDiv = document.querySelector(`[data-match-index="${index}"]`);
             if (matchDiv) {
@@ -907,7 +935,7 @@
             }
         }
         
-        function validateMatch(index) {
+        function validateMatch(index, showAlert = true) {
             const player1Input = document.getElementById(`match_${index}_player1_id`);
             const player2Input = document.getElementById(`match_${index}_player2_id`);
             const isGuestMatch = document.getElementById(`match_${index}_is_guest_match`).checked;
@@ -919,6 +947,9 @@
             const preview = document.getElementById(`match_${index}_preview`);
             const result = document.getElementById(`match_${index}_result`);
             
+            // Validate match data and get errors
+            const errors = validateMatchData(index);
+            
             // Check if match has required players
             let hasValidPlayers = false;
             let player1Name = '';
@@ -929,31 +960,37 @@
                 hasValidPlayers = player1Input.value && guestNameInput.value.trim();
                 if (hasValidPlayers) {
                     const player1 = tournamentPlayers.find(p => p.id == player1Input.value);
-                    player1Name = player1.name;
-                    player2Name = guestNameInput.value.trim();
+                    if (player1) {
+                        player1Name = player1.name;
+                        player2Name = guestNameInput.value.trim();
+                    }
                 }
             } else {
                 // For normal match: need both tournament players
                 hasValidPlayers = player1Input.value && player2Input.value;
                 if (hasValidPlayers) {
                     if (player1Input.value === player2Input.value) {
-                        alert('Please select different players for the match.');
-                        // Reset the second player dropdown
-                        const player2DropdownId = `match_${index}_player2`;
-                        if (matchDropdowns[player2DropdownId]) {
-                            matchDropdowns[player2DropdownId].reset();
+                        if (showAlert) {
+                            alert('Please select different players for the match.');
+                            // Reset the second player dropdown
+                            const player2DropdownId = `match_${index}_player2`;
+                            if (matchDropdowns[player2DropdownId]) {
+                                matchDropdowns[player2DropdownId].reset();
+                            }
                         }
-                        return;
+                        return ['Players must be different'];
                     }
                     
                     const player1 = tournamentPlayers.find(p => p.id == player1Input.value);
                     const player2 = tournamentPlayers.find(p => p.id == player2Input.value);
-                    player1Name = player1.name;
-                    player2Name = player2.name;
+                    if (player1 && player2) {
+                        player1Name = player1.name;
+                        player2Name = player2.name;
+                    }
                 }
             }
             
-            if (hasValidPlayers) {
+            if (hasValidPlayers && errors.length === 0) {
                 const goals1 = parseInt(player1Goals.value) || 0;
                 const goals2 = parseInt(player2Goals.value) || 0;
                 const player1IsAbsent = player1Absent.checked;
@@ -1001,6 +1038,7 @@
             }
             
             updateSubmitButton();
+            return errors;
         }
         
         function handleMatchAbsenceChange(index) {
@@ -1058,37 +1096,137 @@
             if (player2GoalsLabel) player2GoalsLabel.textContent = player2Name;
         }
         
-        function updateSubmitButton() {
-            const submitBtn = document.getElementById('submitBtn');
+        function validateAllMatches() {
             const matchRows = document.querySelectorAll('.match-row');
+            const validationErrors = [];
             let validMatches = 0;
             
             matchRows.forEach(matchRow => {
                 const index = matchRow.getAttribute('data-match-index');
-                const player1 = document.getElementById(`match_${index}_player1_id`);
-                const player2 = document.getElementById(`match_${index}_player2_id`);
-                const isGuestMatch = document.getElementById(`match_${index}_is_guest_match`);
-                const guestName = document.getElementById(`match_${index}_guest_name`);
+                const matchNumber = parseInt(index) + 1;
+                const errors = validateMatch(index, false); // Don't show individual match errors, collect them
                 
-                let isValidMatch = false;
-                
-                if (player1 && player1.value) {
-                    if (isGuestMatch && isGuestMatch.checked) {
-                        // For guest matches: need player1 (tournament player) and guest name
-                        isValidMatch = guestName && guestName.value.trim().length > 0;
-                    } else {
-                        // For regular matches: need both players, and they must be different
-                        isValidMatch = player2 && player2.value && player1.value !== player2.value;
-                    }
-                }
-                
-                if (isValidMatch) {
+                if (errors.length === 0) {
                     validMatches++;
+                } else {
+                    errors.forEach(error => {
+                        validationErrors.push(`Match ${matchNumber}: ${error}`);
+                    });
                 }
             });
             
-            submitBtn.disabled = validMatches === 0;
+            return {
+                isValid: validationErrors.length === 0 && validMatches > 0,
+                errors: validationErrors,
+                validMatches: validMatches,
+                totalMatches: matchRows.length
+            };
         }
+        
+        function validateMatchData(index) {
+            const player1 = document.getElementById(`match_${index}_player1_id`);
+            const player2 = document.getElementById(`match_${index}_player2_id`);
+            const isGuestMatch = document.getElementById(`match_${index}_is_guest_match`);
+            const guestName = document.getElementById(`match_${index}_guest_name`);
+            const player1Goals = document.getElementById(`match_${index}_player1_goals`);
+            const player2Goals = document.getElementById(`match_${index}_player2_goals`);
+            
+            const errors = [];
+            
+            // Validate player selection
+            if (!player1 || !player1.value) {
+                errors.push('Player 1 is required');
+            }
+            
+            if (isGuestMatch && isGuestMatch.checked) {
+                // Guest match validation
+                if (!guestName || !guestName.value.trim()) {
+                    errors.push('Guest player name is required');
+                }
+            } else {
+                // Regular match validation
+                if (!player2 || !player2.value) {
+                    errors.push('Player 2 is required');
+                } else if (player1 && player1.value === player2.value) {
+                    errors.push('Players must be different');
+                }
+            }
+            
+            // Validate goals
+            if (!player1Goals || player1Goals.value === '' || isNaN(player1Goals.value) || parseInt(player1Goals.value) < 0) {
+                errors.push('Player 1 goals must be a valid number (0 or higher)');
+            }
+            
+            if (!player2Goals || player2Goals.value === '' || isNaN(player2Goals.value) || parseInt(player2Goals.value) < 0) {
+                errors.push('Player 2 goals must be a valid number (0 or higher)');
+            }
+            
+            return errors;
+        }
+        
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submitBtn');
+            const matchRows = document.querySelectorAll('.match-row');
+            
+            if (matchRows.length === 0) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-save mr-2"></i>Record All Matches';
+                return;
+            }
+            
+            const validation = validateAllMatches();
+            
+            if (validation.isValid) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = `<i class="fas fa-save mr-2"></i>Record ${validation.validMatches} Match${validation.validMatches > 1 ? 'es' : ''}`;
+                submitBtn.className = 'flex-1 py-3 px-6 bg-gradient-to-r from-purple-500 to-pink-600 text-white font-semibold rounded-xl hover:shadow-lg transform transition-all duration-200';
+            } else {
+                submitBtn.disabled = true;
+                const errorCount = validation.errors.length;
+                submitBtn.innerHTML = `<i class="fas fa-exclamation-triangle mr-2"></i>${errorCount} Error${errorCount > 1 ? 's' : ''} - Fix to Submit`;
+                submitBtn.className = 'flex-1 py-3 px-6 bg-red-500 text-white font-semibold rounded-xl cursor-not-allowed opacity-75';
+            }
+        }
+        
+        function showValidationErrors(errors) {
+            // Remove any existing error display
+            const existingErrorDiv = document.getElementById('validation-errors');
+            if (existingErrorDiv) {
+                existingErrorDiv.remove();
+            }
+            
+            if (errors.length === 0) return;
+            
+            // Create and show error message div
+            const errorDiv = document.createElement('div');
+            errorDiv.id = 'validation-errors';
+            errorDiv.className = 'mb-6 p-4 rounded-lg bg-red-50 border border-red-200';
+            
+            let errorHtml = '<div class="flex items-start">';
+            errorHtml += '<i class="fas fa-exclamation-circle text-red-500 mt-0.5 mr-2"></i>';
+            errorHtml += '<div>';
+            errorHtml += '<h4 class="font-semibold text-red-700 mb-2">Please fix the following errors before submitting:</h4>';
+            errorHtml += '<ul class="list-disc list-inside text-red-700 space-y-1">';
+            
+            errors.forEach(error => {
+                errorHtml += `<li>${error}</li>`;
+            });
+            
+            errorHtml += '</ul></div></div>';
+            errorDiv.innerHTML = errorHtml;
+            
+            // Insert before the form
+            const form = document.getElementById('bulkMatchForm');
+            form.parentNode.insertBefore(errorDiv, form);
+            
+            // Scroll to error message
+            errorDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Initialize validation when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            updateSubmitButton();
+        });
     </script>
 </body>
 </html>
