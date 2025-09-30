@@ -1448,9 +1448,9 @@ class TournamentDB:
                 if not clan_player:
                     raise ValueError("Clan player not found")
                 
-                # Get next match ID
-                cursor.execute("SELECT COALESCE(MAX(match_id), 0) + 1 FROM guest_matches")
-                next_match_id = cursor.fetchone()[0]
+                # Get next match ID (use alias to work with RealDictCursor)
+                cursor.execute("SELECT COALESCE(MAX(match_id), 0) + 1 AS next_id FROM guest_matches")
+                next_match_id = cursor.fetchone()['next_id']
                 
                 # Record pre-match rating
                 clan_rating_before = clan_player['rating'] or 300
