@@ -1623,12 +1623,14 @@ class TournamentDB:
     @staticmethod
     def _record_bulk_null_match(cursor, tournament_id, player1_id, player2_id):
         """Record a null match in bulk operations where both players are absent"""
-        # Get current ratings (for record keeping)
+        # Get current ratings (for record keeping, handle null ratings for new players)
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
-        player1_rating = cursor.fetchone()['rating']
+        player1_rating_result = cursor.fetchone()['rating']
+        player1_rating = 300 if player1_rating_result is None else player1_rating_result
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
-        player2_rating = cursor.fetchone()['rating']
+        player2_rating_result = cursor.fetchone()['rating']
+        player2_rating = 300 if player2_rating_result is None else player2_rating_result
         
         # Apply negative points for both absent players (penalty: -15 rating points)
         NULL_MATCH_PENALTY = 15
@@ -1663,12 +1665,14 @@ class TournamentDB:
     @staticmethod
     def _record_bulk_walkover_match(cursor, tournament_id, player1_id, player2_id, player1_absent, player2_absent):
         """Record a walkover match in bulk operations where one player is absent"""
-        # Get current ratings
+        # Get current ratings (handle null ratings for new players)
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
-        player1_rating = cursor.fetchone()['rating']
+        player1_rating_result = cursor.fetchone()['rating']
+        player1_rating = 300 if player1_rating_result is None else player1_rating_result
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
-        player2_rating = cursor.fetchone()['rating']
+        player2_rating_result = cursor.fetchone()['rating']
+        player2_rating = 300 if player2_rating_result is None else player2_rating_result
         
         # Determine winner (present player wins by walkover)
         winner_id = player2_id if player1_absent else player1_id
@@ -1771,12 +1775,14 @@ class TournamentDB:
     @staticmethod
     def _record_bulk_normal_match(cursor, tournament_id, player1_id, player2_id, player1_goals, player2_goals):
         """Record a normal match in bulk operations with both players present"""
-        # Get current ratings
+        # Get current ratings (handle null ratings for new players)
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
-        player1_rating = cursor.fetchone()['rating']
+        player1_rating_result = cursor.fetchone()['rating']
+        player1_rating = 300 if player1_rating_result is None else player1_rating_result
         
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player2_id,))
-        player2_rating = cursor.fetchone()['rating']
+        player2_rating_result = cursor.fetchone()['rating']
+        player2_rating = 300 if player2_rating_result is None else player2_rating_result
         
         # Determine winner and calculate enhanced rating changes with goals and clean sheets
         is_draw = player1_goals == player2_goals
@@ -2684,9 +2690,13 @@ class TournamentDB:
                 # Get current ratings (after reversal)
                 cursor.execute("SELECT rating FROM players WHERE id = %s", (match['player1_id'],))
                 current_player1_rating = cursor.fetchone()['rating']
+                if current_player1_rating is None:
+                    current_player1_rating = 300
                 
                 cursor.execute("SELECT rating FROM players WHERE id = %s", (match['player2_id'],))
                 current_player2_rating = cursor.fetchone()['rating']
+                if current_player2_rating is None:
+                    current_player2_rating = 300
                 
                 # Calculate new match results
                 new_is_draw = new_player1_goals == new_player2_goals
@@ -2899,6 +2909,8 @@ class TournamentDB:
                 # Get current clan player rating (after reversal)
                 cursor.execute("SELECT rating FROM players WHERE id = %s", (match['clan_player_id'],))
                 current_clan_rating = cursor.fetchone()['rating']
+                if current_clan_rating is None:
+                    current_clan_rating = 300
                 
                 # Calculate new match results
                 new_is_null_match = clan_absent and guest_absent

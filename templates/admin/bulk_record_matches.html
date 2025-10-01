@@ -913,12 +913,108 @@
             return false;
         }
         
+        function reindexMatches() {
+            const matchRows = document.querySelectorAll('.match-row');
+            const newDropdowns = {};
+            
+            matchRows.forEach((matchDiv, newIndex) => {
+                const oldIndex = matchDiv.getAttribute('data-match-index');
+                
+                if (parseInt(oldIndex) !== newIndex) {
+                    // Update the match div's data attribute
+                    matchDiv.setAttribute('data-match-index', newIndex);
+                    
+                    // Update all IDs and names within this match
+                    updateMatchElementIds(matchDiv, oldIndex, newIndex);
+                    
+                    // Update dropdown references
+                    const oldPlayer1DropdownId = `match_${oldIndex}_player1`;
+                    const oldPlayer2DropdownId = `match_${oldIndex}_player2`;
+                    const newPlayer1DropdownId = `match_${newIndex}_player1`;
+                    const newPlayer2DropdownId = `match_${newIndex}_player2`;
+                    
+                    if (matchDropdowns[oldPlayer1DropdownId]) {
+                        newDropdowns[newPlayer1DropdownId] = matchDropdowns[oldPlayer1DropdownId];
+                        newDropdowns[newPlayer1DropdownId].id = newPlayer1DropdownId;
+                        delete matchDropdowns[oldPlayer1DropdownId];
+                    }
+                    
+                    if (matchDropdowns[oldPlayer2DropdownId]) {
+                        newDropdowns[newPlayer2DropdownId] = matchDropdowns[oldPlayer2DropdownId];
+                        newDropdowns[newPlayer2DropdownId].id = newPlayer2DropdownId;
+                        delete matchDropdowns[oldPlayer2DropdownId];
+                    }
+                }
+            });
+            
+            // Update the global dropdown references
+            Object.assign(matchDropdowns, newDropdowns);
+            
+            // Update match count
+            matchCount = matchRows.length;
+            document.getElementById('match_count').value = matchCount;
+        }
+        
+        function updateMatchElementIds(matchDiv, oldIndex, newIndex) {
+            // Update match title
+            const title = matchDiv.querySelector('h3');
+            if (title) {
+                title.innerHTML = `<i class="fas fa-gamepad mr-2 text-blue-500"></i>Match ${newIndex + 1}`;
+            }
+            
+            // Update remove button onclick
+            const removeBtn = matchDiv.querySelector('[onclick*="removeMatch"]');
+            if (removeBtn) {
+                removeBtn.setAttribute('onclick', `removeMatch(${newIndex})`);
+            }
+            
+            // Get all elements that need ID updates
+            const elementsToUpdate = matchDiv.querySelectorAll('[id*="match_' + oldIndex + '_"], [name*="match_' + oldIndex + '_"], [for*="match_' + oldIndex + '_"], [onclick*="' + oldIndex + '"], [onchange*="' + oldIndex + '"]');
+            
+            elementsToUpdate.forEach(element => {
+                // Update ID
+                if (element.id) {
+                    element.id = element.id.replace(`match_${oldIndex}_`, `match_${newIndex}_`);
+                }
+                
+                // Update name
+                if (element.name) {
+                    element.name = element.name.replace(`match_${oldIndex}_`, `match_${newIndex}_`);
+                }
+                
+                // Update for attribute (labels)
+                if (element.getAttribute('for')) {
+                    element.setAttribute('for', element.getAttribute('for').replace(`match_${oldIndex}_`, `match_${newIndex}_`));
+                }
+                
+                // Update onclick attributes
+                if (element.getAttribute('onclick')) {
+                    element.setAttribute('onclick', element.getAttribute('onclick').replace(new RegExp(`\\b${oldIndex}\\b`, 'g'), newIndex));
+                }
+                
+                // Update onchange attributes
+                if (element.getAttribute('onchange')) {
+                    element.setAttribute('onchange', element.getAttribute('onchange').replace(new RegExp(`\\b${oldIndex}\\b`, 'g'), newIndex));
+                }
+            });
+        }
+        
         function removeMatch(index) {
             const matchDiv = document.querySelector(`[data-match-index="${index}"]`);
             if (matchDiv) {
                 matchDiv.classList.add('removing');
                 setTimeout(() => {
+                    // Clean up dropdown references before removing the match
+                    const player1DropdownId = `match_${index}_player1`;
+                    const player2DropdownId = `match_${index}_player2`;
+                    delete matchDropdowns[player1DropdownId];
+                    delete matchDropdowns[player2DropdownId];
+                    
                     matchDiv.remove();
+                    
+                    // Reindex remaining matches to prevent validation gaps
+                    reindexMatches();
+                    
                     updateSubmitButton();
                     
                     // If no matches left, show placeholder
@@ -930,6 +1026,8 @@
                                 <p class="text-sm mt-2">${tournamentPlayers.length} players available</p>
                             </div>
                         `;
+                        matchCount = 0;
+                        document.getElementById('match_count').value = 0;
                     }
                 }, 300);
             }
