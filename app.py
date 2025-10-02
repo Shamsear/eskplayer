@@ -94,7 +94,7 @@ def admin_dashboard():
     
     # Get awards data
     golden_boot_overall = TournamentDB.get_golden_boot_overall()
-    golden_glove_overall = TournamentDB.get_golden_glove_overall()
+    golden_glove_overall = TournamentDB.get_golden_glove_points_overall()
     
     # Get comprehensive statistics
     conn = get_db_connection()
@@ -1260,7 +1260,7 @@ def public_home():
         
         # Get awards data
         golden_boot_overall = TournamentDB.get_golden_boot_overall()
-        golden_glove_overall = TournamentDB.get_golden_glove_overall()
+        golden_glove_overall = TournamentDB.get_golden_glove_points_overall()
         golden_ball_overall = TournamentDB.get_golden_ball_overall() if hasattr(TournamentDB, 'get_golden_ball_overall') else None
         
         # Get comprehensive statistics
