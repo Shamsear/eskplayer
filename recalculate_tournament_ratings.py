@@ -174,7 +174,8 @@ def recalculate_tournament_ratings():
                     WHERE id = %s
                 """, (p1_t_rating_before, p2_t_rating_before, p1_t_rating_after, p2_t_rating_after, match['id']))
                 
-                # Update overall player stats (use same rating as tournament rating for consistency)
+                # Update overall player stats
+                # For overall rating: use weighted average of all tournament ratings
                 for pid, o_rating_after, t_rating_after, won, drawn, lost, gf, ga in [
                     (p1_id, p1_o_rating_after, p1_t_rating_after, 1 if winner_id == p1_id else 0, 1 if is_draw else 0, 1 if winner_id == p2_id else 0, g1, g2),
                     (p2_id, p2_o_rating_after, p2_t_rating_after, 1 if winner_id == p2_id else 0, 1 if is_draw else 0, 1 if winner_id == p1_id else 0, g2, g1)
@@ -186,13 +187,23 @@ def recalculate_tournament_ratings():
                             gf, ga, winner_id == pid, is_draw
                         )
                     
-                    # Use tournament rating as overall rating if player only plays in one tournament
-                    # Otherwise use calculated overall rating
-                    cursor.execute("SELECT COUNT(DISTINCT tournament_id) FROM player_stats WHERE player_id = %s", (pid,))
-                    tournament_count = cursor.fetchone()['count']
+                    # Calculate overall rating as weighted average of tournament ratings
+                    cursor.execute("""
+                        SELECT tournament_rating, matches_played 
+                        FROM player_stats 
+                        WHERE player_id = %s AND tournament_rating IS NOT NULL
+                    """, (pid,))
                     
-                    # If player only in one tournament, use tournament rating; otherwise use overall calculation
-                    final_rating = t_rating_after if tournament_count <= 1 else o_rating_after
+                    tournament_ratings = cursor.fetchall()
+                    
+                    if tournament_ratings:
+                        # Weighted average by matches played in each tournament
+                        total_matches = sum(t['matches_played'] for t in tournament_ratings)
+                        weighted_rating = sum(t['tournament_rating'] * t['matches_played'] for t in tournament_ratings) / total_matches
+                        final_rating = int(round(weighted_rating))
+                    else:
+                        # No tournament stats yet, use tournament rating
+                        final_rating = t_rating_after
                     
                     cursor.execute("""
                         UPDATE players SET
@@ -245,8 +256,41 @@ def recalculate_tournament_ratings():
             conn.commit()
             print(f"   ✓ All {processed_count} matches processed successfully")
             
-            # Step 5: Show summary
-            print("\n5. Recalculation Summary")
+            # Step 5: Update overall ratings from tournament ratings (weighted average)
+            print("\n5. Updating overall ratings from tournament ratings...")
+            cursor.execute("""
+                SELECT DISTINCT player_id FROM player_stats
+            """)
+            players_to_update = cursor.fetchall()
+            
+            for player_row in players_to_update:
+                player_id = player_row['player_id']
+                
+                # Get all tournament ratings for this player
+                cursor.execute("""
+                    SELECT tournament_rating, matches_played
+                    FROM player_stats
+                    WHERE player_id = %s AND tournament_rating IS NOT NULL
+                """, (player_id,))
+                
+                tournament_ratings = cursor.fetchall()
+                
+                if tournament_ratings:
+                    # Calculate weighted average
+                    total_matches = sum(t['matches_played'] for t in tournament_ratings)
+                    weighted_rating = sum(t['tournament_rating'] * t['matches_played'] for t in tournament_ratings) / total_matches
+                    final_rating = int(round(weighted_rating))
+                    
+                    # Update player's overall rating
+                    cursor.execute("""
+                        UPDATE players SET rating = %s WHERE id = %s
+                    """, (final_rating, player_id))
+            
+            conn.commit()
+            print(f"   ✓ Updated overall ratings for {len(players_to_update)} players")
+            
+            # Step 6: Show summary
+            print("\n6. Recalculation Summary")
             print("-" * 80)
             
             # Count players with ratings
