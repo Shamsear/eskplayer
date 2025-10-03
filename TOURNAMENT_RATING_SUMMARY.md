@@ -9,7 +9,7 @@ The tournament-wise rating breakdown feature is **fully implemented** and workin
 ### 1. Backend Function (`database.py`)
 - ✅ `get_player_tournament_breakdown(player_id)` function
 - Returns comprehensive tournament-wise statistics including:
-  - Overall rating (weighted average of all tournament ratings)
+  - Overall rating (cumulative Elo across all matches)
   - Total tournaments participated
   - Total matches played
   - Per-tournament breakdown with:
@@ -48,7 +48,7 @@ The tournament-wise rating breakdown feature is **fully implemented** and workin
 ## Example Output (Jomish Joshy)
 
 ```
-Overall Rating: 440
+Overall Rating: 473 (Cumulative Elo)
 Total Tournaments: 2
 Total Matches: 11
 
@@ -66,23 +66,28 @@ Tournament 2: Division Tour
   Matches: 10
   Record: 8W-1D-1L
 
-Overall Rating Calculation:
-  Weighted Average = (321 × 1 + 452 × 10) / 11 = 440
+Overall Rating Calculation (Cumulative Elo):
+  Start: 300
+  After 10 Division Tour matches: 437
+  After 1 ESK DERBY match: 437 + 21 = 458
+  After 1 more Division Tour match: 458 + 15 = 473
+  Final: 473
 ```
 
 ## Key Benefits
 
 1. **Independent Tournament Ratings**: Each tournament maintains its own rating, starting from the base rating (300)
-2. **Accurate Overall Rating**: Calculated as weighted average of tournament ratings
-3. **No Sequential Dependencies**: Tournament order doesn't affect ratings
+2. **Cumulative Overall Rating**: Overall rating is the cumulative Elo progression across ALL matches (tournament-independent)
+3. **Transparent Rating History**: See exactly how each match affected both tournament and overall ratings
 4. **Comprehensive Admin View**: Full visibility into player performance across all tournaments
-5. **Match-by-Match Transparency**: Detailed rating progression for each match
+5. **Match-by-Match Transparency**: Detailed rating progression for each match, showing both tournament-specific and overall rating changes
 
 ## Verification
 
 The implementation has been tested and verified:
-- ✅ Tournament ratings are calculated independently
-- ✅ Overall rating is correctly computed as weighted average
+- ✅ Tournament ratings are calculated independently (each starts at 300)
+- ✅ Overall rating is correctly computed as cumulative Elo
+- ✅ Overall rating history shows the correct sequential progression
 - ✅ Admin view displays all breakdown information
 - ✅ Multi-tournament players (like Jomish Joshy) show correct data
 - ✅ Rating recalculation script properly updates all ratings

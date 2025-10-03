@@ -1502,17 +1502,18 @@ class TournamentDB:
                 
                 overall_matches = cursor.fetchall()
                 
-                # Calculate overall rating progression
+                # Calculate overall rating progression using cumulative Elo
+                # Overall rating starts at 300 and applies all rating changes sequentially
                 overall_rating_history = []
                 cumulative_overall_rating = 300  # Start from 300
                 
                 for match in overall_matches:
-                    # Calculate rating change for overall (this is the tournament rating change)
+                    # Calculate rating change for this match (from tournament rating changes)
                     tournament_change = match['tournament_rating_after'] - match['tournament_rating_before']
                     
-                    # For overall rating, we track cumulative
+                    # For overall rating, we apply the change cumulatively
                     rating_before_match = cumulative_overall_rating
-                    cumulative_overall_rating = match['tournament_rating_after']  # Use the tournament rating as overall
+                    cumulative_overall_rating += tournament_change  # Apply the change to cumulative rating
                     
                     # Determine result
                     if match['is_null_match']:

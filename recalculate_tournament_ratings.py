@@ -132,18 +132,9 @@ def recalculate_tournament_ratings():
                     p1_t_rating_after = max(0, min(1000, p1_t_rating_before + t_change1))
                     p2_t_rating_after = max(0, min(1000, p2_t_rating_before + t_change2))
                     
-                    # Overall ratings
-                    if winner_id == p1_id:
-                        o_change_w, o_change_l = TournamentDB.calculate_rating_change(p1_o_rating_before, p2_o_rating_before, is_draw=False)
-                        o_change1 = int(o_change_w * 0.75)
-                        o_change2 = int(o_change_l * 0.75)
-                    else:
-                        o_change_w, o_change_l = TournamentDB.calculate_rating_change(p2_o_rating_before, p1_o_rating_before, is_draw=False)
-                        o_change2 = int(o_change_w * 0.75)
-                        o_change1 = int(o_change_l * 0.75)
-                    
-                    p1_o_rating_after = max(0, min(1000, p1_o_rating_before + o_change1))
-                    p2_o_rating_after = max(0, min(1000, p2_o_rating_before + o_change2))
+                    # Overall ratings: Apply the SAME rating changes from tournament (cumulative Elo)
+                    p1_o_rating_after = max(0, min(1000, p1_o_rating_before + t_change1))
+                    p2_o_rating_after = max(0, min(1000, p2_o_rating_before + t_change2))
                     
                 else:
                     # Normal match - use enhanced rating calculation
@@ -156,13 +147,10 @@ def recalculate_tournament_ratings():
                     p1_t_rating_after = max(0, min(1000, p1_t_rating_before + t_change1))
                     p2_t_rating_after = max(0, min(1000, p2_t_rating_before + t_change2))
                     
-                    # Overall ratings (use same changes as tournament)
-                    # Calculate change based on overall rating to account for multi-tournament players
-                    o_change1, o_change2 = TournamentDB.calculate_enhanced_rating_change(
-                        p1_o_rating_before, p2_o_rating_before, g1, g2, p1_absent, p2_absent
-                    )
-                    p1_o_rating_after = max(0, min(1000, p1_o_rating_before + o_change1))
-                    p2_o_rating_after = max(0, min(1000, p2_o_rating_before + o_change2))
+                    # Overall ratings: Apply the SAME rating changes from tournament (cumulative Elo)
+                    # This ensures overall rating is the cumulative sum of all tournament rating changes
+                    p1_o_rating_after = max(0, min(1000, p1_o_rating_before + t_change1))
+                    p2_o_rating_after = max(0, min(1000, p2_o_rating_before + t_change2))
                 
                 # Update match record with tournament ratings
                 cursor.execute("""
@@ -175,7 +163,7 @@ def recalculate_tournament_ratings():
                 """, (p1_t_rating_before, p2_t_rating_before, p1_t_rating_after, p2_t_rating_after, match['id']))
                 
                 # Update overall player stats
-                # For overall rating: use weighted average of all tournament ratings
+                # For overall rating: use cumulative Elo (apply changes from tournament rating sequentially)
                 for pid, o_rating_after, t_rating_after, won, drawn, lost, gf, ga in [
                     (p1_id, p1_o_rating_after, p1_t_rating_after, 1 if winner_id == p1_id else 0, 1 if is_draw else 0, 1 if winner_id == p2_id else 0, g1, g2),
                     (p2_id, p2_o_rating_after, p2_t_rating_after, 1 if winner_id == p2_id else 0, 1 if is_draw else 0, 1 if winner_id == p1_id else 0, g2, g1)
@@ -187,24 +175,7 @@ def recalculate_tournament_ratings():
                             gf, ga, winner_id == pid, is_draw
                         )
                     
-                    # Calculate overall rating as weighted average of tournament ratings
-                    cursor.execute("""
-                        SELECT tournament_rating, matches_played 
-                        FROM player_stats 
-                        WHERE player_id = %s AND tournament_rating IS NOT NULL
-                    """, (pid,))
-                    
-                    tournament_ratings = cursor.fetchall()
-                    
-                    if tournament_ratings:
-                        # Weighted average by matches played in each tournament
-                        total_matches = sum(t['matches_played'] for t in tournament_ratings)
-                        weighted_rating = sum(t['tournament_rating'] * t['matches_played'] for t in tournament_ratings) / total_matches
-                        final_rating = int(round(weighted_rating))
-                    else:
-                        # No tournament stats yet, use tournament rating
-                        final_rating = t_rating_after
-                    
+                    # Use cumulative overall rating (already calculated above)
                     cursor.execute("""
                         UPDATE players SET
                             rating = %s,
@@ -217,7 +188,7 @@ def recalculate_tournament_ratings():
                             clean_sheets = clean_sheets + %s,
                             golden_glove_points = golden_glove_points + %s
                         WHERE id = %s
-                    """, (final_rating, won, drawn, lost, gf, ga, 1 if ga == 0 and not is_null else 0, glove_points, pid))
+                    """, (o_rating_after, won, drawn, lost, gf, ga, 1 if ga == 0 and not is_null else 0, glove_points, pid))
                 
                 # Update tournament-specific stats with tournament rating
                 for pid, t_rating_after, won, drawn, lost, gf, ga in [
@@ -256,41 +227,8 @@ def recalculate_tournament_ratings():
             conn.commit()
             print(f"   ✓ All {processed_count} matches processed successfully")
             
-            # Step 5: Update overall ratings from tournament ratings (weighted average)
-            print("\n5. Updating overall ratings from tournament ratings...")
-            cursor.execute("""
-                SELECT DISTINCT player_id FROM player_stats
-            """)
-            players_to_update = cursor.fetchall()
-            
-            for player_row in players_to_update:
-                player_id = player_row['player_id']
-                
-                # Get all tournament ratings for this player
-                cursor.execute("""
-                    SELECT tournament_rating, matches_played
-                    FROM player_stats
-                    WHERE player_id = %s AND tournament_rating IS NOT NULL
-                """, (player_id,))
-                
-                tournament_ratings = cursor.fetchall()
-                
-                if tournament_ratings:
-                    # Calculate weighted average
-                    total_matches = sum(t['matches_played'] for t in tournament_ratings)
-                    weighted_rating = sum(t['tournament_rating'] * t['matches_played'] for t in tournament_ratings) / total_matches
-                    final_rating = int(round(weighted_rating))
-                    
-                    # Update player's overall rating
-                    cursor.execute("""
-                        UPDATE players SET rating = %s WHERE id = %s
-                    """, (final_rating, player_id))
-            
-            conn.commit()
-            print(f"   ✓ Updated overall ratings for {len(players_to_update)} players")
-            
-            # Step 6: Show summary
-            print("\n6. Recalculation Summary")
+            # Step 5: Show summary
+            print("\n5. Recalculation Summary")
             print("-" * 80)
             
             # Count players with ratings
