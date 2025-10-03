@@ -302,6 +302,240 @@
             </div>
         </div>
         
+        <!-- Tournament-Wise Rating Breakdown (NEW!) -->
+        {% if tournament_breakdown and tournament_breakdown.tournaments %}
+        <div class="glass rounded-3xl p-8 mb-8">
+            <h3 class="text-2xl font-display font-bold text-gray-900 mb-6">
+                <i class="fas fa-chart-line mr-3 text-indigo-500"></i>Tournament-Wise Rating Breakdown
+            </h3>
+            
+            <!-- Overall Summary -->
+            <div class="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-6 mb-6 border border-indigo-200">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600 mb-1">Overall Rating</div>
+                        <div class="text-3xl font-bold gradient-text">{{ tournament_breakdown.overall_rating if tournament_breakdown.overall_rating else 'Unrated' }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600 mb-1">Total Tournaments</div>
+                        <div class="text-3xl font-bold text-gray-900">{{ tournament_breakdown.total_tournaments }}</div>
+                    </div>
+                    <div class="text-center">
+                        <div class="text-sm text-gray-600 mb-1">Total Matches</div>
+                        <div class="text-3xl font-bold text-gray-900">{{ tournament_breakdown.overall_matches }}</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Overall Rating History (All Matches) -->
+            {% if tournament_breakdown.overall_rating_history %}
+            <div class="bg-white rounded-xl p-6 mb-6 border border-gray-200">
+                <h4 class="font-bold text-gray-900 mb-4 flex items-center">
+                    <i class="fas fa-history mr-2 text-purple-500"></i>
+                    Overall Rating Progression (All Matches)
+                </h4>
+                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                    <table class="w-full text-sm">
+                        <thead class="sticky top-0 bg-gray-50">
+                            <tr class="border-b border-gray-300">
+                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">#</th>
+                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Date</th>
+                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Tournament</th>
+                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Opponent</th>
+                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Score</th>
+                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Result</th>
+                                <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating Before</th>
+                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Change</th>
+                                <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating After</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for match in tournament_breakdown.overall_rating_history %}
+                            <tr class="border-b border-gray-200 hover:bg-white transition-colors">
+                                <td class="py-2 px-2 text-gray-600">{{ loop.index }}</td>
+                                <td class="py-2 px-2 text-gray-600">{{ match.played_at.strftime('%b %d') }}</td>
+                                <td class="py-2 px-2">
+                                    <span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded">{{ match.tournament_name }}</span>
+                                </td>
+                                <td class="py-2 px-2 font-medium text-gray-900">{{ match.opponent }}</td>
+                                <td class="py-2 px-2 text-center font-mono">
+                                    <span class="font-semibold">{{ match.score }}</span>
+                                </td>
+                                <td class="py-2 px-2 text-center">
+                                    <span class="result-{{ match.result.lower() }} px-2 py-1 rounded text-xs font-semibold">
+                                        {{ match.result }}
+                                    </span>
+                                </td>
+                                <td class="py-2 px-2 text-right font-mono text-gray-700">{{ match.rating_before }}</td>
+                                <td class="py-2 px-2 text-center">
+                                    <span class="{% if match.rating_change >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-bold">
+                                        {{ "%+d" % match.rating_change }}
+                                    </span>
+                                </td>
+                                <td class="py-2 px-2 text-right font-mono font-semibold text-gray-900">{{ match.rating_after }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Tournament Details -->
+            <div class="space-y-4">
+                {% for tournament in tournament_breakdown.tournaments %}
+                <div class="bg-white rounded-xl p-6 border border-gray-200 hover:shadow-lg transition-shadow">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center">
+                            <div class="w-12 h-12 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center mr-4">
+                                <i class="fas fa-trophy text-white text-lg"></i>
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-lg">{{ tournament.tournament_name }}</h4>
+                                <span class="status-{{ tournament.tournament_status }} px-2 py-1 rounded-full text-xs font-medium">
+                                    {{ tournament.tournament_status.title() }}
+                                </span>
+                            </div>
+                        </div>
+                        
+                        <!-- Rating Badge -->
+                        <div class="text-right">
+                            <div class="text-sm text-gray-600 mb-1">Tournament Rating</div>
+                            <div class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl font-bold text-xl">
+                                {{ tournament.tournament_rating }}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Rating Progress -->
+                    <div class="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <div>
+                                <span class="text-sm text-gray-600">Starting Rating</span>
+                                <div class="text-lg font-semibold text-gray-900">{{ tournament.start_rating }}</div>
+                            </div>
+                            <div class="flex-1 mx-4">
+                                <div class="relative">
+                                    <div class="h-2 bg-gray-200 rounded-full">
+                                        {% if tournament.rating_change >= 0 %}
+                                        <div class="h-2 bg-gradient-to-r from-green-400 to-green-600 rounded-full" style="width: 100%;"></div>
+                                        {% else %}
+                                        <div class="h-2 bg-gradient-to-r from-red-400 to-red-600 rounded-full" style="width: 100%;"></div>
+                                        {% endif %}
+                                    </div>
+                                    <div class="text-center mt-1">
+                                        <span class="text-xs font-semibold {% if tournament.rating_change >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                            {{ "%+d" % tournament.rating_change }} points
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <span class="text-sm text-gray-600">Current Rating</span>
+                                <div class="text-lg font-semibold {% if tournament.rating_change >= 0 %}text-green-600{% else %}text-red-600{% endif %}">
+                                    {{ tournament.tournament_rating }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Tournament Stats -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="text-center p-3 bg-blue-50 rounded-lg">
+                            <div class="text-2xl font-bold text-blue-600">{{ tournament.matches }}</div>
+                            <div class="text-xs text-gray-600">Matches</div>
+                        </div>
+                        <div class="text-center p-3 bg-green-50 rounded-lg">
+                            <div class="text-2xl font-bold text-green-600">{{ tournament.wins }}</div>
+                            <div class="text-xs text-gray-600">Wins</div>
+                        </div>
+                        <div class="text-center p-3 bg-orange-50 rounded-lg">
+                            <div class="text-2xl font-bold text-orange-600">{{ tournament.goals_for }}</div>
+                            <div class="text-xs text-gray-600">Goals</div>
+                        </div>
+                        <div class="text-center p-3 bg-purple-50 rounded-lg">
+                            <div class="text-2xl font-bold text-purple-600">{{ tournament.clean_sheets }}</div>
+                            <div class="text-xs text-gray-600">Clean Sheets</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Record -->
+                    <div class="mt-4 pt-4 border-t border-gray-200">
+                        <div class="flex items-center justify-between text-sm">
+                            <span class="text-gray-600">Record:</span>
+                            <span class="font-semibold">
+                                <span class="text-green-600">{{ tournament.wins }}W</span>-<span class="text-gray-600">{{ tournament.draws }}D</span>-<span class="text-red-600">{{ tournament.losses }}L</span>
+                            </span>
+                        </div>
+                        {% if tournament.first_match %}
+                        <div class="flex items-center justify-between text-sm mt-2">
+                            <span class="text-gray-600">Period:</span>
+                            <span class="text-gray-700">{{ tournament.first_match.strftime('%b %d') }} - {{ tournament.last_match.strftime('%b %d, %Y') }}</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Match-by-Match Breakdown -->
+                    {% if tournament.match_history %}
+                    <div class="mt-6">
+                        <h5 class="font-bold text-gray-900 mb-3 flex items-center">
+                            <i class="fas fa-list-ol mr-2 text-indigo-500"></i>
+                            Match-by-Match Rating Changes
+                        </h5>
+                        <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
+                            <table class="w-full text-sm">
+                                <thead class="sticky top-0 bg-gray-50">
+                                    <tr class="border-b border-gray-300">
+                                        <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">#</th>
+                                        <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Date</th>
+                                        <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Opponent</th>
+                                        <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Score</th>
+                                        <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Result</th>
+                                        <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating Before</th>
+                                        <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Change</th>
+                                        <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating After</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for match in tournament.match_history %}
+                                    <tr class="border-b border-gray-200 hover:bg-white transition-colors">
+                                        <td class="py-2 px-2 text-gray-600">{{ loop.index }}</td>
+                                        <td class="py-2 px-2 text-gray-600">{{ match.played_at.strftime('%b %d') }}</td>
+                                        <td class="py-2 px-2">
+                                            <div class="font-medium text-gray-900">{{ match.opponent }}</div>
+                                            {% if match.is_walkover %}
+                                            <span class="text-xs text-orange-600">Walkover</span>
+                                            {% endif %}
+                                        </td>
+                                        <td class="py-2 px-2 text-center font-mono">
+                                            <span class="{% if match.goals_for > match.goals_against %}text-green-600{% elif match.goals_for < match.goals_against %}text-red-600{% else %}text-gray-600{% endif %} font-semibold">
+                                                {{ match.score }}
+                                            </span>
+                                        </td>
+                                        <td class="py-2 px-2 text-center">
+                                            <span class="result-{{ match.result.lower() }} px-2 py-1 rounded text-xs font-semibold">
+                                                {{ match.result }}</span>
+                                        </td>
+                                        <td class="py-2 px-2 text-right font-mono text-gray-700">{{ match.tournament_rating_before }}</td>
+                                        <td class="py-2 px-2 text-center">
+                                            <span class="{% if match.tournament_rating_change >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-bold">
+                                                {{ "%+d" % match.tournament_rating_change }}
+                                            </span>
+                                        </td>
+                                        <td class="py-2 px-2 text-right font-mono font-semibold text-gray-900">{{ match.tournament_rating_after }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Tournament Participation -->
         {% if tournament_participation %}
         <div class="glass rounded-3xl p-8 mb-8">

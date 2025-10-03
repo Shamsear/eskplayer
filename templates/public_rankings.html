@@ -276,7 +276,13 @@
                             </td>
                             <td class="px-6 py-4 text-center">
                                 <span class="inline-flex px-3 py-1 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-full font-bold">
-                                    {{ player.rating or 300 }}
+                                    {% if scope != 'overall' and player.tournament_rating is not none %}
+                                        {{ player.tournament_rating }}
+                                    {% elif scope == 'overall' %}
+                                        {{ player.rating or 'N/A' }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-center font-medium">{{ player.matches_played or 0 }}</td>
@@ -354,7 +360,15 @@
                 <div class="w-14 h-14 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mx-auto mb-4 transform group-hover:scale-110 transition-transform">
                     <i class="fas fa-chart-line text-white text-xl"></i>
                 </div>
-                <div class="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">{{ "%.0f"|format(players|map(attribute='rating')|sum / players|length) }}</div>
+                {% if scope == 'overall' %}
+                    <div class="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                        {{ "%.0f"|format(players|map(attribute='rating')|select('number')|sum / (players|map(attribute='rating')|select('number')|list|length or 1)) }}
+                    </div>
+                {% else %}
+                    <div class="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+                        {{ "%.0f"|format(players|map(attribute='tournament_rating')|select('number')|sum / (players|map(attribute='tournament_rating')|select('number')|list|length or 1)) }}
+                    </div>
+                {% endif %}
                 <div class="text-gray-600 mt-1">Average Rating</div>
             </div>
             

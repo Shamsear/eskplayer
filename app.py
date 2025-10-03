@@ -733,6 +733,9 @@ def player_details(player_id):
     vs_opponents = TournamentDB.get_player_vs_opponents(player_id)
     player_awards = TournamentDB.get_player_awards(player_id)
     
+    # Get tournament-wise rating breakdown (NEW!)
+    tournament_breakdown = TournamentDB.get_player_tournament_breakdown(player_id)
+    
     # Calculate additional statistics
     total_goals_for = sum([match['player_goals'] for match in match_history])
     total_goals_against = sum([match['opponent_goals'] for match in match_history])
@@ -763,7 +766,8 @@ def player_details(player_id):
                          total_goals_against=total_goals_against,
                          recent_form=recent_form,
                          rating_trend=rating_trend,
-                         player_awards=player_awards)
+                         player_awards=player_awards,
+                         tournament_breakdown=tournament_breakdown)
 
 @app.route('/admin/stats')
 @admin_required
@@ -1364,7 +1368,12 @@ def public_rankings():
             unqualified_stats = [s for s in players_stats if s['matches_played'] < 4]
             qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
             players_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
-        # If no award filter, players are already sorted by rating (default)
+        else:
+            # Sort by tournament_rating for tournament-specific view, overall rating for overall view
+            if scope != 'overall':
+                # Tournament-specific: sort by tournament_rating
+                players_stats = sorted(players_stats, key=lambda x: (x.get('tournament_rating') if x.get('tournament_rating') is not None else -1, x['wins'], x['goals_scored']), reverse=True)
+            # else: players are already sorted by overall rating (default)
         
         # Assign ranking AFTER sorting is complete (this ranking reflects the current filter combination)
         for i, player in enumerate(players_stats):
