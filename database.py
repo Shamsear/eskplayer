@@ -1030,33 +1030,28 @@ class TournamentDB:
         match_id = cursor.fetchone()['next_id']
         
         # Record the walkover match (store tournament-specific ratings)
+        # Walkover matches: 0-0 score, update ratings, matches_played, wins/losses but NO goals
         cursor.execute("""
             INSERT INTO player_matches 
             (match_id, tournament_id, player1_id, player2_id, player1_goals, player2_goals,
              winner_id, is_draw, is_walkover, is_null_match, player1_absent, player2_absent,
              player1_rating_before, player2_rating_before, player1_rating_after, player2_rating_after)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, false, true, false, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, 0, 0, %s, false, true, false, %s, %s, %s, %s, %s, %s)
         """, (match_id, tournament_id, player1_id, player2_id,
-              3 if winner_id == player1_id else 0,  # Standard 3-0 walkover score
-              3 if winner_id == player2_id else 0,
               winner_id, player1_absent, player2_absent,
               player1_rating, player2_rating, new_tournament_rating1, new_tournament_rating2))
         
-        # Update player overall ratings and stats
+        # Update player overall ratings, matches_played, wins/losses (but NO goals for walkover)
         cursor.execute("""
             UPDATE players SET 
                 rating = %s, 
                 matches_played = matches_played + 1,
                 matches_won = matches_won + %s,
-                matches_lost = matches_lost + %s,
-                goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                matches_lost = matches_lost + %s
             WHERE id = %s
         """, (new_overall_rating1,
               1 if winner_id == player1_id else 0,
               1 if winner_id != player1_id else 0,
-              3 if winner_id == player1_id else 0,
-              3 if winner_id != player1_id else 0,
               player1_id))
         
         cursor.execute("""
@@ -1064,42 +1059,34 @@ class TournamentDB:
                 rating = %s, 
                 matches_played = matches_played + 1,
                 matches_won = matches_won + %s,
-                matches_lost = matches_lost + %s,
-                goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                matches_lost = matches_lost + %s
             WHERE id = %s
         """, (new_overall_rating2,
               1 if winner_id == player2_id else 0,
               1 if winner_id != player2_id else 0,
-              3 if winner_id == player2_id else 0,
-              3 if winner_id != player2_id else 0,
               player2_id))
         
-        # Update tournament stats with tournament-specific rating
-        for player_id, goals_scored, goals_conceded, is_winner, new_tournament_rating in [
-            (player1_id, 3 if winner_id == player1_id else 0, 3 if winner_id != player1_id else 0, winner_id == player1_id, new_tournament_rating1),
-            (player2_id, 3 if winner_id == player2_id else 0, 3 if winner_id != player2_id else 0, winner_id == player2_id, new_tournament_rating2)
+        # Update tournament stats with tournament-specific rating, matches_played, wins/losses (but NO goals)
+        for player_id, is_winner, new_tournament_rating in [
+            (player1_id, winner_id == player1_id, new_tournament_rating1),
+            (player2_id, winner_id == player2_id, new_tournament_rating2)
         ]:
             cursor.execute("""
                 INSERT INTO player_stats 
                 (player_id, tournament_id, tournament_rating, matches_played, wins, draws, losses, goals_scored, goals_conceded)
-                VALUES (%s, %s, %s, 1, %s, 0, %s, %s, %s)
+                VALUES (%s, %s, %s, 1, %s, 0, %s, 0, 0)
                 ON CONFLICT (player_id, tournament_id)
                 DO UPDATE SET
                     tournament_rating = %s,
                     matches_played = player_stats.matches_played + 1,
                     wins = player_stats.wins + %s,
-                    losses = player_stats.losses + %s,
-                    goals_scored = player_stats.goals_scored + %s,
-                    goals_conceded = player_stats.goals_conceded + %s
+                    losses = player_stats.losses + %s
             """, (player_id, tournament_id, new_tournament_rating,
                   1 if is_winner else 0,
                   1 if not is_winner else 0,
-                  goals_scored, goals_conceded,
                   new_tournament_rating,
                   1 if is_winner else 0,
-                  1 if not is_winner else 0,
-                  goals_scored, goals_conceded))
+                  1 if not is_winner else 0))
         
         conn.commit()
         return match_id
@@ -2036,34 +2023,28 @@ class TournamentDB:
         cursor.execute("SELECT COALESCE(MAX(match_id), 0) + 1 as next_id FROM player_matches")
         match_id = cursor.fetchone()['next_id']
         
-        # Record the walkover match
+        # Record the walkover match (0-0 score, update ratings, matches_played, wins/losses but NO goals)
         cursor.execute("""
             INSERT INTO player_matches 
             (match_id, tournament_id, player1_id, player2_id, player1_goals, player2_goals,
              winner_id, is_draw, is_walkover, is_null_match, player1_absent, player2_absent,
              player1_rating_before, player2_rating_before, player1_rating_after, player2_rating_after)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, false, true, false, %s, %s, %s, %s, %s, %s)
+            VALUES (%s, %s, %s, %s, 0, 0, %s, false, true, false, %s, %s, %s, %s, %s, %s)
         """, (match_id, tournament_id, player1_id, player2_id,
-              3 if winner_id == player1_id else 0,  # Standard 3-0 walkover score
-              3 if winner_id == player2_id else 0,
               winner_id, player1_absent, player2_absent,
               player1_rating, player2_rating, new_rating1, new_rating2))
         
-        # Update player ratings and stats
+        # Update player ratings, matches_played, wins/losses (but NO goals for walkover)
         cursor.execute("""
             UPDATE players SET 
                 rating = %s, 
                 matches_played = matches_played + 1,
                 matches_won = matches_won + %s,
-                matches_lost = matches_lost + %s,
-                goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                matches_lost = matches_lost + %s
             WHERE id = %s
         """, (new_rating1,
               1 if winner_id == player1_id else 0,
               1 if winner_id != player1_id else 0,
-              3 if winner_id == player1_id else 0,
-              3 if winner_id != player1_id else 0,
               player1_id))
         
         cursor.execute("""
@@ -2071,40 +2052,32 @@ class TournamentDB:
                 rating = %s, 
                 matches_played = matches_played + 1,
                 matches_won = matches_won + %s,
-                matches_lost = matches_lost + %s,
-                goals_scored = goals_scored + %s,
-                goals_conceded = goals_conceded + %s
+                matches_lost = matches_lost + %s
             WHERE id = %s
         """, (new_rating2,
               1 if winner_id == player2_id else 0,
               1 if winner_id != player2_id else 0,
-              3 if winner_id == player2_id else 0,
-              3 if winner_id != player2_id else 0,
               player2_id))
         
-        # Update tournament stats
-        for player_id, goals_scored, goals_conceded, is_winner in [
-            (player1_id, 3 if winner_id == player1_id else 0, 3 if winner_id != player1_id else 0, winner_id == player1_id),
-            (player2_id, 3 if winner_id == player2_id else 0, 3 if winner_id != player2_id else 0, winner_id == player2_id)
+        # Update tournament stats - matches_played, wins/losses (but NO goals)
+        for player_id, is_winner in [
+            (player1_id, winner_id == player1_id),
+            (player2_id, winner_id == player2_id)
         ]:
             cursor.execute("""
                 INSERT INTO player_stats 
                 (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
-                VALUES (%s, %s, 1, %s, 0, %s, %s, %s)
+                VALUES (%s, %s, 1, %s, 0, %s, 0, 0)
                 ON CONFLICT (player_id, tournament_id)
                 DO UPDATE SET
                     matches_played = player_stats.matches_played + 1,
                     wins = player_stats.wins + %s,
-                    losses = player_stats.losses + %s,
-                    goals_scored = player_stats.goals_scored + %s,
-                    goals_conceded = player_stats.goals_conceded + %s
+                    losses = player_stats.losses + %s
             """, (player_id, tournament_id,
                   1 if is_winner else 0,
                   1 if not is_winner else 0,
-                  goals_scored, goals_conceded,
                   1 if is_winner else 0,
-                  1 if not is_winner else 0,
-                  goals_scored, goals_conceded))
+                  1 if not is_winner else 0))
         
         return match_id
     
@@ -2958,69 +2931,122 @@ class TournamentDB:
                 
                 # Only reverse stats if the old match wasn't null
                 if not match.get('is_null_match', False):
-                    # Reverse player stats for the old match
-                    cursor.execute("""
-                        UPDATE players SET 
-                            rating = rating - %s, 
-                            matches_played = matches_played - 1,
-                            matches_won = matches_won - %s,
-                            matches_drawn = matches_drawn - %s,
-                            matches_lost = matches_lost - %s,
-                            goals_scored = goals_scored - %s,
-                            goals_conceded = goals_conceded - %s
-                        WHERE id = %s
-                    """, (old_player1_rating_change,
-                          1 if match['winner_id'] == match['player1_id'] else 0,
-                          1 if match['is_draw'] else 0,
-                          1 if match['winner_id'] == match['player2_id'] else 0,
-                          match['player1_goals'], match['player2_goals'], match['player1_id']))
+                    # Check if old match was a walkover
+                    old_is_walkover = match.get('is_walkover', False)
                     
-                    cursor.execute("""
-                        UPDATE players SET 
-                            rating = rating - %s, 
-                            matches_played = matches_played - 1,
-                            matches_won = matches_won - %s,
-                            matches_drawn = matches_drawn - %s,
-                            matches_lost = matches_lost - %s,
-                            goals_scored = goals_scored - %s,
-                            goals_conceded = goals_conceded - %s
-                        WHERE id = %s
-                    """, (old_player2_rating_change,
-                          1 if match['winner_id'] == match['player2_id'] else 0,
-                          1 if match['is_draw'] else 0,
-                          1 if match['winner_id'] == match['player1_id'] else 0,
-                          match['player2_goals'], match['player1_goals'], match['player2_id']))
+                    # Reverse player stats for the old match
+                    if old_is_walkover:
+                        # Walkover: reverse rating, matches_played, wins/losses but NOT goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_lost = matches_lost - %s
+                            WHERE id = %s
+                        """, (old_player1_rating_change,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              match['player1_id']))
+                        
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_lost = matches_lost - %s
+                            WHERE id = %s
+                        """, (old_player2_rating_change,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              match['player2_id']))
+                    else:
+                        # Normal match: reverse all stats including goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_drawn = matches_drawn - %s,
+                                matches_lost = matches_lost - %s,
+                                goals_scored = goals_scored - %s,
+                                goals_conceded = goals_conceded - %s
+                            WHERE id = %s
+                        """, (old_player1_rating_change,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              1 if match['is_draw'] else 0,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              match['player1_goals'], match['player2_goals'], match['player1_id']))
+                        
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_drawn = matches_drawn - %s,
+                                matches_lost = matches_lost - %s,
+                                goals_scored = goals_scored - %s,
+                                goals_conceded = goals_conceded - %s
+                            WHERE id = %s
+                        """, (old_player2_rating_change,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              1 if match['is_draw'] else 0,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              match['player2_goals'], match['player1_goals'], match['player2_id']))
                     
                     # Reverse tournament stats for the old match
-                    cursor.execute("""
-                        UPDATE player_stats SET
-                            matches_played = matches_played - 1,
-                            wins = wins - %s,
-                            draws = draws - %s,
-                            losses = losses - %s,
-                            goals_scored = goals_scored - %s,
-                            goals_conceded = goals_conceded - %s
-                        WHERE player_id = %s AND tournament_id = %s
-                    """, (1 if match['winner_id'] == match['player1_id'] else 0,
-                          1 if match['is_draw'] else 0,
-                          1 if match['winner_id'] == match['player2_id'] else 0,
-                          match['player1_goals'], match['player2_goals'],
-                          match['player1_id'], match['tournament_id']))
-                    
-                    cursor.execute("""
-                        UPDATE player_stats SET
-                            matches_played = matches_played - 1,
-                            wins = wins - %s,
-                            draws = draws - %s,
-                            losses = losses - %s,
-                            goals_scored = goals_scored - %s,
-                            goals_conceded = goals_conceded - %s
-                        WHERE player_id = %s AND tournament_id = %s
-                    """, (1 if match['winner_id'] == match['player2_id'] else 0,
-                          1 if match['is_draw'] else 0,
-                          1 if match['winner_id'] == match['player1_id'] else 0,
-                          match['player2_goals'], match['player1_goals'],
-                          match['player2_id'], match['tournament_id']))
+                    if old_is_walkover:
+                        # Walkover: reverse matches_played, wins/losses but NOT goals
+                        cursor.execute("""
+                            UPDATE player_stats SET
+                                matches_played = matches_played - 1,
+                                wins = wins - %s,
+                                losses = losses - %s
+                            WHERE player_id = %s AND tournament_id = %s
+                        """, (1 if match['winner_id'] == match['player1_id'] else 0,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              match['player1_id'], match['tournament_id']))
+                        
+                        cursor.execute("""
+                            UPDATE player_stats SET
+                                matches_played = matches_played - 1,
+                                wins = wins - %s,
+                                losses = losses - %s
+                            WHERE player_id = %s AND tournament_id = %s
+                        """, (1 if match['winner_id'] == match['player2_id'] else 0,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              match['player2_id'], match['tournament_id']))
+                    else:
+                        # Normal match: reverse all stats including goals
+                        cursor.execute("""
+                            UPDATE player_stats SET
+                                matches_played = matches_played - 1,
+                                wins = wins - %s,
+                                draws = draws - %s,
+                                losses = losses - %s,
+                                goals_scored = goals_scored - %s,
+                                goals_conceded = goals_conceded - %s
+                            WHERE player_id = %s AND tournament_id = %s
+                        """, (1 if match['winner_id'] == match['player1_id'] else 0,
+                              1 if match['is_draw'] else 0,
+                              1 if match['winner_id'] == match['player2_id'] else 0,
+                              match['player1_goals'], match['player2_goals'],
+                              match['player1_id'], match['tournament_id']))
+                        
+                        cursor.execute("""
+                            UPDATE player_stats SET
+                                matches_played = matches_played - 1,
+                                wins = wins - %s,
+                                draws = draws - %s,
+                                losses = losses - %s,
+                                goals_scored = goals_scored - %s,
+                                goals_conceded = goals_conceded - %s
+                            WHERE player_id = %s AND tournament_id = %s
+                        """, (1 if match['winner_id'] == match['player2_id'] else 0,
+                              1 if match['is_draw'] else 0,
+                              1 if match['winner_id'] == match['player1_id'] else 0,
+                              match['player2_goals'], match['player1_goals'],
+                              match['player2_id'], match['tournament_id']))
                 
                 # Now calculate new match results
                 # Get current ratings (after reversal)
@@ -3053,10 +3079,10 @@ class TournamentDB:
                     new_rating1 = max(0, min(1000, current_player1_rating - NULL_MATCH_PENALTY))
                     new_rating2 = max(0, min(1000, current_player2_rating - NULL_MATCH_PENALTY))
                 elif new_is_walkover:
-                    # Walkover - set 3-0 score and determine winner
+                    # Walkover - 0-0 score, only ratings, matches_played, wins/losses change (NO goals)
                     winner_id = match['player2_id'] if player1_absent else match['player1_id']
-                    new_player1_goals = 0 if player1_absent else 3
-                    new_player2_goals = 0 if player2_absent else 3
+                    new_player1_goals = 0
+                    new_player2_goals = 0
                     new_winner_id = winner_id
                     new_is_draw = False
                     
@@ -3107,82 +3133,142 @@ class TournamentDB:
                       current_player1_rating, current_player2_rating, new_rating1, new_rating2, match_id))
                 
                 # Apply new player stats
-                cursor.execute("""
-                    UPDATE players SET 
-                        rating = %s, 
-                        matches_played = matches_played + 1,
-                        matches_won = matches_won + %s,
-                        matches_drawn = matches_drawn + %s,
-                        matches_lost = matches_lost + %s,
-                        goals_scored = goals_scored + %s,
-                        goals_conceded = goals_conceded + %s
-                    WHERE id = %s
-                """, (new_rating1, 
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      new_player1_goals, new_player2_goals, match['player1_id']))
-                
-                cursor.execute("""
-                    UPDATE players SET 
-                        rating = %s, 
-                        matches_played = matches_played + 1,
-                        matches_won = matches_won + %s,
-                        matches_drawn = matches_drawn + %s,
-                        matches_lost = matches_lost + %s,
-                        goals_scored = goals_scored + %s,
-                        goals_conceded = goals_conceded + %s
-                    WHERE id = %s
-                """, (new_rating2, 
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      new_player2_goals, new_player1_goals, match['player2_id']))
+                if new_is_walkover:
+                    # Walkover: update rating, matches_played, wins/losses but NOT goals
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = %s, 
+                            matches_played = matches_played + 1,
+                            matches_won = matches_won + %s,
+                            matches_lost = matches_lost + %s
+                        WHERE id = %s
+                    """, (new_rating1, 
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          match['player1_id']))
+                    
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = %s, 
+                            matches_played = matches_played + 1,
+                            matches_won = matches_won + %s,
+                            matches_lost = matches_lost + %s
+                        WHERE id = %s
+                    """, (new_rating2, 
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          match['player2_id']))
+                else:
+                    # Normal match or null match: update all stats
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = %s, 
+                            matches_played = matches_played + 1,
+                            matches_won = matches_won + %s,
+                            matches_drawn = matches_drawn + %s,
+                            matches_lost = matches_lost + %s,
+                            goals_scored = goals_scored + %s,
+                            goals_conceded = goals_conceded + %s
+                        WHERE id = %s
+                    """, (new_rating1, 
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          new_player1_goals, new_player2_goals, match['player1_id']))
+                    
+                    cursor.execute("""
+                        UPDATE players SET 
+                            rating = %s, 
+                            matches_played = matches_played + 1,
+                            matches_won = matches_won + %s,
+                            matches_drawn = matches_drawn + %s,
+                            matches_lost = matches_lost + %s,
+                            goals_scored = goals_scored + %s,
+                            goals_conceded = goals_conceded + %s
+                        WHERE id = %s
+                    """, (new_rating2, 
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          new_player2_goals, new_player1_goals, match['player2_id']))
                 
                 # Update tournament stats with new data
-                cursor.execute("""
-                    INSERT INTO player_stats 
-                    (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
-                    VALUES (%s, %s, 1, %s, %s, %s, %s, %s)
-                    ON CONFLICT (player_id, tournament_id)
-                    DO UPDATE SET
-                        matches_played = player_stats.matches_played + 1,
-                        wins = player_stats.wins + %s,
-                        draws = player_stats.draws + %s,
-                        losses = player_stats.losses + %s,
-                        goals_scored = player_stats.goals_scored + %s,
-                        goals_conceded = player_stats.goals_conceded + %s
-                """, (match['player1_id'], match['tournament_id'],
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      new_player1_goals, new_player2_goals,
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      new_player1_goals, new_player2_goals))
-                
-                cursor.execute("""
-                    INSERT INTO player_stats 
-                    (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
-                    VALUES (%s, %s, 1, %s, %s, %s, %s, %s)
-                    ON CONFLICT (player_id, tournament_id)
-                    DO UPDATE SET
-                        matches_played = player_stats.matches_played + 1,
-                        wins = player_stats.wins + %s,
-                        draws = player_stats.draws + %s,
-                        losses = player_stats.losses + %s,
-                        goals_scored = player_stats.goals_scored + %s,
-                        goals_conceded = player_stats.goals_conceded + %s
-                """, (match['player2_id'], match['tournament_id'],
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      new_player2_goals, new_player1_goals,
-                      1 if new_winner_id == match['player2_id'] else 0,
-                      1 if new_is_draw else 0,
-                      1 if new_winner_id == match['player1_id'] else 0,
-                      new_player2_goals, new_player1_goals))
+                if new_is_walkover:
+                    # Walkover: update matches_played, wins/losses but NOT goals
+                    cursor.execute("""
+                        INSERT INTO player_stats 
+                        (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
+                        VALUES (%s, %s, 1, %s, 0, %s, 0, 0)
+                        ON CONFLICT (player_id, tournament_id)
+                        DO UPDATE SET
+                            matches_played = player_stats.matches_played + 1,
+                            wins = player_stats.wins + %s,
+                            losses = player_stats.losses + %s
+                    """, (match['player1_id'], match['tournament_id'],
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_winner_id == match['player2_id'] else 0))
+                    
+                    cursor.execute("""
+                        INSERT INTO player_stats 
+                        (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
+                        VALUES (%s, %s, 1, %s, 0, %s, 0, 0)
+                        ON CONFLICT (player_id, tournament_id)
+                        DO UPDATE SET
+                            matches_played = player_stats.matches_played + 1,
+                            wins = player_stats.wins + %s,
+                            losses = player_stats.losses + %s
+                    """, (match['player2_id'], match['tournament_id'],
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_winner_id == match['player1_id'] else 0))
+                else:
+                    # Normal match: update all stats including goals
+                    cursor.execute("""
+                        INSERT INTO player_stats 
+                        (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
+                        VALUES (%s, %s, 1, %s, %s, %s, %s, %s)
+                        ON CONFLICT (player_id, tournament_id)
+                        DO UPDATE SET
+                            matches_played = player_stats.matches_played + 1,
+                            wins = player_stats.wins + %s,
+                            draws = player_stats.draws + %s,
+                            losses = player_stats.losses + %s,
+                            goals_scored = player_stats.goals_scored + %s,
+                            goals_conceded = player_stats.goals_conceded + %s
+                    """, (match['player1_id'], match['tournament_id'],
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          new_player1_goals, new_player2_goals,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          new_player1_goals, new_player2_goals))
+                    
+                    cursor.execute("""
+                        INSERT INTO player_stats 
+                        (player_id, tournament_id, matches_played, wins, draws, losses, goals_scored, goals_conceded)
+                        VALUES (%s, %s, 1, %s, %s, %s, %s, %s)
+                        ON CONFLICT (player_id, tournament_id)
+                        DO UPDATE SET
+                            matches_played = player_stats.matches_played + 1,
+                            wins = player_stats.wins + %s,
+                            draws = player_stats.draws + %s,
+                            losses = player_stats.losses + %s,
+                            goals_scored = player_stats.goals_scored + %s,
+                            goals_conceded = player_stats.goals_conceded + %s
+                    """, (match['player2_id'], match['tournament_id'],
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          new_player2_goals, new_player1_goals,
+                          1 if new_winner_id == match['player2_id'] else 0,
+                          1 if new_is_draw else 0,
+                          1 if new_winner_id == match['player1_id'] else 0,
+                          new_player2_goals, new_player1_goals))
                 
                 conn.commit()
                 return match_id
@@ -3225,22 +3311,39 @@ class TournamentDB:
                 
                 # Only reverse stats if the old match wasn't null
                 if not match.get('is_null_match', False):
+                    old_is_walkover = match.get('is_walkover', False)
+                    
                     # Reverse clan player stats for the old match
-                    cursor.execute("""
-                        UPDATE players SET 
-                            rating = rating - %s, 
-                            matches_played = matches_played - 1,
-                            matches_won = matches_won - %s,
-                            matches_drawn = matches_drawn - %s,
-                            matches_lost = matches_lost - %s,
-                            goals_scored = goals_scored - %s,
-                            goals_conceded = goals_conceded - %s
-                        WHERE id = %s
-                    """, (old_clan_rating_change,
-                          1 if match['clan_goals'] > match['guest_goals'] else 0,
-                          1 if match['clan_goals'] == match['guest_goals'] else 0,
-                          1 if match['guest_goals'] > match['clan_goals'] else 0,
-                          match['clan_goals'], match['guest_goals'], match['clan_player_id']))
+                    if old_is_walkover:
+                        # Walkover: reverse rating, matches_played, wins/losses but NOT goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_lost = matches_lost - %s
+                            WHERE id = %s
+                        """, (old_clan_rating_change,
+                              1 if match['clan_goals'] > match['guest_goals'] else 0,
+                              1 if match['guest_goals'] > match['clan_goals'] else 0,
+                              match['clan_player_id']))
+                    else:
+                        # Normal match: reverse all stats including goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = rating - %s, 
+                                matches_played = matches_played - 1,
+                                matches_won = matches_won - %s,
+                                matches_drawn = matches_drawn - %s,
+                                matches_lost = matches_lost - %s,
+                                goals_scored = goals_scored - %s,
+                                goals_conceded = goals_conceded - %s
+                            WHERE id = %s
+                        """, (old_clan_rating_change,
+                              1 if match['clan_goals'] > match['guest_goals'] else 0,
+                              1 if match['clan_goals'] == match['guest_goals'] else 0,
+                              1 if match['guest_goals'] > match['clan_goals'] else 0,
+                              match['clan_goals'], match['guest_goals'], match['clan_player_id']))
                 
                 # Get current clan player rating (after reversal)
                 cursor.execute("SELECT rating FROM players WHERE id = %s", (match['clan_player_id'],))
@@ -3260,16 +3363,19 @@ class TournamentDB:
                     NULL_MATCH_PENALTY = 15
                     new_clan_rating = max(0, min(1000, current_clan_rating - NULL_MATCH_PENALTY))
                 elif new_is_walkover:
-                    # Walkover - set 3-0 score
-                    new_clan_goals = 0 if clan_absent else 3
-                    new_guest_goals = 0 if guest_absent else 3
+                    # Walkover - 0-0 score, only ratings, matches_played, wins/losses change (NO goals)
+                    new_clan_goals = 0
+                    new_guest_goals = 0
                     
                     # Calculate walkover rating changes (75% of normal)
+                    # Determine winner based on who is present
                     guest_rating = 300  # Assume guest has default rating
-                    if new_clan_goals > new_guest_goals:
-                        rating_change = TournamentDB.calculate_rating_change(current_clan_rating, guest_rating, is_draw=False)[0]
-                    else:
+                    if clan_absent:
+                        # Guest wins
                         rating_change = TournamentDB.calculate_rating_change(guest_rating, current_clan_rating, is_draw=False)[1]
+                    else:
+                        # Clan player wins
+                        rating_change = TournamentDB.calculate_rating_change(current_clan_rating, guest_rating, is_draw=False)[0]
                     
                     # Reduce for walkover
                     rating_change = int(rating_change * 0.75)
@@ -3321,21 +3427,36 @@ class TournamentDB:
                 
                 # Apply new clan player stats (only if not null match)
                 if not new_is_null_match:
-                    cursor.execute("""
-                        UPDATE players SET 
-                            rating = %s, 
-                            matches_played = matches_played + 1,
-                            matches_won = matches_won + %s,
-                            matches_drawn = matches_drawn + %s,
-                            matches_lost = matches_lost + %s,
-                            goals_scored = goals_scored + %s,
-                            goals_conceded = goals_conceded + %s
-                        WHERE id = %s
-                    """, (new_clan_rating, 
-                          1 if new_clan_goals > new_guest_goals else 0,
-                          1 if new_clan_goals == new_guest_goals else 0,
-                          1 if new_guest_goals > new_clan_goals else 0,
-                          new_clan_goals, new_guest_goals, match['clan_player_id']))
+                    if new_is_walkover:
+                        # Walkover: update rating, matches_played, wins/losses but NOT goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = %s, 
+                                matches_played = matches_played + 1,
+                                matches_won = matches_won + %s,
+                                matches_lost = matches_lost + %s
+                            WHERE id = %s
+                        """, (new_clan_rating, 
+                              1 if not clan_absent else 0,
+                              1 if clan_absent else 0,
+                              match['clan_player_id']))
+                    else:
+                        # Normal match: update all stats including goals
+                        cursor.execute("""
+                            UPDATE players SET 
+                                rating = %s, 
+                                matches_played = matches_played + 1,
+                                matches_won = matches_won + %s,
+                                matches_drawn = matches_drawn + %s,
+                                matches_lost = matches_lost + %s,
+                                goals_scored = goals_scored + %s,
+                                goals_conceded = goals_conceded + %s
+                            WHERE id = %s
+                        """, (new_clan_rating, 
+                              1 if new_clan_goals > new_guest_goals else 0,
+                              1 if new_clan_goals == new_guest_goals else 0,
+                              1 if new_guest_goals > new_clan_goals else 0,
+                              new_clan_goals, new_guest_goals, match['clan_player_id']))
                 
                 conn.commit()
                 return match_id
