@@ -80,7 +80,30 @@ def init_db():
                     id SERIAL PRIMARY KEY,
                     name VARCHAR(100) NOT NULL,
                     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'completed', 'archived')),
+                    tournament_type VARCHAR(20) DEFAULT 'normal' CHECK (tournament_type IN ('normal', 'division')),
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+            ''')
+            
+            # Add tournament_type column if it doesn't exist (migration)
+            cursor.execute("""
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tournaments' AND column_name='tournament_type') THEN
+                        ALTER TABLE tournaments ADD COLUMN tournament_type VARCHAR(20) DEFAULT 'normal' CHECK (tournament_type IN ('normal', 'division'));
+                    END IF;
+                END $$;
+            """)
+            
+            # Create divisions table
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS divisions (
+                    id SERIAL PRIMARY KEY,
+                    tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
+                    name VARCHAR(100) NOT NULL,
+                    starting_rating INTEGER NOT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(tournament_id, name)
                 );
             ''')
             
@@ -90,12 +113,23 @@ def init_db():
                     id SERIAL PRIMARY KEY,
                     tournament_id INTEGER REFERENCES tournaments(id) ON DELETE CASCADE,
                     player_id INTEGER REFERENCES players(id) ON DELETE CASCADE,
+                    division_id INTEGER REFERENCES divisions(id) ON DELETE SET NULL,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(tournament_id, player_id)
                 );
             ''')
             
-            # Create player_matches table (1v1 matches)
+            # Add division_id column if it doesn't exist (migration)
+            cursor.execute('''
+                DO $$ 
+                BEGIN
+                    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='tournament_players' AND column_name='division_id') THEN
+                        ALTER TABLE tournament_players ADD COLUMN division_id INTEGER REFERENCES divisions(id) ON DELETE SET NULL;
+                    END IF;
+                END $$;
+            ''')
+            
+            # Create player_matches table (one-on-one matches)
             cursor.execute('''
                 CREATE TABLE IF NOT EXISTS player_matches (
                     id SERIAL PRIMARY KEY,
@@ -668,14 +702,14 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def create_tournament(name, tournament_photo_url=None, tournament_photo_file_id=None):
-        """Create a new tournament with optional photo"""
+    def create_tournament(name, tournament_photo_url=None, tournament_photo_file_id=None, tournament_type='normal'):
+        """Create a new tournament with optional photo and type"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO tournaments (name, tournament_photo_url, tournament_photo_file_id) VALUES (%s, %s, %s) RETURNING id",
-                    (name, tournament_photo_url, tournament_photo_file_id)
+                    "INSERT INTO tournaments (name, tournament_photo_url, tournament_photo_file_id, tournament_type) VALUES (%s, %s, %s, %s) RETURNING id",
+                    (name, tournament_photo_url, tournament_photo_file_id, tournament_type)
                 )
                 tournament_id = cursor.fetchone()['id']
                 conn.commit()
@@ -700,16 +734,16 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def add_players_to_tournament(tournament_id, player_ids):
-        """Add players to a tournament"""
+    def add_players_to_tournament(tournament_id, player_ids, division_id=None):
+        """Add players to a tournament, optionally with a division"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 for player_id in player_ids:
                     try:
                         cursor.execute(
-                            "INSERT INTO tournament_players (tournament_id, player_id) VALUES (%s, %s)",
-                            (tournament_id, player_id)
+                            "INSERT INTO tournament_players (tournament_id, player_id, division_id) VALUES (%s, %s, %s)",
+                            (tournament_id, player_id, division_id)
                         )
                     except Exception:
                         # Skip if already exists
@@ -723,15 +757,17 @@ class TournamentDB:
     
     @staticmethod
     def get_tournament_players(tournament_id):
-        """Get all players in a tournament"""
+        """Get all players in a tournament with their division info"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT p.* FROM players p
+                    SELECT p.*, tp.division_id, d.name as division_name, d.starting_rating as division_starting_rating
+                    FROM players p
                     JOIN tournament_players tp ON p.id = tp.player_id
+                    LEFT JOIN divisions d ON tp.division_id = d.id
                     WHERE tp.tournament_id = %s
-                    ORDER BY p.rating DESC, p.name ASC
+                    ORDER BY p.rating DESC NULLS LAST, p.name ASC
                 """, (tournament_id,))
                 return cursor.fetchall()
         finally:
@@ -774,8 +810,8 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def update_tournament(tournament_id, name, tournament_photo_url=None, tournament_photo_file_id=None):
-        """Update tournament name and photo"""
+    def update_tournament(tournament_id, name, tournament_photo_url=None, tournament_photo_file_id=None, tournament_type=None):
+        """Update tournament name, photo, and optionally type"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -792,15 +828,128 @@ class TournamentDB:
                     raise ValueError(f"A tournament with the name '{name}' already exists")
                 
                 # Update the tournament
-                cursor.execute(
-                    "UPDATE tournaments SET name = %s, tournament_photo_url = %s, tournament_photo_file_id = %s WHERE id = %s",
-                    (name.strip(), tournament_photo_url, tournament_photo_file_id, tournament_id)
-                )
+                if tournament_type is not None:
+                    cursor.execute(
+                        "UPDATE tournaments SET name = %s, tournament_photo_url = %s, tournament_photo_file_id = %s, tournament_type = %s WHERE id = %s",
+                        (name.strip(), tournament_photo_url, tournament_photo_file_id, tournament_type, tournament_id)
+                    )
+                else:
+                    cursor.execute(
+                        "UPDATE tournaments SET name = %s, tournament_photo_url = %s, tournament_photo_file_id = %s WHERE id = %s",
+                        (name.strip(), tournament_photo_url, tournament_photo_file_id, tournament_id)
+                    )
                 conn.commit()
                 return tournament_id
         except Exception as e:
             conn.rollback()
             raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def delete_division(division_id):
+        """Delete a division"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM divisions WHERE id = %s", (division_id,))
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def update_division(division_id, name, starting_rating):
+        """Update a division's name and starting rating"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE divisions SET name = %s, starting_rating = %s WHERE id = %s",
+                    (name, starting_rating, division_id)
+                )
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def create_division(tournament_id, name, starting_rating):
+        """Create a new division for a tournament"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "INSERT INTO divisions (tournament_id, name, starting_rating) VALUES (%s, %s, %s) RETURNING id",
+                    (tournament_id, name, starting_rating)
+                )
+                division_id = cursor.fetchone()['id']
+                conn.commit()
+                return division_id
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_divisions_by_tournament(tournament_id):
+        """Get all divisions for a tournament"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "SELECT * FROM divisions WHERE tournament_id = %s ORDER BY starting_rating DESC, name ASC",
+                    (tournament_id,)
+                )
+                return cursor.fetchall()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_division_by_id(division_id):
+        """Get a specific division by ID"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT * FROM divisions WHERE id = %s", (division_id,))
+                return cursor.fetchone()
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def assign_player_to_division(tournament_id, player_id, division_id):
+        """Assign a player to a division in a tournament"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "UPDATE tournament_players SET division_id = %s WHERE tournament_id = %s AND player_id = %s",
+                    (division_id, tournament_id, player_id)
+                )
+                conn.commit()
+        except Exception as e:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def get_player_division(tournament_id, player_id):
+        """Get the division a player is assigned to in a tournament"""
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT d.* FROM divisions d
+                    JOIN tournament_players tp ON d.id = tp.division_id
+                    WHERE tp.tournament_id = %s AND tp.player_id = %s
+                """, (tournament_id, player_id))
+                return cursor.fetchone()
         finally:
             conn.close()
     
@@ -876,7 +1025,7 @@ class TournamentDB:
     
     @staticmethod
     def record_match(tournament_id, player1_id, player2_id, player1_goals, player2_goals, player1_absent=False, player2_absent=False):
-        """Record a 1v1 match and update ratings, handling absences"""
+        """Record a one-on-one match and update ratings, handling absences"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -957,6 +1106,35 @@ class TournamentDB:
     @staticmethod
     def _record_walkover_match(cursor, tournament_id, player1_id, player2_id, player1_absent, player2_absent, conn):
         """Record a walkover match where one player is absent"""
+        # Get tournament type and division info
+        cursor.execute("SELECT tournament_type FROM tournaments WHERE id = %s", (tournament_id,))
+        tournament = cursor.fetchone()
+        tournament_type = tournament['tournament_type'] if tournament else 'normal'
+        
+        # Determine default starting ratings based on tournament type and divisions
+        default_rating1 = 300
+        default_rating2 = 300
+        
+        if tournament_type == 'division':
+            # Get division starting ratings for each player
+            cursor.execute("""
+                SELECT d.starting_rating FROM divisions d
+                JOIN tournament_players tp ON d.id = tp.division_id
+                WHERE tp.tournament_id = %s AND tp.player_id = %s
+            """, (tournament_id, player1_id))
+            p1_division = cursor.fetchone()
+            if p1_division:
+                default_rating1 = p1_division['starting_rating']
+            
+            cursor.execute("""
+                SELECT d.starting_rating FROM divisions d
+                JOIN tournament_players tp ON d.id = tp.division_id
+                WHERE tp.tournament_id = %s AND tp.player_id = %s
+            """, (tournament_id, player2_id))
+            p2_division = cursor.fetchone()
+            if p2_division:
+                default_rating2 = p2_division['starting_rating']
+        
         # Get tournament-specific ratings for both players
         cursor.execute("""
             SELECT tournament_rating FROM player_stats 
@@ -972,9 +1150,9 @@ class TournamentDB:
         p2_tournament_rating = cursor.fetchone()
         player2_tournament_rating = p2_tournament_rating['tournament_rating'] if p2_tournament_rating and p2_tournament_rating['tournament_rating'] is not None else None
         
-        # Use tournament rating if exists, otherwise start from 300 for this tournament
-        player1_rating = 300 if player1_tournament_rating is None else player1_tournament_rating
-        player2_rating = 300 if player2_tournament_rating is None else player2_tournament_rating
+        # Use tournament rating if exists, otherwise use division/default starting rating
+        player1_rating = default_rating1 if player1_tournament_rating is None else player1_tournament_rating
+        player2_rating = default_rating2 if player2_tournament_rating is None else player2_tournament_rating
         
         # Get overall ratings
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
@@ -1094,6 +1272,35 @@ class TournamentDB:
     @staticmethod
     def _record_normal_match(cursor, tournament_id, player1_id, player2_id, player1_goals, player2_goals, conn):
         """Record a normal match with both players present"""
+        # Get tournament type and division info
+        cursor.execute("SELECT tournament_type FROM tournaments WHERE id = %s", (tournament_id,))
+        tournament = cursor.fetchone()
+        tournament_type = tournament['tournament_type'] if tournament else 'normal'
+        
+        # Determine default starting ratings based on tournament type and divisions
+        default_rating1 = 300
+        default_rating2 = 300
+        
+        if tournament_type == 'division':
+            # Get division starting ratings for each player
+            cursor.execute("""
+                SELECT d.starting_rating FROM divisions d
+                JOIN tournament_players tp ON d.id = tp.division_id
+                WHERE tp.tournament_id = %s AND tp.player_id = %s
+            """, (tournament_id, player1_id))
+            p1_division = cursor.fetchone()
+            if p1_division:
+                default_rating1 = p1_division['starting_rating']
+            
+            cursor.execute("""
+                SELECT d.starting_rating FROM divisions d
+                JOIN tournament_players tp ON d.id = tp.division_id
+                WHERE tp.tournament_id = %s AND tp.player_id = %s
+            """, (tournament_id, player2_id))
+            p2_division = cursor.fetchone()
+            if p2_division:
+                default_rating2 = p2_division['starting_rating']
+        
         # Get tournament-specific ratings for both players
         cursor.execute("""
             SELECT tournament_rating FROM player_stats 
@@ -1109,9 +1316,9 @@ class TournamentDB:
         p2_tournament_rating = cursor.fetchone()
         player2_tournament_rating = p2_tournament_rating['tournament_rating'] if p2_tournament_rating and p2_tournament_rating['tournament_rating'] is not None else None
         
-        # Use tournament rating if exists, otherwise start from 300 for this tournament
-        player1_rating = 300 if player1_tournament_rating is None else player1_tournament_rating
-        player2_rating = 300 if player2_tournament_rating is None else player2_tournament_rating
+        # Use tournament rating if exists, otherwise use division/default starting rating
+        player1_rating = default_rating1 if player1_tournament_rating is None else player1_tournament_rating
+        player2_rating = default_rating2 if player2_tournament_rating is None else player2_tournament_rating
         
         # Get overall ratings for display purposes
         cursor.execute("SELECT rating FROM players WHERE id = %s", (player1_id,))
@@ -1721,6 +1928,251 @@ class TournamentDB:
                 
                 conn.commit()
         except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+    
+    @staticmethod
+    def recalculate_tournament_ratings(tournament_id):
+        """Recalculate ratings and stats for a specific tournament only.
+        This processes all matches in the tournament chronologically and recalculates:
+        - Tournament-specific ratings (player_stats.tournament_rating)
+        - Tournament-specific stats (player_stats table)
+        - Overall player ratings and stats (players table) by applying cumulative changes
+        """
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                # Get tournament info to check if it's a division tournament
+                cursor.execute("SELECT * FROM tournaments WHERE id = %s", (tournament_id,))
+                tournament = cursor.fetchone()
+                if not tournament:
+                    raise ValueError(f"Tournament with ID {tournament_id} not found")
+                
+                is_division_tournament = tournament.get('tournament_type') == 'division'
+                
+                # Step 1: Get all players in this tournament
+                cursor.execute("""
+                    SELECT DISTINCT player_id, division_id
+                    FROM tournament_players
+                    WHERE tournament_id = %s
+                """, (tournament_id,))
+                tournament_players = cursor.fetchall()
+                
+                if not tournament_players:
+                    return {'success': True, 'message': 'No players in this tournament', 'matches_processed': 0}
+                
+                # Step 2: Clear tournament-specific stats for these players
+                cursor.execute("""
+                    DELETE FROM player_stats
+                    WHERE tournament_id = %s
+                """, (tournament_id,))
+                
+                # Step 3: Initialize tournament ratings based on division (for division tournaments)
+                player_initial_ratings = {}
+                if is_division_tournament:
+                    for tp in tournament_players:
+                        player_id = tp['player_id']
+                        division_id = tp['division_id']
+                        if division_id:
+                            cursor.execute("SELECT starting_rating FROM divisions WHERE id = %s", (division_id,))
+                            division = cursor.fetchone()
+                            player_initial_ratings[player_id] = division['starting_rating'] if division else 300
+                        else:
+                            player_initial_ratings[player_id] = 300
+                else:
+                    # For non-division tournaments, start at 300
+                    for tp in tournament_players:
+                        player_initial_ratings[tp['player_id']] = 300
+                
+                # Step 4: Track current tournament ratings for each player
+                current_tournament_ratings = player_initial_ratings.copy()
+                
+                # Step 5: Get all matches for this tournament in chronological order
+                cursor.execute("""
+                    SELECT * FROM player_matches
+                    WHERE tournament_id = %s
+                    ORDER BY played_at ASC NULLS LAST, match_id ASC
+                """, (tournament_id,))
+                matches = cursor.fetchall()
+                
+                matches_processed = 0
+                
+                # Step 6: Process each match
+                for match in matches:
+                    p1_id = match['player1_id']
+                    p2_id = match['player2_id']
+                    g1 = match['player1_goals']
+                    g2 = match['player2_goals']
+                    is_walkover = match.get('is_walkover', False)
+                    is_null = match.get('is_null_match', False)
+                    p1_absent = match.get('player1_absent', False)
+                    p2_absent = match.get('player2_absent', False)
+                    is_draw = match.get('is_draw', False)
+                    winner_id = match.get('winner_id')
+                    
+                    # Get tournament ratings before this match
+                    p1_t_rating_before = current_tournament_ratings.get(p1_id, 300)
+                    p2_t_rating_before = current_tournament_ratings.get(p2_id, 300)
+                    
+                    # Calculate rating changes
+                    if is_null:
+                        # Null match: apply penalty
+                        NULL_PENALTY = 15
+                        p1_t_rating_after = max(0, min(1000, p1_t_rating_before - NULL_PENALTY))
+                        p2_t_rating_after = max(0, min(1000, p2_t_rating_before - NULL_PENALTY))
+                    elif is_walkover:
+                        # Walkover: use basic ELO with 75% factor
+                        if winner_id == p1_id:
+                            t_change_w, t_change_l = TournamentDB.calculate_rating_change(p1_t_rating_before, p2_t_rating_before, is_draw=False)
+                            t_change1 = int(t_change_w * 0.75)
+                            t_change2 = int(t_change_l * 0.75)
+                        else:
+                            t_change_w, t_change_l = TournamentDB.calculate_rating_change(p2_t_rating_before, p1_t_rating_before, is_draw=False)
+                            t_change2 = int(t_change_w * 0.75)
+                            t_change1 = int(t_change_l * 0.75)
+                        p1_t_rating_after = max(0, min(1000, p1_t_rating_before + t_change1))
+                        p2_t_rating_after = max(0, min(1000, p2_t_rating_before + t_change2))
+                    else:
+                        # Normal match: use enhanced rating calculation
+                        t_change1, t_change2 = TournamentDB.calculate_enhanced_rating_change(
+                            p1_t_rating_before, p2_t_rating_before, g1, g2, p1_absent, p2_absent
+                        )
+                        p1_t_rating_after = max(0, min(1000, p1_t_rating_before + t_change1))
+                        p2_t_rating_after = max(0, min(1000, p2_t_rating_before + t_change2))
+                    
+                    # Update current tournament ratings
+                    current_tournament_ratings[p1_id] = p1_t_rating_after
+                    current_tournament_ratings[p2_id] = p2_t_rating_after
+                    
+                    # Update match records with new ratings
+                    cursor.execute("""
+                        UPDATE player_matches SET
+                            player1_rating_before = %s,
+                            player2_rating_before = %s,
+                            player1_rating_after = %s,
+                            player2_rating_after = %s
+                        WHERE id = %s
+                    """, (p1_t_rating_before, p2_t_rating_before, p1_t_rating_after, p2_t_rating_after, match['id']))
+                    
+                    # Update tournament-specific stats (only if not a null match)
+                    if not is_null:
+                        for pid, t_rating_after, won, drawn, lost, gf, ga in [
+                            (p1_id, p1_t_rating_after, 1 if winner_id == p1_id else 0, 1 if is_draw else 0, 1 if winner_id == p2_id else 0, g1, g2),
+                            (p2_id, p2_t_rating_after, 1 if winner_id == p2_id else 0, 1 if is_draw else 0, 1 if winner_id == p1_id else 0, g2, g1)
+                        ]:
+                            # Calculate golden glove points
+                            glove_points = 0
+                            if not is_walkover:
+                                glove_points = TournamentDB.calculate_golden_glove_points(
+                                    gf, ga, winner_id == pid, is_draw
+                                )
+                            
+                            cursor.execute("""
+                                INSERT INTO player_stats
+                                    (player_id, tournament_id, tournament_rating, matches_played, wins, draws, losses, 
+                                     goals_scored, goals_conceded, clean_sheets, golden_glove_points)
+                                VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s)
+                                ON CONFLICT (player_id, tournament_id)
+                                DO UPDATE SET
+                                    tournament_rating = %s,
+                                    matches_played = player_stats.matches_played + 1,
+                                    wins = player_stats.wins + %s,
+                                    draws = player_stats.draws + %s,
+                                    losses = player_stats.losses + %s,
+                                    goals_scored = player_stats.goals_scored + %s,
+                                    goals_conceded = player_stats.goals_conceded + %s,
+                                    clean_sheets = player_stats.clean_sheets + %s,
+                                    golden_glove_points = player_stats.golden_glove_points + %s
+                            """, (pid, tournament_id, t_rating_after, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove_points,
+                                  t_rating_after, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove_points))
+                    
+                    matches_processed += 1
+                
+                # Step 7: Recalculate overall player ratings from ALL tournaments
+                # We need to recalculate overall ratings for affected players by summing up all their tournament changes
+                affected_player_ids = [tp['player_id'] for tp in tournament_players]
+                
+                for player_id in affected_player_ids:
+                    # Reset player overall stats
+                    cursor.execute("""
+                        UPDATE players SET
+                            rating = NULL,
+                            matches_played = 0,
+                            matches_won = 0,
+                            matches_drawn = 0,
+                            matches_lost = 0,
+                            goals_scored = 0,
+                            goals_conceded = 0,
+                            clean_sheets = 0,
+                            golden_glove_points = 0
+                        WHERE id = %s
+                    """, (player_id,))
+                    
+                    # Get all matches for this player across all tournaments in chronological order
+                    cursor.execute("""
+                        SELECT * FROM player_matches
+                        WHERE player1_id = %s OR player2_id = %s
+                        ORDER BY played_at ASC NULLS LAST, match_id ASC
+                    """, (player_id, player_id))
+                    all_player_matches = cursor.fetchall()
+                    
+                    cumulative_overall_rating = 300
+                    
+                    for pm in all_player_matches:
+                        is_p1 = (pm['player1_id'] == player_id)
+                        is_null = pm.get('is_null_match', False)
+                        is_draw = pm.get('is_draw', False)
+                        winner_id = pm.get('winner_id')
+                        
+                        # Calculate rating change from tournament ratings
+                        if is_p1:
+                            rating_change = pm['player1_rating_after'] - pm['player1_rating_before']
+                            gf = pm['player1_goals']
+                            ga = pm['player2_goals']
+                        else:
+                            rating_change = pm['player2_rating_after'] - pm['player2_rating_before']
+                            gf = pm['player2_goals']
+                            ga = pm['player1_goals']
+                        
+                        cumulative_overall_rating += rating_change
+                        
+                        # Update overall stats (only if not null match)
+                        if not is_null:
+                            won = 1 if winner_id == player_id else 0
+                            drawn = 1 if is_draw else 0
+                            lost = 1 if (not is_draw and winner_id != player_id) else 0
+                            
+                            glove_points = 0
+                            if not pm.get('is_walkover', False):
+                                glove_points = TournamentDB.calculate_golden_glove_points(
+                                    gf, ga, winner_id == player_id, is_draw
+                                )
+                            
+                            cursor.execute("""
+                                UPDATE players SET
+                                    rating = %s,
+                                    matches_played = matches_played + 1,
+                                    matches_won = matches_won + %s,
+                                    matches_drawn = matches_drawn + %s,
+                                    matches_lost = matches_lost + %s,
+                                    goals_scored = goals_scored + %s,
+                                    goals_conceded = goals_conceded + %s,
+                                    clean_sheets = clean_sheets + %s,
+                                    golden_glove_points = golden_glove_points + %s
+                                WHERE id = %s
+                            """, (cumulative_overall_rating, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove_points, player_id))
+                
+                conn.commit()
+                return {
+                    'success': True,
+                    'message': f'Successfully recalculated stats for {len(tournament_players)} players across {matches_processed} matches',
+                    'players_updated': len(tournament_players),
+                    'matches_processed': matches_processed
+                }
+                
+        except Exception as e:
             conn.rollback()
             raise
         finally:
@@ -2621,7 +3073,7 @@ class TournamentDB:
     
     @staticmethod
     def get_player_rating_history(player_id):
-        """Get player's rating changes over time"""
+        """Get player rating changes over time"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:

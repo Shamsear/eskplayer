@@ -120,65 +120,126 @@
     <main class="relative max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
         <!-- Tournament Header -->
         <div class="glass rounded-3xl p-8 mb-8">
-            <div class="flex items-center justify-between">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
                 <div class="flex items-center">
                     {% if tournament.tournament_photo_url %}
                         <img src="{{ tournament.tournament_photo_url }}?tr=w-64,h-64,c-face,q-80,f-webp" 
                              alt="{{ tournament.name }}" 
-                             class="w-16 h-16 rounded-2xl object-cover border-2 border-white shadow mr-6">
+                             class="w-20 h-20 rounded-2xl object-cover border-2 border-white shadow-lg mr-6">
                     {% else %}
-                        <div class="w-16 h-16 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-6">
-                            <i class="fas fa-trophy text-white text-2xl"></i>
+                        <div class="w-20 h-20 bg-gradient-to-r from-green-500 to-emerald-600 rounded-2xl flex items-center justify-center mr-6 shadow-lg">
+                            <i class="fas fa-trophy text-white text-3xl"></i>
                         </div>
                     {% endif %}
                     <div>
-                        <h2 class="text-3xl font-display font-bold gradient-text">{{ tournament.name }}</h2>
-                        <div class="flex items-center space-x-6 mt-2 text-gray-600">
-                            <div class="flex items-center">
-                                <i class="fas fa-calendar mr-2"></i>
-                                <span>Created: {{ tournament.created_at.strftime('%B %d, %Y') }}</span>
+                        <h2 class="text-4xl font-display font-bold gradient-text mb-3">{{ tournament.name }}</h2>
+                        <div class="flex flex-wrap items-center gap-4 text-sm text-gray-600">
+                            <div class="flex items-center bg-white/50 px-3 py-1.5 rounded-lg">
+                                <i class="fas fa-calendar text-purple-500 mr-2"></i>
+                                <span class="font-medium">{{ tournament.created_at.strftime('%B %d, %Y') }}</span>
                             </div>
-                            <div class="flex items-center">
-                                <i class="fas fa-users mr-2"></i>
-                                <span>{{ tournament_players|length }} players</span>
+                            <div class="flex items-center bg-white/50 px-3 py-1.5 rounded-lg">
+                                <i class="fas fa-users text-blue-500 mr-2"></i>
+                                <span class="font-medium">{{ tournament_players|length }} Player{{ 's' if tournament_players|length != 1 else '' }}</span>
                             </div>
-                            <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium 
-                                         {% if tournament.status == 'active' %}bg-green-100 text-green-800{% elif tournament.status == 'completed' %}bg-gray-100 text-gray-800{% else %}bg-blue-100 text-blue-800{% endif %}">
+                            <div class="flex items-center bg-white/50 px-3 py-1.5 rounded-lg">
+                                <i class="fas fa-list-alt text-indigo-500 mr-2"></i>
+                                <span class="font-medium">{{ tournament.tournament_type|title }}</span>
+                            </div>
+                            <span class="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm
+                                         {% if tournament.status == 'active' %}bg-gradient-to-r from-green-400 to-emerald-500 text-white{% elif tournament.status == 'completed' %}bg-gradient-to-r from-gray-400 to-gray-500 text-white{% else %}bg-gradient-to-r from-blue-400 to-indigo-500 text-white{% endif %}">
                                 {% if tournament.status == 'active' %}
-                                <i class="fas fa-play mr-1"></i>Active
+                                <i class="fas fa-play mr-1.5"></i>Active
                                 {% elif tournament.status == 'completed' %}
-                                <i class="fas fa-check mr-1"></i>Completed
+                                <i class="fas fa-check mr-1.5"></i>Completed
                                 {% else %}
-                                <i class="fas fa-archive mr-1"></i>Archived
+                                <i class="fas fa-archive mr-1.5"></i>Archived
                                 {% endif %}
                             </span>
                         </div>
                     </div>
                 </div>
-                <div class="flex space-x-4">
+                <div class="flex flex-wrap gap-3">
                     <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
-                       class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
-                        <i class="fas fa-chart-bar mr-2"></i>View Stats
+                       class="bg-gradient-to-r from-purple-500 to-pink-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
+                        <i class="fas fa-chart-bar mr-2"></i>Stats
                     </a>
                     <a href="{{ url_for('record_match') }}?tournament_id={{ tournament.id }}" 
-                       class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
-                        <i class="fas fa-gamepad mr-2"></i>Record Match
+                       class="bg-gradient-to-r from-blue-500 to-indigo-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
+                        <i class="fas fa-gamepad mr-2"></i>Record
                     </a>
                     <a href="{{ url_for('edit_tournament', tournament_id=tournament.id) }}" 
-                       class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
-                        <i class="fas fa-pen mr-2"></i>Edit Tournament
+                       class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
+                        <i class="fas fa-pen mr-2"></i>Edit
                     </a>
+                    <button onclick="recalculateTournamentStats()" 
+                            class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
+                        <i class="fas fa-sync-alt mr-2"></i>Recalculate
+                    </button>
                 </div>
             </div>
         </div>
         
+        <!-- Divisions Section (Only for Division Tournaments) -->
+        {% if tournament.tournament_type == 'division' and divisions %}
+        <div class="glass rounded-3xl p-8 mb-8">
+            <div class="flex items-center justify-between mb-6">
+                <h3 class="text-2xl font-display font-bold text-gray-900 flex items-center">
+                    <div class="w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-xl flex items-center justify-center mr-3">
+                        <i class="fas fa-layer-group text-white"></i>
+                    </div>
+                    Tournament Divisions
+                </h3>
+                <span class="text-sm font-semibold text-gray-600 bg-purple-100 px-4 py-2 rounded-full">
+                    {{ divisions|length }} Division{{ 's' if divisions|length != 1 else '' }}
+                </span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {% for division in divisions %}
+                <div class="group relative bg-gradient-to-br from-purple-50 via-indigo-50 to-purple-50 border-2 border-purple-200 rounded-2xl p-5 hover:shadow-lg transition-all transform hover:-translate-y-1">
+                    <div class="absolute top-0 right-0 w-20 h-20 bg-gradient-to-br from-purple-400/10 to-indigo-400/10 rounded-bl-full"></div>
+                    <div class="relative">
+                        <div class="flex items-start justify-between mb-3">
+                            <h4 class="font-bold text-gray-900 text-lg flex-1 pr-2">{{ division.name }}</h4>
+                            <span class="bg-gradient-to-r from-purple-500 to-indigo-600 text-white px-3 py-1.5 rounded-full text-sm font-bold shadow-sm">
+                                {{ division.starting_rating }}
+                            </span>
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center text-sm text-gray-600 bg-white/60 px-3 py-2 rounded-lg">
+                                <i class="fas fa-star text-purple-500 mr-2"></i>
+                                <span class="font-medium">Start: {{ division.starting_rating }}</span>
+                            </div>
+                            <div class="flex items-center text-sm text-gray-600 bg-white/60 px-3 py-2 rounded-lg">
+                                <i class="fas fa-users text-indigo-500 mr-2"></i>
+                                {% set division_player_count = tournament_players|selectattr('division_id', 'equalto', division.id)|list|length %}
+                                <span class="font-medium">{{ division_player_count }} player{{ 's' if division_player_count != 1 else '' }}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
         <!-- Add Players Section -->
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
             <!-- Available Players -->
             <div class="glass rounded-3xl p-8">
-                <h3 class="text-2xl font-display font-bold text-gray-900 mb-6 flex items-center">
-                    <i class="fas fa-user-plus mr-3 text-green-500"></i>Add Players to Tournament
-                </h3>
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-display font-bold text-gray-900 flex items-center">
+                        <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-3">
+                            <i class="fas fa-user-plus text-white"></i>
+                        </div>
+                        Add Players
+                    </h3>
+                    {% if available_players %}
+                    <span class="text-sm font-semibold text-gray-600 bg-green-100 px-4 py-2 rounded-full">
+                        {{ available_players|length }} Available
+                    </span>
+                    {% endif %}
+                </div>
                 
                 {% if available_players %}
                 <!-- Search Bar for Available Players -->
@@ -198,38 +259,60 @@
                 <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="space-y-4">
                     <input type="hidden" name="action" value="add_players">
                     
+                    <!-- Division Selector (Only for Division Tournaments) -->
+                    {% if tournament.tournament_type == 'division' and divisions %}
+                    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <label for="division_id" class="block text-sm font-semibold text-gray-900 mb-2">
+                            <i class="fas fa-layer-group mr-2 text-purple-500"></i>Select Division for New Players
+                        </label>
+                        <select name="division_id" id="division_id" required
+                                class="w-full px-4 py-3 bg-white border border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent">
+                            <option value="">-- Choose a Division --</option>
+                            {% for division in divisions %}
+                            <option value="{{ division.id }}">
+                                {{ division.name }} (Starting Rating: {{ division.starting_rating }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        <p class="text-xs text-purple-600 mt-2">
+                            <i class="fas fa-info-circle mr-1"></i>All selected players will be added to this division
+                        </p>
+                    </div>
+                    {% endif %}
+                    
                     <!-- Select All Checkbox -->
-                    <div class="flex items-center p-4 bg-gray-50 rounded-xl">
-                        <input type="checkbox" id="select-all" class="h-4 w-4 text-blue-600 rounded">
-                        <label for="select-all" class="ml-3 text-sm font-medium text-gray-700">Select All Visible Players</label>
+                    <div class="flex items-center p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200">
+                        <input type="checkbox" id="select-all" class="h-5 w-5 text-green-600 rounded-lg cursor-pointer">
+                        <label for="select-all" class="ml-3 text-sm font-bold text-gray-700 cursor-pointer">Select All Visible Players</label>
                     </div>
                     
                     <!-- Available Players List -->
-                    <div class="space-y-3 max-h-64 overflow-y-auto" id="available-players-list">
+                    <div class="space-y-2 h-96 overflow-y-auto pr-2" id="available-players-list" style="scrollbar-width: thin; scrollbar-color: #e5e7eb #f9fafb;">
                         {% for player in available_players %}
-                        <div class="flex items-center p-4 bg-white rounded-xl border border-gray-200 hover:bg-gray-50 transition-colors available-player-item" 
+                        <div class="flex items-center p-3 bg-white rounded-xl border-2 border-gray-200 hover:border-green-400 hover:shadow-md transition-all available-player-item group" 
                              data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating if player.rating is not none else 0 }}">
                             <input type="checkbox" name="player_ids" value="{{ player.id }}" 
-                                   class="h-4 w-4 text-blue-600 rounded player-checkbox mr-3">
+                                   class="h-5 w-5 text-green-600 rounded-lg player-checkbox mr-3 cursor-pointer">
                             {% if player.photo_url %}
                                 <img src="{{ player.photo_url }}?tr=w-32,h-32,c-face,q-80,f-webp" 
                                      alt="{{ player.name }}" 
-                                     class="w-8 h-8 rounded-lg object-cover border border-white shadow mr-3">
+                                     class="w-11 h-11 rounded-xl object-cover border-2 border-white shadow-sm mr-3 group-hover:scale-105 transition-transform">
                             {% else %}
-                                <div class="w-8 h-8 rounded-lg flex items-center justify-center mr-3 font-bold text-white text-xs player-avatar-tiny" 
+                                <div class="w-11 h-11 rounded-xl flex items-center justify-center mr-3 font-bold text-white text-sm player-avatar-tiny shadow-sm group-hover:scale-105 transition-transform" 
                                      data-name="{{ player.name }}">
                                     {{ player.name[:2].upper() }}
                                 </div>
                             {% endif %}
-                            <div class="flex-1">
-                                <div class="flex items-center justify-between">
-                                    <span class="font-semibold text-gray-900">{{ player.name }}</span>
-                                    <span class="rating-badge text-white px-2 py-1 rounded-lg text-xs font-bold">
-                                        {{ player.rating if player.rating is not none else 'Unrated' }}
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center justify-between gap-2">
+                                    <span class="font-bold text-gray-900 truncate">{{ player.name }}</span>
+                                    <span class="rating-badge text-white px-2.5 py-1 rounded-lg text-xs font-bold shadow-sm flex-shrink-0">
+                                        {{ player.rating if player.rating is not none else '—' }}
                                     </span>
                                 </div>
-                                <div class="text-sm text-gray-500 mt-1">
-                                    {{ player.matches_played }} matches • {{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}% win rate
+                                <div class="text-xs text-gray-500 mt-1.5 flex items-center gap-2">
+                                    <span class="bg-gray-100 px-2 py-0.5 rounded">{{ player.matches_played }} matches</span>
+                                    <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}%</span>
                                 </div>
                             </div>
                         </div>
@@ -237,30 +320,39 @@
                     </div>
                     
                     <button type="submit" 
-                            class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3 px-6 rounded-xl font-semibold hover:shadow-lg transition-all transform hover:-translate-y-1">
-                        <i class="fas fa-plus mr-2"></i>Add Selected Players
+                            class="w-full bg-gradient-to-r from-green-500 to-emerald-600 text-white py-3.5 px-6 rounded-xl font-bold hover:shadow-xl transition-all transform hover:-translate-y-1 hover:from-green-600 hover:to-emerald-700 text-base">
+                        <i class="fas fa-plus-circle mr-2"></i>Add Selected Players
                     </button>
                 </form>
                 {% else %}
-                <div class="text-center py-8">
-                    <div class="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-users text-white text-xl"></i>
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 bg-gradient-to-br from-gray-400 to-gray-500 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+                        <i class="fas fa-users-slash text-white text-2xl"></i>
                     </div>
-                    <h4 class="text-lg font-semibold text-gray-900 mb-2">No Available Players</h4>
-                    <p class="text-gray-600 mb-4">All players are already in this tournament, or no players exist.</p>
+                    <h4 class="text-xl font-bold text-gray-900 mb-2">No Available Players</h4>
+                    <p class="text-gray-600 mb-6 max-w-sm mx-auto">All players are already in this tournament, or no players exist in the system.</p>
                     <a href="{{ url_for('add_player') }}" 
-                       class="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all">
-                        <i class="fas fa-plus mr-2"></i>Add New Player
+                       class="inline-block bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all transform hover:-translate-y-1">
+                        <i class="fas fa-plus-circle mr-2"></i>Add New Player
                     </a>
                 </div>
                 {% endif %}
             </div>
             
             <!-- Tournament Players -->
-            <div class="glass rounded-3xl p-8">
-                <h3 class="text-2xl font-display font-bold text-gray-900 mb-6 flex items-center">
-                    <i class="fas fa-users mr-3 text-blue-500"></i>Tournament Players (<span id="tournament-player-count">{{ tournament_players|length }}</span>)
-                </h3>
+            <div class="glass rounded-3xl p-8 flex flex-col justify-between h-full">
+                <div>
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-2xl font-display font-bold text-gray-900 flex items-center">
+                        <div class="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl flex items-center justify-center mr-3">
+                            <i class="fas fa-user-plus text-white"></i>
+                        </div>
+                        In Tournament
+                    </h3>
+                    <span class="text-sm font-semibold text-gray-600 bg-blue-100 px-4 py-2 rounded-full">
+                        <span id="tournament-player-count">{{ tournament_players|length }}</span> Player{{ 's' if tournament_players|length != 1 else '' }}
+                    </span>
+                </div>
                 
                 {% if tournament_players %}
                 <!-- Search Bar for Tournament Players -->
@@ -276,63 +368,99 @@
                         </button>
                     </div>
                 </div>
-                <div class="space-y-3 max-h-64 overflow-y-auto mb-6" id="tournament-players-list">
+                <div class="space-y-2 h-96 overflow-y-auto pr-2 mb-4" id="tournament-players-list" style="scrollbar-width: thin; scrollbar-color: #e5e7eb #f9fafb;">
                     {% for player in tournament_players %}
-                    <div class="player-card bg-white rounded-xl border border-gray-200 p-4 tournament-player-item" 
+                    <div class="player-card bg-white rounded-xl border-2 border-gray-200 p-4 tournament-player-item hover:border-blue-400 hover:shadow-md transition-all group" 
                          data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating if player.rating is not none else 0 }}">
-                        <div class="flex items-center justify-between">
-                            <div class="flex items-center">
-                                {% if player.photo_url %}
-                                    <img src="{{ player.photo_url }}?tr=w-40,h-40,c-face,q-80,f-webp" 
-                                         alt="{{ player.name }}" 
-                                         class="w-10 h-10 rounded-xl object-cover border border-white shadow mr-4">
-                                {% else %}
-                                    <div class="w-10 h-10 rounded-xl flex items-center justify-center mr-4 font-bold text-white text-sm player-avatar-med" 
-                                         data-name="{{ player.name }}">
-                                        {{ player.name[:2].upper() }}
-                                    </div>
-                                {% endif %}
-                                <div>
-                                    <div class="font-semibold text-gray-900">{{ player.name }}</div>
-                                    <div class="text-sm text-gray-500">
-                                        Rating: {{ player.rating if player.rating is not none else 'Unrated' }} •
-                                        {{ player.matches_played }} matches • 
-                                        {{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}% win
-                                    </div>
+                        <!-- Player Info -->
+                        <div class="flex items-center gap-3 mb-3">
+                            {% if player.photo_url %}
+                                <img src="{{ player.photo_url }}?tr=w-40,h-40,c-face,q-80,f-webp" 
+                                     alt="{{ player.name }}" 
+                                     class="w-12 h-12 rounded-xl object-cover border-2 border-white shadow-sm group-hover:scale-105 transition-transform">
+                            {% else %}
+                                <div class="w-12 h-12 rounded-xl flex items-center justify-center font-bold text-white text-sm player-avatar-med shadow-sm group-hover:scale-105 transition-transform" 
+                                     data-name="{{ player.name }}">
+                                    {{ player.name[:2].upper() }}
+                                </div>
+                            {% endif %}
+                            <div class="flex-1 min-w-0">
+                                <div class="font-bold text-gray-900 text-base truncate">{{ player.name }}</div>
+                                <div class="text-xs text-gray-500 mt-1.5 flex flex-wrap items-center gap-2">
+                                    <span class="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-2 py-0.5 rounded font-semibold">{{ player.rating if player.rating is not none else '—' }}</span>
+                                    <span class="bg-gray-100 px-2 py-0.5 rounded">{{ player.matches_played }} matches</span>
+                                    <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}%</span>
                                 </div>
                             </div>
+                        </div>
+                        
+                        <!-- Division Badge (if applicable) -->
+                        {% if tournament.tournament_type == 'division' and player.division_name %}
+                        <div class="mb-3">
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 shadow-sm">
+                                <i class="fas fa-layer-group mr-1.5"></i>{{ player.division_name }}
+                            </span>
+                        </div>
+                        {% endif %}
+                        
+                        <!-- Action Buttons -->
+                        <div class="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
+                            <!-- Division Reassignment (Only for Division Tournaments) -->
+                            {% if tournament.tournament_type == 'division' and divisions %}
+                            <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="flex-1">
+                                <input type="hidden" name="action" value="assign_division">
+                                <input type="hidden" name="player_id" value="{{ player.id }}">
+                                <select name="new_division_id" 
+                                        onchange="this.form.submit()"
+                                        class="w-full text-xs px-3 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white hover:border-purple-300 transition-colors font-medium text-gray-700 cursor-pointer">
+                                    <option value="">Change Division</option>
+                                    {% for division in divisions %}
+                                    <option value="{{ division.id }}" {% if player.division_id == division.id %}selected{% endif %}>
+                                        {{ division.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </form>
+                            {% else %}
+                            <div class="flex-1"></div>
+                            {% endif %}
+                            
+                            <!-- Remove Player Button -->
                             <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="inline">
                                 <input type="hidden" name="action" value="remove_player">
                                 <input type="hidden" name="player_id" value="{{ player.id }}">
                                 <button type="submit" 
-                                        class="text-red-500 hover:text-red-700 p-2 hover:bg-red-50 rounded-lg transition-colors"
+                                        class="text-red-500 hover:text-white hover:bg-red-500 px-4 py-2 rounded-lg transition-all border-2 border-red-200 hover:border-red-500 font-medium text-xs"
                                         onclick="return confirm('Remove {{ player.name }} from this tournament?')">
-                                    <i class="fas fa-times"></i>
+                                    <i class="fas fa-trash-alt mr-1.5"></i>Remove
                                 </button>
                             </form>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
-                
-                <!-- Remove All Button -->
-                {% if tournament_players|length > 1 %}
-                <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}">
-                    <input type="hidden" name="action" value="remove_all_players">
-                    <button type="submit" 
-                            class="w-full bg-red-500 hover:bg-red-600 text-white py-3 px-6 rounded-xl font-semibold transition-colors"
-                            onclick="return confirm('Remove all players from this tournament?')">
-                        <i class="fas fa-trash mr-2"></i>Remove All Players
-                    </button>
-                </form>
-                {% endif %}
                 {% else %}
-                <div class="text-center py-8">
-                    <div class="w-16 h-16 bg-gradient-to-r from-gray-400 to-gray-500 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                        <i class="fas fa-trophy text-white text-xl"></i>
+                <div class="text-center py-12">
+                    <div class="w-20 h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-3xl flex items-center justify-center mx-auto mb-5 shadow-lg">
+                        <i class="fas fa-users text-white text-2xl"></i>
                     </div>
-                    <h4 class="text-lg font-semibold text-gray-900 mb-2">No Players in Tournament</h4>
-                    <p class="text-gray-600">Add players to get started with matches.</p>
+                    <h4 class="text-xl font-bold text-gray-900 mb-2">No Players Yet</h4>
+                    <p class="text-gray-600 max-w-sm mx-auto">Add players from the left panel to start managing your tournament.</p>
+                </div>
+                {% endif %}
+                </div>
+                
+                <!-- Remove All Button - Always at the end -->
+                {% if tournament_players and tournament_players|length > 1 %}
+                <div class="mt-4 pt-4 border-t-2 border-gray-200">
+                    <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}">
+                        <input type="hidden" name="action" value="remove_all_players">
+                        <button type="submit" 
+                                class="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white py-3.5 px-6 rounded-xl font-bold transition-all hover:shadow-xl transform hover:-translate-y-1 text-base"
+                                onclick="return confirm('⚠️ Remove all {{ tournament_players|length }} players from this tournament? This action cannot be undone.')">
+                            <i class="fas fa-trash-alt mr-2"></i>Remove All Players
+                        </button>
+                    </form>
                 </div>
                 {% endif %}
             </div>
@@ -344,7 +472,7 @@
                 <i class="fas fa-cog mr-3 text-indigo-500"></i>Tournament Actions
             </h3>
             
-            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
                 <a href="{{ url_for('view_player_stats', tournament_id=tournament.id) }}" 
                    class="bg-gradient-to-r from-purple-500 to-pink-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
                     <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-4">
@@ -362,6 +490,15 @@
                     <div class="font-semibold">Record Match</div>
                     <div class="text-sm opacity-90 mt-1">Add new match result</div>
                 </a>
+                
+                <button onclick="recalculateTournamentStats()" 
+                   class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer">
+                    <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-4">
+                        <i class="fas fa-sync-alt text-white text-xl"></i>
+                    </div>
+                    <div class="font-semibold">Recalculate Stats</div>
+                    <div class="text-sm opacity-90 mt-1">Rebuild from matches</div>
+                </button>
                 
                 <a href="{{ url_for('view_all_players') }}" 
                    class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
@@ -597,6 +734,44 @@
                 }
             });
         });
+        
+        // Recalculate tournament stats function
+        function recalculateTournamentStats() {
+            if (!confirm('This will recalculate all player stats and ratings for this tournament from scratch, processing all matches in chronological order. This may take a moment. Continue?')) {
+                return;
+            }
+            
+            // Show loading state
+            const button = event.target.closest('button');
+            const originalContent = button.innerHTML;
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Recalculating...';
+            
+            // Make the API call
+            fetch('{{ url_for("recalculate_tournament_stats", tournament_id=tournament.id) }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert(data.message || 'Stats recalculated successfully!');
+                    // Reload the page to show updated stats
+                    window.location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to recalculate stats'));
+                    button.disabled = false;
+                    button.innerHTML = originalContent;
+                }
+            })
+            .catch(error => {
+                alert('Error: ' + error.message);
+                button.disabled = false;
+                button.innerHTML = originalContent;
+            });
+        }
     </script>
 </body>
 </html>

@@ -406,9 +406,30 @@ def create_tournament():
     """Create new tournament"""
     if request.method == 'POST':
         tournament_name = request.form['name'].strip()
+        tournament_type = request.form.get('tournament_type', 'normal')
+        
         if tournament_name:
             try:
-                tournament_id = TournamentDB.create_tournament(tournament_name)
+                # Create tournament with type
+                tournament_id = TournamentDB.create_tournament(tournament_name, tournament_type=tournament_type)
+                
+                # If division tournament, create divisions
+                if tournament_type == 'division':
+                    division_names = request.form.getlist('division_name[]')
+                    division_ratings = request.form.getlist('division_rating[]')
+                    
+                    if not division_names or not division_ratings:
+                        raise ValueError('Division tournament must have at least one division')
+                    
+                    # Create each division
+                    for div_name, div_rating in zip(division_names, division_ratings):
+                        if div_name.strip() and div_rating:
+                            TournamentDB.create_division(
+                                tournament_id,
+                                div_name.strip(),
+                                int(div_rating)
+                            )
+                
                 flash(f'Tournament "{tournament_name}" created successfully!', 'success')
                 return redirect(url_for('manage_tournament', tournament_id=tournament_id))
             except Exception as e:
@@ -437,13 +458,28 @@ def manage_tournament(tournament_id):
         flash('Tournament not found', 'error')
         return redirect(url_for('manage_tournaments'))
     
+    # Get divisions if it's a division tournament
+    divisions = []
+    if tournament.get('tournament_type') == 'division':
+        divisions = TournamentDB.get_divisions_by_tournament(tournament_id)
+    
     if request.method == 'POST':
         action = request.form.get('action')
         if action == 'add_players':
             player_ids = request.form.getlist('player_ids')
+            division_id = request.form.get('division_id')  # For division tournaments
+            
             if player_ids:
                 try:
-                    TournamentDB.add_players_to_tournament(tournament_id, [int(pid) for pid in player_ids])
+                    # For division tournaments, ensure division is selected
+                    if tournament.get('tournament_type') == 'division':
+                        if not division_id:
+                            flash('Please select a division for the players', 'error')
+                            return redirect(url_for('manage_tournament', tournament_id=tournament_id))
+                        TournamentDB.add_players_to_tournament(tournament_id, [int(pid) for pid in player_ids], int(division_id))
+                    else:
+                        TournamentDB.add_players_to_tournament(tournament_id, [int(pid) for pid in player_ids])
+                    
                     flash(f'Added {len(player_ids)} players to tournament!', 'success')
                 except Exception as e:
                     flash(f'Error adding players: {str(e)}', 'error')
@@ -462,6 +498,15 @@ def manage_tournament(tournament_id):
                 flash('All players removed from tournament!', 'success')
             except Exception as e:
                 flash(f'Error removing players: {str(e)}', 'error')
+        elif action == 'assign_division':
+            # Action to reassign player to a different division
+            player_id = int(request.form.get('player_id'))
+            new_division_id = int(request.form.get('new_division_id'))
+            try:
+                TournamentDB.assign_player_to_division(tournament_id, player_id, new_division_id)
+                flash('Player division updated!', 'success')
+            except Exception as e:
+                flash(f'Error updating player division: {str(e)}', 'error')
         
         return redirect(url_for('manage_tournament', tournament_id=tournament_id))
     
@@ -475,7 +520,8 @@ def manage_tournament(tournament_id):
     return render_template('admin/manage_tournament.html', 
                          tournament=tournament, 
                          tournament_players=tournament_players,
-                         available_players=available_players)
+                         available_players=available_players,
+                         divisions=divisions)
 
 @app.route('/admin/tournaments/<int:tournament_id>/add-players', methods=['POST'])
 @admin_required
@@ -498,91 +544,203 @@ def add_players_to_tournament(tournament_id):
 @admin_required
 @no_cache
 def edit_tournament(tournament_id):
-    """Edit tournament details including name and photo"""
+    """Edit tournament details including name, photo, type, and divisions"""
     tournament = TournamentDB.get_tournament_by_id(tournament_id)
     if not tournament:
         flash('Tournament not found', 'error')
         return redirect(url_for('manage_tournaments'))
     
-    if request.method == 'POST':
-        try:
-            name = request.form['name'].strip()
-            photo_file = request.files.get('photo')
-            cropped_image_data = request.form.get('cropped_image_data')
-            remove_photo = request.form.get('remove_photo') == 'true'
-            
-            if not name:
-                flash('Tournament name cannot be empty', 'error')
-            else:
-                # Handle photo operations first
-                current_photo_file_id = tournament.get('tournament_photo_file_id')
-                tournament_photo_url = tournament.get('tournament_photo_url')
-                tournament_photo_file_id = current_photo_file_id
-                
-                if remove_photo and current_photo_file_id:
-                    # Remove current photo
-                    try:
-                        from imagekit_config import delete_tournament_photo
-                        delete_tournament_photo(current_photo_file_id)
-                        tournament_photo_url = None
-                        tournament_photo_file_id = None
-                        flash(f'Tournament "{name}" updated successfully! Photo removed.', 'success')
-                    except Exception as e:
-                        flash(f'Tournament updated but photo removal failed: {str(e)}', 'error')
-                elif cropped_image_data:
-                    # Handle cropped image data (base64)
-                    try:
-                        from imagekit_config import upload_tournament_photo_base64
-                        upload_result = upload_tournament_photo_base64(cropped_image_data, name, tournament_id)
-                        if upload_result['success']:
-                            # Delete old photo if it exists
-                            if current_photo_file_id:
-                                try:
-                                    from imagekit_config import delete_tournament_photo
-                                    delete_tournament_photo(current_photo_file_id)
-                                except:
-                                    pass  # Don't fail if old photo deletion fails
-                            
-                            tournament_photo_url = upload_result['url']
-                            tournament_photo_file_id = upload_result['file_id']
-                            flash(f'Tournament "{name}" updated successfully! Cropped photo uploaded.', 'success')
-                        else:
-                            flash(f'Tournament updated but photo upload failed: {upload_result["error"]}', 'error')
-                    except Exception as e:
-                        flash(f'Tournament updated but photo processing failed: {str(e)}', 'error')
-                elif photo_file and photo_file.filename:
-                    # Upload new photo (fallback for direct file upload)
-                    try:
-                        from imagekit_config import upload_tournament_photo
-                        upload_result = upload_tournament_photo(photo_file, name, tournament_id)
-                        if upload_result['success']:
-                            # Delete old photo if it exists
-                            if current_photo_file_id:
-                                try:
-                                    from imagekit_config import delete_tournament_photo
-                                    delete_tournament_photo(current_photo_file_id)
-                                except:
-                                    pass  # Don't fail if old photo deletion fails
-                            
-                            tournament_photo_url = upload_result['url']
-                            tournament_photo_file_id = upload_result['file_id']
-                            flash(f'Tournament "{name}" updated successfully! Photo uploaded.', 'success')
-                        else:
-                            flash(f'Tournament updated but photo upload failed: {upload_result["error"]}', 'error')
-                    except Exception as e:
-                        flash(f'Tournament updated but photo processing failed: {str(e)}', 'error')
-                else:
-                    flash(f'Tournament "{name}" updated successfully!', 'success')
-                
-                # Update tournament in database
-                TournamentDB.update_tournament(tournament_id, name, tournament_photo_url, tournament_photo_file_id)
-                return redirect(url_for('manage_tournaments'))
-        except ValueError as e:
-            flash(str(e), 'error')
-        except Exception as e:
-            flash(f'Error updating tournament: {str(e)}', 'error')
+    divisions = TournamentDB.get_divisions_by_tournament(tournament_id)
     
-    return render_template('admin/edit_tournament.html', tournament=tournament)
+    if request.method == 'POST':
+        action = request.form.get('action', 'update')
+        
+        # Handle division-related actions
+        if action == 'add_division':
+            division_name = request.form.get('division_name', '').strip()
+            division_starting_rating = request.form.get('division_starting_rating', '').strip()
+            
+            # Check if this is an AJAX request
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                      'application/json' in request.headers.get('Accept', ''))
+            
+            print(f"\n=== ADD DIVISION DEBUG ===")
+            print(f"Division name: {division_name}")
+            print(f"Starting rating: {division_starting_rating}")
+            print(f"Is AJAX: {is_ajax}")
+            print(f"X-Requested-With: {request.headers.get('X-Requested-With')}")
+            print(f"Accept: {request.headers.get('Accept')}")
+            print(f"========================\n")
+            
+            if not division_name or not division_starting_rating:
+                if is_ajax:
+                    return jsonify({'success': False, 'error': 'Division name and starting rating are required'}), 400
+                flash('Division name and starting rating are required', 'error')
+            else:
+                try:
+                    starting_rating = int(division_starting_rating)
+                    division_id = TournamentDB.create_division(tournament_id, division_name, starting_rating)
+                    print(f"Division created with ID: {division_id}")
+                    
+                    if is_ajax:
+                        response_data = {
+                            'success': True, 
+                            'message': f'Division "{division_name}" added successfully!',
+                            'division': {
+                                'id': division_id,
+                                'name': division_name,
+                                'starting_rating': starting_rating
+                            }
+                        }
+                        print(f"Returning JSON response: {response_data}")
+                        return jsonify(response_data)
+                    flash(f'Division "{division_name}" added successfully!', 'success')
+                    return redirect(url_for('edit_tournament', tournament_id=tournament_id))
+                except ValueError:
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': 'Starting rating must be a valid number'}), 400
+                    flash('Starting rating must be a valid number', 'error')
+                except Exception as e:
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': str(e)}), 500
+                    flash(f'Error creating division: {str(e)}', 'error')
+        elif action == 'update_division':
+            division_id = request.form.get('division_id')
+            division_name = request.form.get('division_name', '').strip()
+            division_starting_rating = request.form.get('division_starting_rating', '').strip()
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                      'application/json' in request.headers.get('Accept', ''))
+            
+            if division_id and division_name and division_starting_rating:
+                try:
+                    starting_rating = int(division_starting_rating)
+                    TournamentDB.update_division(int(division_id), division_name, starting_rating)
+                    if is_ajax:
+                        return jsonify({
+                            'success': True,
+                            'message': f'Division "{division_name}" updated successfully!',
+                            'division': {
+                                'id': int(division_id),
+                                'name': division_name,
+                                'starting_rating': starting_rating
+                            }
+                        })
+                    flash('Division updated successfully!', 'success')
+                    return redirect(url_for('edit_tournament', tournament_id=tournament_id))
+                except ValueError:
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': 'Starting rating must be a valid number'}), 400
+                    flash('Starting rating must be a valid number', 'error')
+                except Exception as e:
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': str(e)}), 500
+                    flash(f'Error updating division: {str(e)}', 'error')
+        elif action == 'delete_division':
+            division_id = request.form.get('division_id')
+            is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
+                      'application/json' in request.headers.get('Accept', ''))
+            
+            if division_id:
+                try:
+                    TournamentDB.delete_division(int(division_id))
+                    if is_ajax:
+                        return jsonify({'success': True, 'message': 'Division deleted successfully!'})
+                    flash('Division deleted successfully!', 'success')
+                    return redirect(url_for('edit_tournament', tournament_id=tournament_id))
+                except Exception as e:
+                    if is_ajax:
+                        return jsonify({'success': False, 'error': str(e)}), 500
+                    flash(f'Error deleting division: {str(e)}', 'error')
+        elif action == 'update':
+            # Handle main tournament update
+            try:
+                name = request.form['name'].strip()
+                tournament_type = request.form.get('tournament_type', 'normal')
+                photo_file = request.files.get('photo')
+                cropped_image_data = request.form.get('cropped_image_data')
+                remove_photo = request.form.get('remove_photo') == 'true'
+                
+                if not name:
+                    flash('Tournament name cannot be empty', 'error')
+                else:
+                    # Handle photo operations first
+                    current_photo_file_id = tournament.get('tournament_photo_file_id')
+                    tournament_photo_url = tournament.get('tournament_photo_url')
+                    tournament_photo_file_id = current_photo_file_id
+                    
+                    if remove_photo and current_photo_file_id:
+                        # Remove current photo
+                        try:
+                            from imagekit_config import delete_tournament_photo
+                            delete_tournament_photo(current_photo_file_id)
+                            tournament_photo_url = None
+                            tournament_photo_file_id = None
+                        except Exception as e:
+                            flash(f'Photo removal failed: {str(e)}', 'error')
+                    elif cropped_image_data:
+                        # Handle cropped image data (base64)
+                        try:
+                            from imagekit_config import upload_tournament_photo_base64
+                            upload_result = upload_tournament_photo_base64(cropped_image_data, name, tournament_id)
+                            if upload_result['success']:
+                                # Delete old photo if it exists
+                                if current_photo_file_id:
+                                    try:
+                                        from imagekit_config import delete_tournament_photo
+                                        delete_tournament_photo(current_photo_file_id)
+                                    except:
+                                        pass  # Don't fail if old photo deletion fails
+                                
+                                tournament_photo_url = upload_result['url']
+                                tournament_photo_file_id = upload_result['file_id']
+                            else:
+                                flash(f'Photo upload failed: {upload_result["error"]}', 'error')
+                        except Exception as e:
+                            flash(f'Photo processing failed: {str(e)}', 'error')
+                    elif photo_file and photo_file.filename:
+                        # Upload new photo (fallback for direct file upload)
+                        try:
+                            from imagekit_config import upload_tournament_photo
+                            upload_result = upload_tournament_photo(photo_file, name, tournament_id)
+                            if upload_result['success']:
+                                # Delete old photo if it exists
+                                if current_photo_file_id:
+                                    try:
+                                        from imagekit_config import delete_tournament_photo
+                                        delete_tournament_photo(current_photo_file_id)
+                                    except:
+                                        pass  # Don't fail if old photo deletion fails
+                                
+                                tournament_photo_url = upload_result['url']
+                                tournament_photo_file_id = upload_result['file_id']
+                            else:
+                                flash(f'Photo upload failed: {upload_result["error"]}', 'error')
+                        except Exception as e:
+                            flash(f'Photo processing failed: {str(e)}', 'error')
+                    
+                    # Handle tournament type change
+                    old_type = tournament.get('tournament_type', 'normal')
+                    if old_type != tournament_type:
+                        if tournament_type == 'normal':
+                            # Changing from division to normal - remove all divisions and division assignments
+                            for division in divisions:
+                                TournamentDB.delete_division(division['id'])
+                            flash(f'Tournament "{name}" updated successfully! Changed to normal tournament and removed all divisions.', 'success')
+                        else:
+                            # Changing from normal to division - divisions need to be added separately
+                            flash(f'Tournament "{name}" updated successfully! Changed to division tournament. Add divisions below.', 'success')
+                    else:
+                        flash(f'Tournament "{name}" updated successfully!', 'success')
+                    
+                    # Update tournament in database
+                    TournamentDB.update_tournament(tournament_id, name, tournament_photo_url, tournament_photo_file_id, tournament_type)
+                    return redirect(url_for('edit_tournament', tournament_id=tournament_id))
+            except ValueError as e:
+                flash(str(e), 'error')
+            except Exception as e:
+                flash(f'Error updating tournament: {str(e)}', 'error')
+    
+    return render_template('admin/edit_tournament.html', tournament=tournament, divisions=divisions)
 
 @app.route('/admin/tournaments/<int:tournament_id>/delete', methods=['POST'])
 @admin_required
@@ -613,6 +771,32 @@ def delete_tournament(tournament_id):
         flash(f'Error deleting tournament: {str(e)}', 'error')
     
     return redirect(url_for('manage_tournaments'))
+
+@app.route('/admin/tournaments/<int:tournament_id>/recalculate', methods=['POST'])
+@admin_required
+@no_cache
+def recalculate_tournament_stats(tournament_id):
+    """Recalculate all stats for a specific tournament"""
+    try:
+        tournament = TournamentDB.get_tournament_by_id(tournament_id)
+        if not tournament:
+            return jsonify({'success': False, 'error': 'Tournament not found'}), 404
+        
+        # Call the recalculation method
+        result = TournamentDB.recalculate_tournament_ratings(tournament_id)
+        
+        if result['success']:
+            return jsonify({
+                'success': True,
+                'message': result['message'],
+                'players_updated': result.get('players_updated', 0),
+                'matches_processed': result.get('matches_processed', 0)
+            })
+        else:
+            return jsonify({'success': False, 'error': 'Recalculation failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])

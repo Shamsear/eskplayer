@@ -81,6 +81,25 @@
             transform: translateY(-2px);
             box-shadow: 0 15px 35px rgba(99, 102, 241, 0.25);
         }
+        
+        /* Radio Button Active States */
+        input[type="radio"]:checked + div {
+            font-weight: 600;
+        }
+        
+        input[type="radio"][value="normal"]:checked ~ * {
+            border-color: #667eea !important;
+            background-color: rgba(102, 126, 234, 0.05) !important;
+        }
+        
+        input[type="radio"][value="division"]:checked ~ * {
+            border-color: #9333ea !important;
+            background-color: rgba(147, 51, 234, 0.05) !important;
+        }
+        
+        label:has(input[type="radio"]:checked) {
+            border-width: 3px;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gray-50 relative">
@@ -192,6 +211,79 @@
                     
                     <!-- Hidden input for cropped image data -->
                     <input type="hidden" id="croppedImageData" name="cropped_image_data" value="">
+                </div>
+                
+                <!-- Tournament Type -->
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-3">
+                        <i class="fas fa-list-alt mr-2 text-purple-500"></i>Tournament Type
+                    </label>
+                    <div class="space-y-3">
+                        <!-- Normal Tournament Option -->
+                        <label class="flex items-start p-4 border-2 border-gray-300 rounded-xl cursor-pointer hover:border-indigo-400 hover:bg-indigo-50 transition-all duration-200" for="type_normal">
+                            <input type="radio" 
+                                   id="type_normal" 
+                                   name="tournament_type" 
+                                   value="normal" 
+                                   checked 
+                                   class="mt-1 w-5 h-5 text-indigo-600 focus:ring-2 focus:ring-indigo-500">
+                            <div class="ml-3 flex-1">
+                                <div class="flex items-center">
+                                    <i class="fas fa-trophy text-indigo-600 mr-2"></i>
+                                    <span class="text-base font-semibold text-gray-900">Normal Tournament</span>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Single starting rating of 300 for all players. Best for standard competitive play.
+                                </p>
+                            </div>
+                        </label>
+                        
+                        <!-- Division Tournament Option -->
+                        <label class="flex items-start p-4 border-2 border-gray-300 rounded-xl cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-all duration-200" for="type_division">
+                            <input type="radio" 
+                                   id="type_division" 
+                                   name="tournament_type" 
+                                   value="division" 
+                                   class="mt-1 w-5 h-5 text-purple-600 focus:ring-2 focus:ring-purple-500">
+                            <div class="ml-3 flex-1">
+                                <div class="flex items-center">
+                                    <i class="fas fa-layer-group text-purple-600 mr-2"></i>
+                                    <span class="text-base font-semibold text-gray-900">Division Tournament</span>
+                                </div>
+                                <p class="text-sm text-gray-600 mt-1">
+                                    Create multiple divisions with custom starting ratings. Perfect for tiered competitions.
+                                </p>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Divisions Section (Hidden by default) -->
+                <div id="divisionsSection" class="hidden space-y-4">
+                    <div class="bg-purple-50 border border-purple-200 rounded-xl p-4">
+                        <h4 class="text-purple-800 font-semibold mb-3 flex items-center">
+                            <i class="fas fa-layer-group mr-2"></i>Tournament Divisions
+                        </h4>
+                        <p class="text-purple-700 text-sm mb-4">
+                            Add divisions for this tournament. Each division will have its own starting rating for players.
+                        </p>
+                        
+                        <!-- Divisions Container -->
+                        <div id="divisionsContainer" class="space-y-3 mb-4">
+                            <!-- Division entries will be added here dynamically -->
+                        </div>
+                        
+                        <!-- Add Division Button -->
+                        <button type="button" 
+                                id="addDivisionBtn" 
+                                class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg font-medium transition-colors">
+                            <i class="fas fa-plus mr-2"></i>Add Division
+                        </button>
+                        
+                        <p class="text-xs text-purple-600 mt-3">
+                            <i class="fas fa-lightbulb mr-1"></i>Tip: You can add multiple divisions (e.g., Premier, Championship, League One) with different starting ratings.
+                        </p>
+                    </div>
                 </div>
                 
                 <!-- Info Box -->
@@ -402,6 +494,53 @@
             }
         });
         
+        // Division Management
+        let divisionCounter = 0;
+        
+        function addDivisionField() {
+            divisionCounter++;
+            const container = document.getElementById('divisionsContainer');
+            const divisionHtml = `
+                <div class="division-entry bg-white p-4 rounded-lg border border-purple-200" data-division-id="${divisionCounter}">
+                    <div class="flex items-start space-x-3">
+                        <div class="flex-1 grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Division Name</label>
+                                <input type="text" 
+                                       name="division_names[]" 
+                                       placeholder="e.g., Premier League" 
+                                       required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">Starting Rating</label>
+                                <input type="number" 
+                                       name="division_starting_ratings[]" 
+                                       placeholder="e.g., 500" 
+                                       min="0" 
+                                       max="1000" 
+                                       required
+                                       class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-sm">
+                            </div>
+                        </div>
+                        <button type="button" 
+                                class="remove-division-btn mt-6 w-8 h-8 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm transition-colors"
+                                onclick="removeDivision(${divisionCounter})">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            container.insertAdjacentHTML('beforeend', divisionHtml);
+        }
+        
+        function removeDivision(divisionId) {
+            const divisionEntry = document.querySelector(`[data-division-id="${divisionId}"]`);
+            if (divisionEntry) {
+                divisionEntry.remove();
+            }
+        }
+        
         // Form validation and photo handling
         document.addEventListener('DOMContentLoaded', function() {
             const nameInput = document.getElementById('name');
@@ -410,10 +549,35 @@
             const previewImage = document.getElementById('previewImage');
             const removePhotoPreviewBtn = document.getElementById('removePhotoPreview');
             const editCropBtn = document.getElementById('editCrop');
+            const tournamentTypeRadios = document.querySelectorAll('input[name="tournament_type"]');
+            const divisionsSection = document.getElementById('divisionsSection');
+            const addDivisionBtn = document.getElementById('addDivisionBtn');
             
             // Auto-focus on the name input
             if (nameInput) {
                 nameInput.focus();
+            }
+            
+            // Tournament type change handler
+            tournamentTypeRadios.forEach(function(radio) {
+                radio.addEventListener('change', function() {
+                    if (this.value === 'division' && this.checked) {
+                        divisionsSection.classList.remove('hidden');
+                        // Add at least one division field by default
+                        if (document.querySelectorAll('.division-entry').length === 0) {
+                            addDivisionField();
+                        }
+                    } else if (this.value === 'normal' && this.checked) {
+                        divisionsSection.classList.add('hidden');
+                    }
+                });
+            });
+            
+            // Add division button handler
+            if (addDivisionBtn) {
+                addDivisionBtn.addEventListener('click', function() {
+                    addDivisionField();
+                });
             }
             
             // Crop modal controls
