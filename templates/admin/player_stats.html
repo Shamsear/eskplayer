@@ -239,6 +239,11 @@
                                         </div>
                                     {% endif %}
                                     <span class="font-semibold text-gray-900 {% if loop.first and award_filter %}text-lg{% endif %}">{{ stat.name }}</span>
+                                    {% if selected_tournament and selected_tournament.tournament_type == 'division' and stat.division_name %}
+                                        <span class="ml-2 inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 shadow-sm">
+                                            <i class="fas fa-layer-group mr-1.5"></i>{{ stat.division_name }}
+                                        </span>
+                                    {% endif %}
                                     {% if loop.first and award_filter == 'golden_boot' %}
                                         <span class="ml-2 text-yellow-600">🥇</span>
                                     {% elif loop.first and award_filter == 'golden_glove' %}

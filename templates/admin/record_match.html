@@ -211,6 +211,21 @@
         .player-name {
             font-weight: 500;
             color: #1f2937;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .division-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 3px;
+            background: linear-gradient(135deg, rgb(243, 232, 255) 0%, rgb(224, 231, 255) 100%);
+            color: rgb(109, 40, 217);
+            padding: 1px 6px;
+            border-radius: 6px;
+            font-size: 0.65rem;
+            font-weight: 700;
         }
         
         .player-rating {
@@ -694,8 +709,13 @@
                         item.classList.add('selected');
                     }
                     
+                    let divisionBadge = '';
+                    if (player.division_name) {
+                        divisionBadge = `<span class="division-badge"><i class="fas fa-layer-group"></i> ${player.division_name}</span>`;
+                    }
+                    
                     item.innerHTML = `
-                        <span class="player-name">${player.name}</span>
+                        <span class="player-name">${player.name} ${divisionBadge}</span>
                         <span class="player-rating">${player.rating}</span>
                     `;
                     

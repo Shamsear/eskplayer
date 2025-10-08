@@ -172,10 +172,11 @@
                        class="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
                         <i class="fas fa-pen mr-2"></i>Edit
                     </a>
-                    <button onclick="recalculateTournamentStats()" 
-                            class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm">
+                    <a href="{{ url_for('recalculation_details', tournament_id=tournament.id) }}" 
+                       class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white px-5 py-2.5 rounded-xl font-semibold hover:shadow-xl transition-all transform hover:-translate-y-0.5 text-sm inline-flex items-center"
+                       title="View Recalculation Details">
                         <i class="fas fa-sync-alt mr-2"></i>Recalculate
-                    </button>
+                    </a>
                 </div>
             </div>
         </div>
@@ -355,6 +356,54 @@
                 </div>
                 
                 {% if tournament_players %}
+                <!-- Bulk Division Assignment (Only for Division Tournaments) -->
+                {% if tournament.tournament_type == 'division' and divisions %}
+                <div class="mb-4 bg-gradient-to-r from-purple-50 to-indigo-50 border-2 border-purple-200 rounded-xl p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h4 class="text-sm font-bold text-gray-900 flex items-center">
+                            <i class="fas fa-layer-group text-purple-500 mr-2"></i>
+                            Bulk Division Assignment
+                        </h4>
+                        <span id="bulk-selected-count" class="text-xs font-semibold text-purple-600 bg-white px-3 py-1.5 rounded-full hidden">
+                            0 selected
+                        </span>
+                    </div>
+                    <form id="bulk-division-form" method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="space-y-3">
+                        <input type="hidden" name="action" value="bulk_assign_division">
+                        <div class="flex items-center gap-3">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="bulk-select-all" class="h-5 w-5 text-purple-600 rounded-lg cursor-pointer">
+                                <label for="bulk-select-all" class="ml-2 text-sm font-medium text-gray-700 cursor-pointer">Select All</label>
+                            </div>
+                            <select name="bulk_division_id" id="bulk-division-select" required
+                                    class="flex-1 text-sm px-4 py-2.5 border-2 border-purple-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white hover:border-purple-400 transition-colors font-medium text-gray-700 cursor-pointer"
+                                    onchange="updateDivisionIndicators()">
+                                <option value="">-- Select Target Division --</option>
+                                {% for division in divisions %}
+                                <option value="{{ division.id }}" data-division-name="{{ division.name }}">
+                                    {{ division.name }} ({{ division.starting_rating }})
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" id="bulk-assign-btn" disabled
+                                    class="bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white px-5 py-2.5 rounded-xl font-semibold transition-all transform hover:-translate-y-0.5 text-sm disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none disabled:hover:from-purple-500 disabled:hover:to-indigo-600">
+                                <i class="fas fa-check-double mr-2"></i>Assign
+                            </button>
+                        </div>
+                        
+                        <!-- Selected Players List -->
+                        <div id="selected-players-container" class="hidden">
+                            <div class="text-xs font-medium text-gray-700 mb-2">Selected Players:</div>
+                            <div id="selected-players-list" class="flex flex-wrap gap-2"></div>
+                        </div>
+                        
+                        <p class="text-xs text-purple-600">
+                            <i class="fas fa-info-circle mr-1"></i>Select players using checkboxes below, choose a division, and click Assign
+                        </p>
+                    </form>
+                </div>
+                {% endif %}
+                
                 <!-- Search Bar for Tournament Players -->
                 <div class="mb-4">
                     <div class="relative">
@@ -371,7 +420,19 @@
                 <div class="space-y-2 h-96 overflow-y-auto pr-2 mb-4" id="tournament-players-list" style="scrollbar-width: thin; scrollbar-color: #e5e7eb #f9fafb;">
                     {% for player in tournament_players %}
                     <div class="player-card bg-white rounded-xl border-2 border-gray-200 p-4 tournament-player-item hover:border-blue-400 hover:shadow-md transition-all group" 
-                         data-player-name="{{ player.name.lower() }}" data-player-rating="{{ player.rating if player.rating is not none else 0 }}">
+                         data-player-name="{{ player.name.lower() }}" 
+                         data-player-rating="{{ player.rating if player.rating is not none else 0 }}"
+                         data-player-id="{{ player.id }}"
+                         data-player-display-name="{{ player.name }}"
+                         {% if tournament.tournament_type == 'division' %}data-current-division-id="{{ player.division_id if player.division_id else '' }}" data-current-division-name="{{ player.division_name if player.division_name else 'Unassigned' }}"{% endif %}>
+                        <!-- Bulk Selection Checkbox (Only for Division Tournaments) -->
+                        {% if tournament.tournament_type == 'division' and divisions %}
+                        <div class="flex items-start gap-3">
+                            <input type="checkbox" name="bulk_player_ids" value="{{ player.id }}" form="bulk-division-form"
+                                   class="mt-1 h-5 w-5 text-purple-600 rounded-lg cursor-pointer bulk-player-checkbox">
+                            <div class="flex-1">
+                        {% endif %}
+                        
                         <!-- Player Info -->
                         <div class="flex items-center gap-3 mb-3">
                             {% if player.photo_url %}
@@ -397,30 +458,45 @@
                         <!-- Division Badge (if applicable) -->
                         {% if tournament.tournament_type == 'division' and player.division_name %}
                         <div class="mb-3">
-                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 shadow-sm">
-                                <i class="fas fa-layer-group mr-1.5"></i>{{ player.division_name }}
+                            <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-gradient-to-r from-purple-100 to-indigo-100 text-purple-700 shadow-sm" id="division-badge-{{ player.id }}">
+                                <i class="fas fa-layer-group mr-1.5"></i><span id="division-name-{{ player.id }}">{{ player.division_name }}</span>
                             </span>
                         </div>
+                        {% endif %}
+                        
+                        <!-- Division Status Indicator Container (for bulk assignment indicators) -->
+                        {% if tournament.tournament_type == 'division' and divisions %}
+                        <div class="division-indicator-container-{{ player.id }}" id="division-indicator-{{ player.id }}"></div>
                         {% endif %}
                         
                         <!-- Action Buttons -->
                         <div class="flex items-center justify-between gap-2 pt-3 border-t border-gray-100">
                             <!-- Division Reassignment (Only for Division Tournaments) -->
                             {% if tournament.tournament_type == 'division' and divisions %}
-                            <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="flex-1">
-                                <input type="hidden" name="action" value="assign_division">
-                                <input type="hidden" name="player_id" value="{{ player.id }}">
-                                <select name="new_division_id" 
-                                        onchange="this.form.submit()"
-                                        class="w-full text-xs px-3 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white hover:border-purple-300 transition-colors font-medium text-gray-700 cursor-pointer">
-                                    <option value="">Change Division</option>
-                                    {% for division in divisions %}
-                                    <option value="{{ division.id }}" {% if player.division_id == division.id %}selected{% endif %}>
-                                        {{ division.name }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </form>
+                            <div class="flex-1 flex items-center gap-2">
+                                <form method="POST" action="{{ url_for('manage_tournament', tournament_id=tournament.id) }}" class="flex items-center gap-2 w-full division-change-form-{{ player.id }}" style="display: none;" onsubmit="return saveDivisionChange(event, {{ player.id }}, {{ tournament.id }})">
+                                    <input type="hidden" name="action" value="assign_division">
+                                    <input type="hidden" name="player_id" value="{{ player.id }}">
+                                    <select name="new_division_id" id="division-select-{{ player.id }}"
+                                            class="flex-1 text-xs px-3 py-2 border-2 border-purple-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 bg-white hover:border-purple-300 transition-colors font-medium text-gray-700 cursor-pointer">
+                                        <option value="">-- Select Division --</option>
+                                        {% for division in divisions %}
+                                        <option value="{{ division.id }}" {% if player.division_id == division.id %}selected{% endif %}>
+                                            {{ division.name }}
+                                        </option>
+                                        {% endfor %}
+                                    </select>
+                                    <button type="submit" class="bg-green-500 hover:bg-green-600 text-white px-3 py-2 rounded-lg transition-colors text-xs font-medium save-division-btn-{{ player.id }}">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button type="button" onclick="cancelDivisionEdit({{ player.id }})" class="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-lg transition-colors text-xs font-medium">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </form>
+                                <button onclick="showDivisionEdit({{ player.id }})" class="division-edit-btn-{{ player.id }} bg-purple-100 hover:bg-purple-200 text-purple-700 px-3 py-2 rounded-lg transition-colors text-xs font-medium">
+                                    <i class="fas fa-edit mr-1"></i>Edit Division
+                                </button>
+                            </div>
                             {% else %}
                             <div class="flex-1"></div>
                             {% endif %}
@@ -436,6 +512,11 @@
                                 </button>
                             </form>
                         </div>
+                        
+                        {% if tournament.tournament_type == 'division' and divisions %}
+                            </div> <!-- Close flex-1 wrapper -->
+                        </div> <!-- Close checkbox container -->
+                        {% endif %}
                     </div>
                     {% endfor %}
                 </div>
@@ -491,14 +572,14 @@
                     <div class="text-sm opacity-90 mt-1">Add new match result</div>
                 </a>
                 
-                <button onclick="recalculateTournamentStats()" 
-                   class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer">
+                <a href="{{ url_for('recalculation_details', tournament_id=tournament.id) }}" 
+                   class="bg-gradient-to-r from-cyan-500 to-teal-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1 cursor-pointer block">
                     <div class="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center mx-auto mb-4">
                         <i class="fas fa-sync-alt text-white text-xl"></i>
                     </div>
                     <div class="font-semibold">Recalculate Stats</div>
                     <div class="text-sm opacity-90 mt-1">Rebuild from matches</div>
-                </button>
+                </a>
                 
                 <a href="{{ url_for('view_all_players') }}" 
                    class="bg-gradient-to-r from-green-500 to-emerald-600 text-white p-6 rounded-2xl text-center hover:shadow-lg transition-all transform hover:-translate-y-1">
@@ -572,6 +653,9 @@
             
             // Initialize select all functionality for available players
             initializeSelectAll();
+            
+            // Initialize bulk division assignment
+            initializeBulkDivisionAssignment();
         });
         
         // Search functionality
@@ -606,6 +690,7 @@
                     const query = this.value.toLowerCase().trim();
                     filterPlayers(query, '.tournament-player-item', tournamentClear);
                     updateTournamentPlayerCount();
+                    updateDivisionIndicators();
                 });
                 
                 if (tournamentClear) {
@@ -735,43 +820,329 @@
             });
         });
         
-        // Recalculate tournament stats function
-        function recalculateTournamentStats() {
-            if (!confirm('This will recalculate all player stats and ratings for this tournament from scratch, processing all matches in chronological order. This may take a moment. Continue?')) {
-                return;
+        // Global function to update division indicators
+        function updateDivisionIndicators() {
+            const bulkDivisionSelect = document.getElementById('bulk-division-select');
+            if (!bulkDivisionSelect) return;
+            
+            const selectedDivisionId = bulkDivisionSelect.value;
+            const selectedDivisionName = bulkDivisionSelect.options[bulkDivisionSelect.selectedIndex]?.getAttribute('data-division-name') || '';
+            
+            // Remove all existing indicators
+            document.querySelectorAll('.division-status-indicator').forEach(el => el.remove());
+            
+            if (!selectedDivisionId) return;
+            
+            // Add indicators to ALL visible player cards (not just checked ones)
+            document.querySelectorAll('.tournament-player-item').forEach(playerCard => {
+                // Skip hidden players (filtered by search)
+                if (playerCard.style.display === 'none') return;
+                
+                const currentDivisionId = playerCard.getAttribute('data-current-division-id');
+                const currentDivisionName = playerCard.getAttribute('data-current-division-name');
+                
+                // Skip players without division data (shouldn't happen in division tournaments, but safety check)
+                if (currentDivisionId === null || currentDivisionId === undefined) return;
+                
+                const checkbox = playerCard.querySelector('.bulk-player-checkbox');
+                const isChecked = checkbox && checkbox.checked;
+                
+                // Create indicator
+                const indicator = document.createElement('div');
+                indicator.className = 'division-status-indicator text-xs mt-2';
+                
+                if (currentDivisionId === selectedDivisionId) {
+                    // Already in this division
+                    if (isChecked) {
+                        indicator.innerHTML = `
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-green-100 text-green-700 font-medium">
+                                <i class="fas fa-check-circle mr-1"></i>Selected - Already in ${selectedDivisionName}
+                            </span>
+                        `;
+                    } else {
+                        indicator.innerHTML = `
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-blue-50 text-blue-600 font-medium">
+                                <i class="fas fa-info-circle mr-1"></i>Already in ${selectedDivisionName}
+                            </span>
+                        `;
+                    }
+                } else {
+                    // Will be moved if selected
+                    if (isChecked) {
+                        indicator.innerHTML = `
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-amber-100 text-amber-700 font-medium">
+                                <i class="fas fa-arrow-right mr-1"></i>Will move: ${currentDivisionName} → ${selectedDivisionName}
+                            </span>
+                        `;
+                    } else {
+                        indicator.innerHTML = `
+                            <span class="inline-flex items-center px-2 py-1 rounded bg-gray-50 text-gray-600 font-medium">
+                                <i class="fas fa-exchange-alt mr-1"></i>Would change: ${currentDivisionName} → ${selectedDivisionName}
+                            </span>
+                        `;
+                    }
+                }
+                
+                // Insert the indicator in the dedicated indicator container
+                const playerId = playerCard.getAttribute('data-player-id');
+                const indicatorContainer = document.getElementById(`division-indicator-${playerId}`);
+                
+                if (indicatorContainer) {
+                    // Clear any existing content and add the new indicator
+                    indicatorContainer.innerHTML = '';
+                    indicatorContainer.appendChild(indicator);
+                } else {
+                    // Fallback if container doesn't exist (shouldn't happen)
+                    console.warn(`Indicator container not found for player ${playerId}`);
+                }
+            });
+        }
+        
+        // Bulk division assignment functionality
+        function initializeBulkDivisionAssignment() {
+            const bulkSelectAll = document.getElementById('bulk-select-all');
+            const bulkCheckboxes = document.querySelectorAll('.bulk-player-checkbox');
+            const bulkSelectedCount = document.getElementById('bulk-selected-count');
+            const bulkAssignBtn = document.getElementById('bulk-assign-btn');
+            const bulkDivisionForm = document.getElementById('bulk-division-form');
+            const selectedPlayersContainer = document.getElementById('selected-players-container');
+            const selectedPlayersList = document.getElementById('selected-players-list');
+            
+            if (!bulkSelectAll || !bulkCheckboxes.length) return;
+            
+            // Update selected players list display
+            function updateSelectedPlayersList() {
+                const selectedCheckboxes = document.querySelectorAll('.bulk-player-checkbox:checked');
+                
+                if (selectedCheckboxes.length === 0) {
+                    selectedPlayersContainer.classList.add('hidden');
+                    selectedPlayersList.innerHTML = '';
+                    return;
+                }
+                
+                selectedPlayersContainer.classList.remove('hidden');
+                selectedPlayersList.innerHTML = '';
+                
+                selectedCheckboxes.forEach(checkbox => {
+                    const playerCard = checkbox.closest('.tournament-player-item');
+                    const playerName = playerCard.getAttribute('data-player-display-name');
+                    const playerId = playerCard.getAttribute('data-player-id');
+                    
+                    const badge = document.createElement('span');
+                    badge.className = 'inline-flex items-center gap-1.5 bg-purple-100 text-purple-700 px-2.5 py-1 rounded-lg text-xs font-medium';
+                    badge.innerHTML = `
+                        ${playerName}
+                        <button type="button" onclick="deselectPlayer(${playerId})" class="hover:bg-purple-200 rounded p-0.5 transition-colors">
+                            <i class="fas fa-times text-xs"></i>
+                        </button>
+                    `;
+                    selectedPlayersList.appendChild(badge);
+                });
+            }
+            
+            // Make deselectPlayer globally available
+            window.deselectPlayer = function(playerId) {
+                const checkbox = document.querySelector(`.bulk-player-checkbox[value="${playerId}"]`);
+                if (checkbox) {
+                    checkbox.checked = false;
+                    updateBulkSelectionState();
+                    updateSelectedPlayersList();
+                    updateDivisionIndicators();
+                }
+            };
+            
+            // Update selected count and button state
+            function updateBulkSelectionState() {
+                const selectedCheckboxes = document.querySelectorAll('.bulk-player-checkbox:checked');
+                const count = selectedCheckboxes.length;
+                
+                if (count > 0) {
+                    bulkSelectedCount.textContent = count + ' selected';
+                    bulkSelectedCount.classList.remove('hidden');
+                    bulkAssignBtn.disabled = false;
+                } else {
+                    bulkSelectedCount.classList.add('hidden');
+                    bulkAssignBtn.disabled = true;
+                }
+                
+                // Update select all checkbox state
+                const visibleCheckboxes = Array.from(bulkCheckboxes).filter(cb => {
+                    const playerCard = cb.closest('.tournament-player-item');
+                    return playerCard && playerCard.style.display !== 'none';
+                });
+                
+                const visibleCheckedCheckboxes = visibleCheckboxes.filter(cb => cb.checked);
+                
+                if (visibleCheckboxes.length === 0) {
+                    bulkSelectAll.checked = false;
+                    bulkSelectAll.indeterminate = false;
+                } else if (visibleCheckedCheckboxes.length === visibleCheckboxes.length) {
+                    bulkSelectAll.checked = true;
+                    bulkSelectAll.indeterminate = false;
+                } else if (visibleCheckedCheckboxes.length > 0) {
+                    bulkSelectAll.checked = false;
+                    bulkSelectAll.indeterminate = true;
+                } else {
+                    bulkSelectAll.checked = false;
+                    bulkSelectAll.indeterminate = false;
+                }
+                
+                updateSelectedPlayersList();
+            }
+            
+            // Select all visible players
+            bulkSelectAll.addEventListener('change', function() {
+                const visibleCheckboxes = Array.from(bulkCheckboxes).filter(cb => {
+                    const playerCard = cb.closest('.tournament-player-item');
+                    return playerCard && playerCard.style.display !== 'none';
+                });
+                
+                visibleCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                
+                updateBulkSelectionState();
+                updateDivisionIndicators();
+            });
+            
+            // Update state when individual checkboxes change
+            bulkCheckboxes.forEach(cb => {
+                cb.addEventListener('change', function() {
+                    updateBulkSelectionState();
+                    updateDivisionIndicators();
+                });
+            });
+            
+            // Form submission with confirmation
+            if (bulkDivisionForm) {
+                bulkDivisionForm.addEventListener('submit', function(e) {
+                    const selectedCheckboxes = document.querySelectorAll('.bulk-player-checkbox:checked');
+                    const divisionSelect = document.getElementById('bulk-division-select');
+                    
+                    if (selectedCheckboxes.length === 0) {
+                        e.preventDefault();
+                        alert('Please select at least one player');
+                        return false;
+                    }
+                    
+                    if (!divisionSelect.value) {
+                        e.preventDefault();
+                        alert('Please select a target division');
+                        return false;
+                    }
+                    
+                    const divisionName = divisionSelect.options[divisionSelect.selectedIndex].text;
+                    const confirmed = confirm(`Assign ${selectedCheckboxes.length} player(s) to ${divisionName}?`);
+                    
+                    if (!confirmed) {
+                        e.preventDefault();
+                        return false;
+                    }
+                    
+                    // Show loading state
+                    bulkAssignBtn.disabled = true;
+                    bulkAssignBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Assigning...';
+                });
+            }
+            
+            // Initialize state
+            updateBulkSelectionState();
+            
+            // Update bulk selection when search filters players
+            const tournamentSearch = document.getElementById('tournament-search');
+            if (tournamentSearch) {
+                tournamentSearch.addEventListener('input', function() {
+                    setTimeout(updateBulkSelectionState, 10);
+                });
+            }
+        }
+        
+        // Division edit functions
+        function showDivisionEdit(playerId) {
+            // Hide the edit button
+            document.querySelector('.division-edit-btn-' + playerId).style.display = 'none';
+            // Show the form
+            document.querySelector('.division-change-form-' + playerId).style.display = 'flex';
+        }
+        
+        function cancelDivisionEdit(playerId) {
+            // Show the edit button
+            document.querySelector('.division-edit-btn-' + playerId).style.display = 'block';
+            // Hide the form
+            document.querySelector('.division-change-form-' + playerId).style.display = 'none';
+        }
+        
+        function saveDivisionChange(event, playerId, tournamentId) {
+            event.preventDefault();
+            
+            const divisionSelect = document.getElementById('division-select-' + playerId);
+            const newDivisionId = divisionSelect.value;
+            const saveBtn = document.querySelector('.save-division-btn-' + playerId);
+            
+            if (!newDivisionId) {
+                alert('Please select a division');
+                return false;
             }
             
             // Show loading state
-            const button = event.target.closest('button');
-            const originalContent = button.innerHTML;
-            button.disabled = true;
-            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>Recalculating...';
+            const originalBtnContent = saveBtn.innerHTML;
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
             
-            // Make the API call
-            fetch('{{ url_for("recalculate_tournament_stats", tournament_id=tournament.id) }}', {
+            // Create form data
+            const formData = new FormData();
+            formData.append('action', 'assign_division');
+            formData.append('player_id', playerId);
+            formData.append('new_division_id', newDivisionId);
+            
+            // Send AJAX request
+            fetch('{{ url_for("manage_tournament", tournament_id=tournament.id) }}', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                body: formData
             })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    alert(data.message || 'Stats recalculated successfully!');
-                    // Reload the page to show updated stats
-                    window.location.reload();
+            .then(response => {
+                if (response.ok) {
+                    // Get the new division name
+                    const selectedOption = divisionSelect.options[divisionSelect.selectedIndex];
+                    const newDivisionName = selectedOption.text;
+                    
+                    // Update the division badge in the UI
+                    const divisionNameSpan = document.getElementById('division-name-' + playerId);
+                    const divisionBadge = document.getElementById('division-badge-' + playerId);
+                    
+                    if (divisionNameSpan) {
+                        divisionNameSpan.textContent = newDivisionName;
+                    }
+                    
+                    // Reset button
+                    saveBtn.disabled = false;
+                    saveBtn.innerHTML = originalBtnContent;
+                    
+                    // Hide the form and show edit button
+                    cancelDivisionEdit(playerId);
+                    
+                    // Show success feedback with animation
+                    if (divisionBadge) {
+                        divisionBadge.classList.add('ring-2', 'ring-green-400');
+                        setTimeout(() => {
+                            divisionBadge.classList.remove('ring-2', 'ring-green-400');
+                        }, 1500);
+                    }
                 } else {
-                    alert('Error: ' + (data.error || 'Failed to recalculate stats'));
-                    button.disabled = false;
-                    button.innerHTML = originalContent;
+                    throw new Error('Failed to update division');
                 }
             })
             .catch(error => {
-                alert('Error: ' + error.message);
-                button.disabled = false;
-                button.innerHTML = originalContent;
+                console.error('Error:', error);
+                alert('Failed to update division. Please try again.');
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = originalBtnContent;
             });
+            
+            return false;
         }
+        
+        // Recalculate is now handled by direct link with confirm dialog
     </script>
 </body>
 </html>

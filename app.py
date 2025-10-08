@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, make_response
+from flask import Flask, render_template, request, redirect, url_for, session, flash, jsonify, make_response, Response
 from functools import wraps
 import os
 from datetime import datetime
@@ -507,6 +507,32 @@ def manage_tournament(tournament_id):
                 flash('Player division updated!', 'success')
             except Exception as e:
                 flash(f'Error updating player division: {str(e)}', 'error')
+        elif action == 'bulk_assign_division':
+            # Action to bulk assign multiple players to a division
+            player_ids = request.form.getlist('bulk_player_ids')
+            bulk_division_id = request.form.get('bulk_division_id')
+            
+            if not player_ids:
+                flash('No players selected', 'error')
+            elif not bulk_division_id:
+                flash('No division selected', 'error')
+            else:
+                try:
+                    bulk_division_id = int(bulk_division_id)
+                    success_count = 0
+                    for player_id in player_ids:
+                        try:
+                            TournamentDB.assign_player_to_division(tournament_id, int(player_id), bulk_division_id)
+                            success_count += 1
+                        except Exception as e:
+                            print(f'Error assigning player {player_id}: {str(e)}')
+                    
+                    if success_count > 0:
+                        flash(f'Successfully assigned {success_count} player(s) to division!', 'success')
+                    else:
+                        flash('Failed to assign players to division', 'error')
+                except Exception as e:
+                    flash(f'Error in bulk assignment: {str(e)}', 'error')
         
         return redirect(url_for('manage_tournament', tournament_id=tournament_id))
     
@@ -797,6 +823,281 @@ def recalculate_tournament_stats(tournament_id):
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/admin/tournaments/<int:tournament_id>/recalculation-details', methods=['GET', 'POST'])
+@admin_required
+@no_cache
+def recalculation_details(tournament_id):
+    """Show recalculation page - GET shows confirm, POST shows live processing page"""
+    try:
+        tournament = TournamentDB.get_tournament_by_id(tournament_id)
+        if not tournament:
+            flash('Tournament not found', 'error')
+            return redirect(url_for('manage_tournaments'))
+        
+        # If GET request, just show the information page
+        if request.method == 'GET':
+            # Get match count for display
+            conn = get_db_connection()
+            try:
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        SELECT COUNT(*) as count 
+                        FROM player_matches 
+                        WHERE tournament_id = %s
+                    """, (tournament_id,))
+                    match_count = cursor.fetchone()['count']
+                    
+                    cursor.execute("""
+                        SELECT COUNT(DISTINCT player_id) as count
+                        FROM tournament_players
+                        WHERE tournament_id = %s
+                    """, (tournament_id,))
+                    player_count = cursor.fetchone()['count']
+            finally:
+                conn.close()
+            
+            return render_template('admin/recalculation_confirm.html', 
+                                 tournament=tournament,
+                                 match_count=match_count,
+                                 player_count=player_count)
+        
+        # If POST request, show the live processing page
+        # Get all matches first to show them while processing
+        conn = get_db_connection()
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT 
+                        pm.*,
+                        p1.name as player1_name,
+                        p2.name as player2_name,
+                        tp1.division_id as player1_division_id,
+                        tp2.division_id as player2_division_id,
+                        d1.name as player1_division,
+                        d2.name as player2_division
+                    FROM player_matches pm
+                    JOIN players p1 ON pm.player1_id = p1.id
+                    LEFT JOIN players p2 ON pm.player2_id = p2.id
+                    LEFT JOIN tournament_players tp1 ON tp1.player_id = p1.id AND tp1.tournament_id = pm.tournament_id
+                    LEFT JOIN tournament_players tp2 ON tp2.player_id = p2.id AND tp2.tournament_id = pm.tournament_id
+                    LEFT JOIN divisions d1 ON d1.id = tp1.division_id
+                    LEFT JOIN divisions d2 ON d2.id = tp2.division_id
+                    WHERE pm.tournament_id = %s
+                    ORDER BY pm.played_at ASC NULLS LAST, pm.match_id ASC
+                """, (tournament_id,))
+                matches = cursor.fetchall()
+        finally:
+            conn.close()
+        
+        return render_template('admin/recalculation_live.html', 
+                             tournament=tournament,
+                             matches=matches)
+        
+    except Exception as e:
+        flash(f'Error during recalculation: {str(e)}', 'error')
+        return redirect(url_for('manage_tournament', tournament_id=tournament_id))
+
+@app.route('/admin/tournaments/<int:tournament_id>/do-recalculate', methods=['GET'])
+@admin_required
+@no_cache
+def do_recalculate(tournament_id):
+    """Stream recalculation progress match by match"""
+    import json
+    import time
+    
+    def generate():
+        try:
+            tournament = TournamentDB.get_tournament_by_id(tournament_id)
+            if not tournament:
+                yield f"data: {json.dumps({'error': 'Tournament not found'})}\n\n"
+                return
+            
+            conn = get_db_connection()
+            
+            # Get all players in tournament and their initial ratings
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT DISTINCT player_id, division_id
+                    FROM tournament_players
+                    WHERE tournament_id = %s
+                """, (tournament_id,))
+                tournament_players = cursor.fetchall()
+            
+            # Clear existing tournament stats
+            with conn.cursor() as cursor:
+                cursor.execute("DELETE FROM player_stats WHERE tournament_id = %s", (tournament_id,))
+            conn.commit()
+            
+            # Initialize ratings based on divisions
+            is_division = tournament.get('tournament_type') == 'division'
+            current_ratings = {}
+            
+            for tp in tournament_players:
+                player_id = tp['player_id']
+                if is_division and tp['division_id']:
+                    with conn.cursor() as cursor:
+                        cursor.execute("SELECT starting_rating FROM divisions WHERE id = %s", (tp['division_id'],))
+                        div = cursor.fetchone()
+                        current_ratings[player_id] = div['starting_rating'] if div else 300
+                else:
+                    current_ratings[player_id] = 300
+            
+            # Get all matches
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT pm.*, p1.name as player1_name, p2.name as player2_name
+                    FROM player_matches pm
+                    JOIN players p1 ON pm.player1_id = p1.id
+                    LEFT JOIN players p2 ON pm.player2_id = p2.id
+                    WHERE pm.tournament_id = %s
+                    ORDER BY pm.played_at ASC NULLS LAST, pm.match_id ASC
+                """, (tournament_id,))
+                matches = cursor.fetchall()
+            
+            total = len(matches)
+            yield f"data: {json.dumps({'type': 'start', 'total': total, 'initial_ratings': current_ratings})}\n\n"
+            
+            # Process each match
+            for index, match in enumerate(matches):
+                p1_id = match['player1_id']
+                p2_id = match['player2_id']
+                g1 = match['player1_goals']
+                g2 = match['player2_goals']
+                is_walkover = match.get('is_walkover', False)
+                is_null = match.get('is_null_match', False)
+                is_draw = match.get('is_draw', False)
+                winner_id = match.get('winner_id')
+                p1_absent = match.get('player1_absent', False)
+                p2_absent = match.get('player2_absent', False)
+                
+                # Get current ratings
+                p1_rating_before = current_ratings.get(p1_id, 300)
+                p2_rating_before = current_ratings.get(p2_id, 300) if p2_id else 0
+                
+                # Calculate rating changes
+                if is_null:
+                    NULL_PENALTY = 15
+                    p1_rating_after = max(0, min(1000, p1_rating_before - NULL_PENALTY))
+                    p2_rating_after = max(0, min(1000, p2_rating_before - NULL_PENALTY)) if p2_id else 0
+                elif is_walkover:
+                    if winner_id == p1_id:
+                        change_w, change_l = TournamentDB.calculate_rating_change(p1_rating_before, p2_rating_before, False)
+                        change1, change2 = int(change_w * 0.75), int(change_l * 0.75)
+                    else:
+                        change_w, change_l = TournamentDB.calculate_rating_change(p2_rating_before, p1_rating_before, False)
+                        change2, change1 = int(change_w * 0.75), int(change_l * 0.75)
+                    p1_rating_after = max(0, min(1000, p1_rating_before + change1))
+                    p2_rating_after = max(0, min(1000, p2_rating_before + change2)) if p2_id else 0
+                else:
+                    change1, change2 = TournamentDB.calculate_enhanced_rating_change(
+                        p1_rating_before, p2_rating_before, g1, g2, p1_absent, p2_absent
+                    )
+                    p1_rating_after = max(0, min(1000, p1_rating_before + change1))
+                    p2_rating_after = max(0, min(1000, p2_rating_before + change2)) if p2_id else 0
+                
+                # Update current ratings
+                current_ratings[p1_id] = p1_rating_after
+                if p2_id:
+                    current_ratings[p2_id] = p2_rating_after
+                
+                # Update match record
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE player_matches SET
+                            player1_rating_before = %s,
+                            player2_rating_before = %s,
+                            player1_rating_after = %s,
+                            player2_rating_after = %s
+                        WHERE id = %s
+                    """, (p1_rating_before, p2_rating_before, p1_rating_after, p2_rating_after, match['id']))
+                conn.commit()
+                
+                # Update stats if not null
+                if not is_null:
+                    for pid, rating_after, won, drawn, lost, gf, ga in [
+                        (p1_id, p1_rating_after, 1 if winner_id == p1_id else 0, 1 if is_draw else 0, 1 if winner_id == p2_id else 0, g1, g2),
+                        (p2_id, p2_rating_after, 1 if winner_id == p2_id else 0, 1 if is_draw else 0, 1 if winner_id == p1_id else 0, g2, g1) if p2_id else None
+                    ]:
+                        if pid:
+                            glove_points = 0 if is_walkover else TournamentDB.calculate_golden_glove_points(gf, ga, winner_id == pid, is_draw)
+                            with conn.cursor() as cursor:
+                                cursor.execute("""
+                                    INSERT INTO player_stats (player_id, tournament_id, tournament_rating, matches_played, wins, draws, losses, goals_scored, goals_conceded, clean_sheets, golden_glove_points)
+                                    VALUES (%s, %s, %s, 1, %s, %s, %s, %s, %s, %s, %s)
+                                    ON CONFLICT (player_id, tournament_id) DO UPDATE SET
+                                        tournament_rating = %s, matches_played = player_stats.matches_played + 1,
+                                        wins = player_stats.wins + %s, draws = player_stats.draws + %s, losses = player_stats.losses + %s,
+                                        goals_scored = player_stats.goals_scored + %s, goals_conceded = player_stats.goals_conceded + %s,
+                                        clean_sheets = player_stats.clean_sheets + %s, golden_glove_points = player_stats.golden_glove_points + %s
+                                """, (pid, tournament_id, rating_after, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove_points,
+                                      rating_after, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove_points))
+                            conn.commit()
+                
+                # Send progress update
+                match_data = {
+                    'index': index,
+                    'player1_name': match['player1_name'],
+                    'player2_name': match.get('player2_name'),
+                    'player1_goals': g1,
+                    'player2_goals': g2,
+                    'player1_rating_before': float(p1_rating_before),
+                    'player1_rating_after': float(p1_rating_after),
+                    'player2_rating_before': float(p2_rating_before),
+                    'player2_rating_after': float(p2_rating_after),
+                    'is_guest_match': match.get('is_guest_match', False),
+                    'guest_name': match.get('guest_name')
+                }
+                
+                yield f"data: {json.dumps({'type': 'progress', 'data': match_data})}\n\n"
+                time.sleep(0.001)  # Tiny delay for smoother streaming
+            
+            # Recalculate overall ratings
+            for player_id in current_ratings.keys():
+                with conn.cursor() as cursor:
+                    cursor.execute("""
+                        UPDATE players SET rating = NULL, matches_played = 0, matches_won = 0, 
+                        matches_drawn = 0, matches_lost = 0, goals_scored = 0, goals_conceded = 0,
+                        clean_sheets = 0, golden_glove_points = 0 WHERE id = %s
+                    """, (player_id,))
+                    cursor.execute("""
+                        SELECT * FROM player_matches
+                        WHERE player1_id = %s OR player2_id = %s
+                        ORDER BY played_at ASC NULLS LAST, match_id ASC
+                    """, (player_id, player_id))
+                    all_matches = cursor.fetchall()
+                    
+                    overall_rating = 300
+                    for pm in all_matches:
+                        is_p1 = pm['player1_id'] == player_id
+                        rating_change = pm['player1_rating_after'] - pm['player1_rating_before'] if is_p1 else pm['player2_rating_after'] - pm['player2_rating_before']
+                        overall_rating += rating_change
+                        
+                        if not pm.get('is_null_match'):
+                            gf = pm['player1_goals'] if is_p1 else pm['player2_goals']
+                            ga = pm['player2_goals'] if is_p1 else pm['player1_goals']
+                            won = 1 if pm.get('winner_id') == player_id else 0
+                            drawn = 1 if pm.get('is_draw') else 0
+                            lost = 1 if (not pm.get('is_draw') and pm.get('winner_id') != player_id) else 0
+                            glove = 0 if pm.get('is_walkover') else TournamentDB.calculate_golden_glove_points(gf, ga, pm.get('winner_id') == player_id, pm.get('is_draw'))
+                            
+                            cursor.execute("""
+                                UPDATE players SET rating = %s, matches_played = matches_played + 1,
+                                matches_won = matches_won + %s, matches_drawn = matches_drawn + %s, matches_lost = matches_lost + %s,
+                                goals_scored = goals_scored + %s, goals_conceded = goals_conceded + %s,
+                                clean_sheets = clean_sheets + %s, golden_glove_points = golden_glove_points + %s
+                                WHERE id = %s
+                            """, (overall_rating, won, drawn, lost, gf, ga, 1 if ga == 0 else 0, glove, player_id))
+                conn.commit()
+            
+            conn.close()
+            
+            yield f"data: {json.dumps({'type': 'complete', 'message': f'Successfully recalculated {total} matches'})}\n\n"
+            
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+    
+    return Response(generate(), mimetype='text/event-stream')
 
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])
@@ -1431,9 +1732,17 @@ def bulk_delete_matches():
 @app.route('/api/tournament/<int:tournament_id>/players')
 @admin_required
 def get_tournament_players_api(tournament_id):
-    """Get players in tournament (for dropdowns)"""
+    """Get players in tournament (for dropdowns) with division info"""
     players = TournamentDB.get_tournament_players(tournament_id)
-    return jsonify([{'id': p['id'], 'name': p['name'], 'rating': p['rating']} for p in players])
+    return jsonify([
+        {
+            'id': p['id'], 
+            'name': p['name'], 
+            'rating': p['rating'],
+            'division_id': p.get('division_id'),
+            'division_name': p.get('division_name')
+        } for p in players
+    ])
 
 # Public Routes (No Authentication Required)
 @app.route('/')  # Root URL now shows public homepage

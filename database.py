@@ -1453,14 +1453,23 @@ class TournamentDB:
     
     @staticmethod
     def get_player_tournament_stats(tournament_id):
-        """Get tournament-specific player statistics"""
+        """Get tournament-specific player statistics with division information"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT p.name, p.photo_url, ps.*, p.rating as overall_rating
+                    SELECT 
+                        p.name, 
+                        p.photo_url, 
+                        ps.*, 
+                        p.rating as overall_rating,
+                        tp.division_id,
+                        d.name as division_name,
+                        d.starting_rating as division_starting_rating
                     FROM player_stats ps
                     JOIN players p ON ps.player_id = p.id
+                    LEFT JOIN tournament_players tp ON ps.player_id = tp.player_id AND ps.tournament_id = tp.tournament_id
+                    LEFT JOIN divisions d ON tp.division_id = d.id
                     WHERE ps.tournament_id = %s
                     ORDER BY ps.tournament_rating DESC NULLS LAST, ps.wins DESC, ps.goals_scored DESC
                 """, (tournament_id,))
@@ -2640,7 +2649,7 @@ class TournamentDB:
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
-                # Union query to get both regular and guest matches
+                # Union query to get both regular and guest matches with division info
                 query = """
                     (
                         SELECT pm.match_id, pm.tournament_id, pm.played_at,
@@ -2653,11 +2662,20 @@ class TournamentDB:
                                pm.player1_rating_after, pm.player2_rating_after,
                                'regular' as match_type,
                                pm.player1_id, pm.player2_id,
-                               pm.id as record_id
+                               pm.id as record_id,
+                               t.tournament_type,
+                               tp1.division_id as player1_division_id,
+                               d1.name as player1_division_name,
+                               tp2.division_id as player2_division_id,
+                               d2.name as player2_division_name
                         FROM player_matches pm
                         JOIN players p1 ON pm.player1_id = p1.id
                         JOIN players p2 ON pm.player2_id = p2.id
                         JOIN tournaments t ON pm.tournament_id = t.id
+                        LEFT JOIN tournament_players tp1 ON pm.player1_id = tp1.player_id AND pm.tournament_id = tp1.tournament_id
+                        LEFT JOIN divisions d1 ON tp1.division_id = d1.id
+                        LEFT JOIN tournament_players tp2 ON pm.player2_id = tp2.player_id AND pm.tournament_id = tp2.tournament_id
+                        LEFT JOIN divisions d2 ON tp2.division_id = d2.id
                         {tournament_filter_regular}
                     )
                     UNION ALL
@@ -2678,10 +2696,17 @@ class TournamentDB:
                                300 as player2_rating_after,
                                'guest' as match_type,
                                gm.clan_player_id as player1_id, NULL as player2_id,
-                               gm.id as record_id
+                               gm.id as record_id,
+                               t.tournament_type,
+                               tp.division_id as player1_division_id,
+                               d.name as player1_division_name,
+                               NULL as player2_division_id,
+                               NULL as player2_division_name
                         FROM guest_matches gm
                         JOIN players p ON gm.clan_player_id = p.id
                         JOIN tournaments t ON gm.tournament_id = t.id
+                        LEFT JOIN tournament_players tp ON gm.clan_player_id = tp.player_id AND gm.tournament_id = tp.tournament_id
+                        LEFT JOIN divisions d ON tp.division_id = d.id
                         {tournament_filter_guest}
                     )
                     ORDER BY played_at DESC
