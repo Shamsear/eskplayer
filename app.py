@@ -824,6 +824,7 @@ def recalculate_tournament_stats(tournament_id):
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+
 @app.route('/admin/tournaments/<int:tournament_id>/recalculation-details', methods=['GET', 'POST'])
 @admin_required
 @no_cache
@@ -1052,8 +1053,20 @@ def do_recalculate(tournament_id):
                 yield f"data: {json.dumps({'type': 'progress', 'data': match_data})}\n\n"
                 time.sleep(0.001)  # Tiny delay for smoother streaming
             
-            # Recalculate overall ratings
-            for player_id in current_ratings.keys():
+            # Recalculate overall ratings for ALL players who have matches
+            # This ensures consistency across all tournaments after any recalculation
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    SELECT DISTINCT player_id FROM (
+                        SELECT player1_id as player_id FROM player_matches
+                        UNION
+                        SELECT player2_id as player_id FROM player_matches WHERE player2_id IS NOT NULL
+                    ) AS all_player_ids
+                """)
+                all_players_with_matches = cursor.fetchall()
+            
+            for player_row in all_players_with_matches:
+                player_id = player_row['player_id']
                 with conn.cursor() as cursor:
                     cursor.execute("""
                         UPDATE players SET rating = NULL, matches_played = 0, matches_won = 0, 
