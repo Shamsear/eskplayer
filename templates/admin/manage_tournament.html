@@ -448,7 +448,9 @@
                             <div class="flex-1 min-w-0">
                                 <div class="font-bold text-gray-900 text-base truncate">{{ player.name }}</div>
                                 <div class="text-xs text-gray-500 mt-1.5 flex flex-wrap items-center gap-2">
-                                    <span class="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-2 py-0.5 rounded font-semibold">{{ player.rating if player.rating is not none else '—' }}</span>
+                                    <span class="bg-gradient-to-r from-blue-100 to-indigo-100 text-blue-700 px-2 py-0.5 rounded font-semibold" title="{% if player.tournament_rating is not none %}Tournament Rating{% else %}Overall Rating{% endif %}">
+                                        {{ player.display_rating if player.display_rating is not none else '—' }}
+                                    </span>
                                     <span class="bg-gray-100 px-2 py-0.5 rounded">{{ player.matches_played }} matches</span>
                                     <span class="bg-green-100 text-green-700 px-2 py-0.5 rounded">{{ ((player.matches_won / player.matches_played * 100) if player.matches_played > 0 else 0)|round(1) }}%</span>
                                 </div>

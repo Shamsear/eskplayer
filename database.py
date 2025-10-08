@@ -757,17 +757,24 @@ class TournamentDB:
     
     @staticmethod
     def get_tournament_players(tournament_id):
-        """Get all players in a tournament with their division info"""
+        """Get all players in a tournament with their division info and tournament-specific rating"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute("""
-                    SELECT p.*, tp.division_id, d.name as division_name, d.starting_rating as division_starting_rating
+                    SELECT 
+                        p.*, 
+                        tp.division_id, 
+                        d.name as division_name, 
+                        d.starting_rating as division_starting_rating,
+                        ps.tournament_rating,
+                        COALESCE(ps.tournament_rating, p.rating) as display_rating
                     FROM players p
                     JOIN tournament_players tp ON p.id = tp.player_id
                     LEFT JOIN divisions d ON tp.division_id = d.id
+                    LEFT JOIN player_stats ps ON p.id = ps.player_id AND ps.tournament_id = tp.tournament_id
                     WHERE tp.tournament_id = %s
-                    ORDER BY p.rating DESC NULLS LAST, p.name ASC
+                    ORDER BY COALESCE(ps.tournament_rating, p.rating) DESC NULLS LAST, p.name ASC
                 """, (tournament_id,))
                 return cursor.fetchall()
         finally:

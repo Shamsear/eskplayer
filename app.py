@@ -1092,12 +1092,19 @@ def do_recalculate(tournament_id):
             
             conn.close()
             
+            # Small delay to ensure all progress updates are received
+            time.sleep(0.1)
+            
+            # Send completion message
             yield f"data: {json.dumps({'type': 'complete', 'message': f'Successfully recalculated {total} matches'})}\n\n"
             
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
     
-    return Response(generate(), mimetype='text/event-stream')
+    response = Response(generate(), mimetype='text/event-stream')
+    response.headers['Cache-Control'] = 'no-cache'
+    response.headers['X-Accel-Buffering'] = 'no'
+    return response
 
 # Match Recording Routes
 @app.route('/admin/matches/record', methods=['GET', 'POST'])
@@ -1318,8 +1325,8 @@ def view_player_stats():
                     qualified_stats = sorted(qualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
                     tournament_stats = qualified_stats + sorted(unqualified_stats, key=lambda x: (x.get('golden_glove_points', 0), x.get('golden_glove_points', 0)/max(x['matches_played'], 1)), reverse=True)
                 else:
-                    # Default sort by rating
-                    tournament_stats = sorted(tournament_stats, key=lambda x: (x['rating'] or 0, x['wins'], x['goals_scored']), reverse=True)
+                    # Default sort by tournament rating (or overall rating if no tournament rating)
+                    tournament_stats = sorted(tournament_stats, key=lambda x: (x.get('tournament_rating') or x.get('rating') or 0, x['wins'], x['goals_scored']), reverse=True)
                 
                 # Add calculated fields
                 for stat in tournament_stats:
@@ -1732,13 +1739,15 @@ def bulk_delete_matches():
 @app.route('/api/tournament/<int:tournament_id>/players')
 @admin_required
 def get_tournament_players_api(tournament_id):
-    """Get players in tournament (for dropdowns) with division info"""
+    """Get players in tournament (for dropdowns) with division info and tournament rating"""
     players = TournamentDB.get_tournament_players(tournament_id)
     return jsonify([
         {
             'id': p['id'], 
             'name': p['name'], 
-            'rating': p['rating'],
+            'rating': p.get('display_rating') or p['rating'] or 'Unrated',
+            'tournament_rating': p.get('tournament_rating'),
+            'overall_rating': p['rating'],
             'division_id': p.get('division_id'),
             'division_name': p.get('division_name')
         } for p in players

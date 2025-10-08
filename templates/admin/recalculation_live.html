@@ -306,10 +306,15 @@
                 else if (data.type === 'complete') {
                     // Recalculation complete
                     document.getElementById('progressCard').querySelector('h2').innerHTML = '<i class="fas fa-check-circle text-green-500 mr-3"></i>Complete!';
-                    document.getElementById('completionMessage').textContent = data.message;
+                    document.getElementById('completionMessage').textContent = data.message + ' - Redirecting...';
                     document.getElementById('completionCard').classList.remove('hidden');
                     eventSource.close();
-                } 
+                    
+                    // Redirect after 2 seconds
+                    setTimeout(function() {
+                        window.location.href = '{{ url_for("manage_tournament", tournament_id=tournament.id) }}';
+                    }, 2000);
+                }
                 else if (data.type === 'error') {
                     alert('Error: ' + data.message);
                     eventSource.close();

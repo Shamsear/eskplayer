@@ -263,7 +263,7 @@
                                 <td class="py-3 px-4 text-center text-gray-600">{{ "%.1f"|format(stat.golden_glove_points / stat.matches_played) if stat.matches_played > 0 and stat.golden_glove_points is not none else '0.0' }}</td>
                             {% else %}
                                 <td class="py-3 px-4 text-center">
-                                    <span class="rating-badge">{{ stat.rating if stat.rating is not none else 'Unrated' }}</span>
+                                    <span class="rating-badge">{{ stat.tournament_rating if stat.tournament_rating is not none else (stat.rating if stat.rating is not none else 'Unrated') }}</span>
                                 </td>
                             {% endif %}
                             <td class="py-3 px-4 text-center text-gray-600">{{ stat.matches_played }}</td>
