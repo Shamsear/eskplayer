@@ -327,59 +327,85 @@
                 </div>
             </div>
             
-            <!-- Overall Rating History (All Matches) -->
-            {% if tournament_breakdown.overall_rating_history %}
-            <div class="bg-white rounded-xl p-6 mb-6 border border-gray-200">
+            <!-- Overall Rating Calculation Explanation -->
+            <div class="bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl p-6 mb-6 border border-purple-200">
                 <h4 class="font-bold text-gray-900 mb-4 flex items-center">
-                    <i class="fas fa-history mr-2 text-purple-500"></i>
-                    Overall Rating Progression (All Matches)
+                    <i class="fas fa-calculator mr-2 text-purple-500"></i>
+                    How Overall Rating is Calculated
                 </h4>
-                <div class="bg-gray-50 rounded-lg p-4 max-h-96 overflow-y-auto">
-                    <table class="w-full text-sm">
-                        <thead class="sticky top-0 bg-gray-50">
-                            <tr class="border-b border-gray-300">
-                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">#</th>
-                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Date</th>
-                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Tournament</th>
-                                <th class="text-left py-2 px-2 text-xs font-semibold text-gray-600">Opponent</th>
-                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Score</th>
-                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Result</th>
-                                <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating Before</th>
-                                <th class="text-center py-2 px-2 text-xs font-semibold text-gray-600">Change</th>
-                                <th class="text-right py-2 px-2 text-xs font-semibold text-gray-600">Rating After</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for match in tournament_breakdown.overall_rating_history %}
-                            <tr class="border-b border-gray-200 hover:bg-white transition-colors">
-                                <td class="py-2 px-2 text-gray-600">{{ loop.index }}</td>
-                                <td class="py-2 px-2 text-gray-600">{{ match.played_at.strftime('%b %d') }}</td>
-                                <td class="py-2 px-2">
-                                    <span class="text-xs px-2 py-1 bg-indigo-100 text-indigo-700 rounded">{{ match.tournament_name }}</span>
-                                </td>
-                                <td class="py-2 px-2 font-medium text-gray-900">{{ match.opponent }}</td>
-                                <td class="py-2 px-2 text-center font-mono">
-                                    <span class="font-semibold">{{ match.score }}</span>
-                                </td>
-                                <td class="py-2 px-2 text-center">
-                                    <span class="result-{{ match.result.lower() }} px-2 py-1 rounded text-xs font-semibold">
-                                        {{ match.result }}
-                                    </span>
-                                </td>
-                                <td class="py-2 px-2 text-right font-mono text-gray-700">{{ match.rating_before }}</td>
-                                <td class="py-2 px-2 text-center">
-                                    <span class="{% if match.rating_change >= 0 %}text-green-600{% else %}text-red-600{% endif %} font-bold">
-                                        {{ "%+d" % match.rating_change }}
-                                    </span>
-                                </td>
-                                <td class="py-2 px-2 text-right font-mono font-semibold text-gray-900">{{ match.rating_after }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                
+                <div class="space-y-3">
+                    <!-- Formula -->
+                    <div class="bg-white rounded-lg p-4">
+                        <div class="text-sm text-gray-600 mb-2">Formula:</div>
+                        <div class="font-mono text-lg font-bold text-gray-900">
+                            Overall Rating = Average of Last 40 Match Ratings
+                        </div>
+                    </div>
+                    
+                    <!-- Current Calculation -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="text-center p-4 bg-white rounded-lg border-2 border-purple-200">
+                            <div class="text-2xl font-bold text-purple-600">
+                                {% if tournament_breakdown.overall_matches > 40 %}40{% else %}{{ tournament_breakdown.overall_matches }}{% endif %}/40
+                            </div>
+                            <div class="text-xs text-gray-600 font-semibold">Matches Used</div>
+                            <div class="text-xs text-gray-500">for calculation</div>
+                        </div>
+                        
+                        <div class="text-center p-4 bg-white rounded-lg border-2 border-indigo-200">
+                            <div class="text-2xl font-bold text-indigo-600">
+                                {{ tournament_breakdown.overall_rating if tournament_breakdown.overall_rating else 300 }}
+                            </div>
+                            <div class="text-xs text-gray-600 font-semibold">Average Rating</div>
+                            <div class="text-xs text-gray-500">from these matches</div>
+                        </div>
+                        
+                        <div class="text-center p-4 bg-white rounded-lg border-2 border-pink-200">
+                            <div class="text-2xl font-bold gradient-text">
+                                {{ tournament_breakdown.overall_rating if tournament_breakdown.overall_rating else 300 }}
+                            </div>
+                            <div class="text-xs text-gray-600 font-semibold">Final Overall Rating</div>
+                            <div class="text-xs text-gray-500">shown in rankings</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Visual Indicator -->
+                    <div class="bg-blue-50 rounded-lg p-3 border border-blue-200">
+                        <div class="flex items-start">
+                            <i class="fas fa-info-circle text-blue-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <div class="text-sm text-blue-800">
+                                <strong>Why last 40 matches?</strong> This reflects your current form and recent performance. 
+                                Older matches automatically drop off after you play your 41st match.
+                                {% if tournament_breakdown.overall_matches < 40 %}
+                                <br><span class="text-blue-600 font-semibold">You've played {{ tournament_breakdown.overall_matches }} matches so far. 
+                                All are counted towards your rating.</span>
+                                {% else %}
+                                <br><span class="text-blue-600 font-semibold">You've played {{ tournament_breakdown.overall_matches }} matches total. 
+                                Only the most recent 40 are counted.</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Division Impact -->
+                    <div class="bg-amber-50 rounded-lg p-3 border border-amber-200">
+                        <div class="flex items-start">
+                            <i class="fas fa-trophy text-amber-500 mt-1 mr-2 flex-shrink-0"></i>
+                            <div class="text-sm text-amber-800">
+                                <strong>Division Impact:</strong> Playing in higher divisions (Division 1, 2) gives higher match ratings, 
+                                which increases your overall rating. Lower divisions (5, 6) give lower match ratings.
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Highlight info -->
+                    <div class="text-xs text-gray-500 italic flex items-center">
+                        <i class="fas fa-check-circle text-green-500 mr-1"></i>
+                        All matches shown in "Overall Rating Progression" table below contribute to your current overall rating
+                    </div>
                 </div>
             </div>
-            {% endif %}
             
             <!-- Tournament Details -->
             <div class="space-y-4">
