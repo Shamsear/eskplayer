@@ -339,7 +339,7 @@
                     <div class="bg-white rounded-lg p-4">
                         <div class="text-sm text-gray-600 mb-2">Formula:</div>
                         <div class="font-mono text-lg font-bold text-gray-900">
-                            Overall Rating = Average of Last 40 Match Ratings
+                            Overall Rating = First Tournament Starting Rating + Sum of All Rating Changes
                         </div>
                     </div>
                     
@@ -347,18 +347,22 @@
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div class="text-center p-4 bg-white rounded-lg border-2 border-purple-200">
                             <div class="text-2xl font-bold text-purple-600">
-                                {% if tournament_breakdown.overall_matches > 40 %}40{% else %}{{ tournament_breakdown.overall_matches }}{% endif %}/40
+                                {{ tournament_breakdown.overall_matches }}
                             </div>
-                            <div class="text-xs text-gray-600 font-semibold">Matches Used</div>
-                            <div class="text-xs text-gray-500">for calculation</div>
+                            <div class="text-xs text-gray-600 font-semibold">Total Matches</div>
+                            <div class="text-xs text-gray-500">across all tournaments</div>
                         </div>
                         
                         <div class="text-center p-4 bg-white rounded-lg border-2 border-indigo-200">
                             <div class="text-2xl font-bold text-indigo-600">
-                                {{ tournament_breakdown.overall_rating if tournament_breakdown.overall_rating else 300 }}
+                                {% if tournament_breakdown.tournaments %}
+                                    {{ tournament_breakdown.tournaments[-1].start_rating }}
+                                {% else %}
+                                    300
+                                {% endif %}
                             </div>
-                            <div class="text-xs text-gray-600 font-semibold">Average Rating</div>
-                            <div class="text-xs text-gray-500">from these matches</div>
+                            <div class="text-xs text-gray-600 font-semibold">Starting Rating</div>
+                            <div class="text-xs text-gray-500">first tournament</div>
                         </div>
                         
                         <div class="text-center p-4 bg-white rounded-lg border-2 border-pink-200">
@@ -375,15 +379,10 @@
                         <div class="flex items-start">
                             <i class="fas fa-info-circle text-blue-500 mt-1 mr-2 flex-shrink-0"></i>
                             <div class="text-sm text-blue-800">
-                                <strong>Why last 40 matches?</strong> This reflects your current form and recent performance. 
-                                Older matches automatically drop off after you play your 41st match.
-                                {% if tournament_breakdown.overall_matches < 40 %}
-                                <br><span class="text-blue-600 font-semibold">You've played {{ tournament_breakdown.overall_matches }} matches so far. 
-                                All are counted towards your rating.</span>
-                                {% else %}
+                                <strong>Cumulative Rating System:</strong> Your overall rating starts at your first tournament's division starting rating and changes based on every match you play. 
+                                Each match applies a tournament rating change (win/loss/draw) that cumulatively affects your overall rating.
                                 <br><span class="text-blue-600 font-semibold">You've played {{ tournament_breakdown.overall_matches }} matches total. 
-                                Only the most recent 40 are counted.</span>
-                                {% endif %}
+                                All matches contribute to your current rating.</span>
                             </div>
                         </div>
                     </div>
@@ -393,8 +392,8 @@
                         <div class="flex items-start">
                             <i class="fas fa-trophy text-amber-500 mt-1 mr-2 flex-shrink-0"></i>
                             <div class="text-sm text-amber-800">
-                                <strong>Division Impact:</strong> Playing in higher divisions (Division 1, 2) gives higher match ratings, 
-                                which increases your overall rating. Lower divisions (5, 6) give lower match ratings.
+                                <strong>Tournament Impact:</strong> Each tournament has its own rating system. Rating changes within a tournament 
+                                are applied to your overall rating. Playing against higher-rated opponents gives bigger rating changes.
                             </div>
                         </div>
                     </div>
@@ -402,7 +401,7 @@
                     <!-- Highlight info -->
                     <div class="text-xs text-gray-500 italic flex items-center">
                         <i class="fas fa-check-circle text-green-500 mr-1"></i>
-                        All matches shown in "Overall Rating Progression" table below contribute to your current overall rating
+                        All matches contribute permanently to your overall rating - there is no time decay or match limit
                     </div>
                 </div>
             </div>
