@@ -439,7 +439,23 @@ def migrate_database(conn):
             else:
                 print("tournament_rating column already exists in player_stats table")
             
-            # Migration 8: Add guest_matches table
+            # Migration 8: Add initial_rating column to players table
+            cursor.execute("""
+                SELECT column_name 
+                FROM information_schema.columns 
+                WHERE table_name='players' AND column_name='initial_rating'
+            """)
+            initial_rating_exists = cursor.fetchone()
+            
+            if not initial_rating_exists:
+                print("Adding initial_rating column to players table...")
+                cursor.execute("ALTER TABLE players ADD COLUMN initial_rating INTEGER")
+                conn.commit()
+                print("initial_rating column added successfully!")
+            else:
+                print("initial_rating column already exists in players table")
+            
+            # Migration 9: Add guest_matches table
             cursor.execute("""
                 SELECT table_name 
                 FROM information_schema.tables 
@@ -634,14 +650,14 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def add_player(name, photo_url=None, photo_file_id=None):
-        """Add a new player with optional photo"""
+    def add_player(name, photo_url=None, photo_file_id=None, initial_rating=None):
+        """Add a new player with optional photo and initial rating"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
                 cursor.execute(
-                    "INSERT INTO players (name, rating, photo_url, photo_file_id) VALUES (%s, %s, %s, %s) RETURNING id",
-                    (name, None, photo_url, photo_file_id)
+                    "INSERT INTO players (name, rating, photo_url, photo_file_id, initial_rating) VALUES (%s, %s, %s, %s, %s) RETURNING id",
+                    (name, None, photo_url, photo_file_id, initial_rating)
                 )
                 player_id = cursor.fetchone()['id']
                 conn.commit()
@@ -1034,8 +1050,10 @@ class TournamentDB:
     def calculate_overall_rating_from_last_matches(cursor, player_id, limit=40):
         """Calculate overall rating as cumulative sum of tournament rating changes.
         
-        The overall rating starts at the first tournament's starting rating (division-based)
-        and applies all tournament rating changes chronologically across all matches.
+        The overall rating starts at:
+        1. First tournament's starting rating (division-based) if available
+        2. Player's initial_rating if set and no division tournament
+        3. Default 300 if neither is available
         
         Args:
             cursor: Database cursor
@@ -1169,12 +1187,18 @@ class TournamentDB:
         tournament = cursor.fetchone()
         tournament_type = tournament['tournament_type'] if tournament else 'normal'
         
-        # Determine default starting ratings based on tournament type and divisions
-        default_rating1 = 300
-        default_rating2 = 300
+        # Determine default starting ratings based on tournament type, divisions, and initial_rating
+        # Get player's initial_rating if set
+        cursor.execute("SELECT initial_rating FROM players WHERE id = %s", (player1_id,))
+        player1_initial = cursor.fetchone()
+        default_rating1 = player1_initial['initial_rating'] if player1_initial and player1_initial['initial_rating'] is not None else 300
+        
+        cursor.execute("SELECT initial_rating FROM players WHERE id = %s", (player2_id,))
+        player2_initial = cursor.fetchone()
+        default_rating2 = player2_initial['initial_rating'] if player2_initial and player2_initial['initial_rating'] is not None else 300
         
         if tournament_type == 'division':
-            # Get division starting ratings for each player
+            # Get division starting ratings for each player (overrides initial_rating)
             cursor.execute("""
                 SELECT d.starting_rating FROM divisions d
                 JOIN tournament_players tp ON d.id = tp.division_id
@@ -1324,9 +1348,15 @@ class TournamentDB:
         tournament = cursor.fetchone()
         tournament_type = tournament['tournament_type'] if tournament else 'normal'
         
-        # Determine default starting ratings based on tournament type and divisions
-        default_rating1 = 300
-        default_rating2 = 300
+        # Determine default starting ratings based on tournament type, divisions, and initial_rating
+        # Get player's initial_rating if set
+        cursor.execute("SELECT initial_rating FROM players WHERE id = %s", (player1_id,))
+        player1_initial = cursor.fetchone()
+        default_rating1 = player1_initial['initial_rating'] if player1_initial and player1_initial['initial_rating'] is not None else 300
+        
+        cursor.execute("SELECT initial_rating FROM players WHERE id = %s", (player2_id,))
+        player2_initial = cursor.fetchone()
+        default_rating2 = player2_initial['initial_rating'] if player2_initial and player2_initial['initial_rating'] is not None else 300
         
         if tournament_type == 'division':
             # Get division starting ratings for each player
@@ -3344,8 +3374,8 @@ class TournamentDB:
             conn.close()
     
     @staticmethod
-    def edit_player(player_id, name, rating):
-        """Edit player name and rating"""
+    def edit_player(player_id, name, rating, initial_rating=None):
+        """Edit player name, rating and initial rating"""
         conn = get_db_connection()
         try:
             with conn.cursor() as cursor:
@@ -3365,10 +3395,14 @@ class TournamentDB:
                 if rating is not None and (rating < 0 or rating > 1000):
                     raise ValueError("Rating must be between 0 and 1000")
                 
+                # Validate initial_rating range if provided
+                if initial_rating is not None and (initial_rating < 0 or initial_rating > 1000):
+                    raise ValueError("Initial rating must be between 0 and 1000")
+                
                 # Update the player
                 cursor.execute(
-                    "UPDATE players SET name = %s, rating = %s WHERE id = %s",
-                    (name.strip(), rating, player_id)
+                    "UPDATE players SET name = %s, rating = %s, initial_rating = %s WHERE id = %s",
+                    (name.strip(), rating, initial_rating, player_id)
                 )
                 conn.commit()
                 return player_id

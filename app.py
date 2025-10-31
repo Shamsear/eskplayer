@@ -197,8 +197,21 @@ def add_player():
                         flash(f'Photo upload failed: {upload_result["error"]}', 'error')
                         return render_template('admin/add_player.html')
                 
+                # Get initial rating if provided
+                initial_rating_str = request.form.get('initial_rating', '').strip()
+                initial_rating = None
+                if initial_rating_str:
+                    try:
+                        initial_rating = int(initial_rating_str)
+                        if initial_rating < 0 or initial_rating > 1000:
+                            flash('Initial rating must be between 0 and 1000', 'error')
+                            return render_template('admin/add_player.html')
+                    except ValueError:
+                        flash('Initial rating must be a valid number', 'error')
+                        return render_template('admin/add_player.html')
+                
                 # Add player to database
-                player_id = TournamentDB.add_player(player_name, photo_url, photo_file_id)
+                player_id = TournamentDB.add_player(player_name, photo_url, photo_file_id, initial_rating)
                 
                 # Update ImageKit tags with actual player ID if photo was uploaded
                 if photo_file_id:
@@ -307,8 +320,21 @@ def edit_player(player_id):
             if not name:
                 flash('Player name cannot be empty', 'error')
             else:
+                # Get initial rating if provided
+                initial_rating_str = request.form.get('initial_rating', '').strip()
+                initial_rating = None
+                if initial_rating_str:
+                    try:
+                        initial_rating = int(initial_rating_str)
+                        if initial_rating < 0 or initial_rating > 1000:
+                            flash('Initial rating must be between 0 and 1000', 'error')
+                            return render_template('admin/edit_player.html', player=player)
+                    except ValueError:
+                        flash('Initial rating must be a valid number', 'error')
+                        return render_template('admin/edit_player.html', player=player)
+                
                 # Update basic player info first
-                TournamentDB.edit_player(player_id, name, rating)
+                TournamentDB.edit_player(player_id, name, rating, initial_rating)
                 
                 # Handle photo operations
                 current_photo_file_id = player.get('photo_file_id')
